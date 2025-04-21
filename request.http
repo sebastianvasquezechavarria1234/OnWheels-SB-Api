@@ -1,0 +1,33 @@
+### Solicitud para obtener todos los autos
+GET http://localhost:3000/autos HTTP/1.1
+
+
+### End point para consultar por el id de un auto 
+GET http://localhost:3000/autos/3 HTTP/1.1
+
+
+### End point para insertar datos al JSON
+POST http://localhost:3000/autos HTTP/1.1
+Content-Type: application/json
+
+{
+    "nombre": "Audi", 
+    "precio": 450000,
+    "categoria": "Mazda",
+    "stock": 10
+}
+
+
+### ruta PUT para actualizar
+PUT http://localhost:3000/autos/3 HTTP/1.1
+Content-Type: application/json
+
+
+{
+    "nombre": "Cleo",
+    "stock": 3
+}
+
+
+### ruta DELETE para eliminar una auto por su ID
+DELETE http://localhost:3000/autos/9 HTTP/1.1
