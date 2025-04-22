@@ -1,10 +1,14 @@
 import express from "express";
 import fs from "fs"; //permite trabajar con archivos en el sistema
 import bodyParser from "body-parser"
-
+import cors from "cors"; //importamos cord
 const app = express();
 
 app.use(bodyParser.json());
+
+// UASAMOS CORS PARA PODER HACER PETICIONES DEDE EL FRON
+
+app.use(cors())
 
 
 //Leer la data del archivo
