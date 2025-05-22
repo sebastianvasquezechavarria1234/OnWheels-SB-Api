@@ -133,5 +133,5 @@ app.delete("/autos/:id", (req, respuesta) => {
 
 //La app espera la solicitud
 app.listen(3000, () => {
-    console.log("El servidor esta levantado en el puerto 3000 ");
+    console.log("La api esta levantada en el puerto 3000 ");
 });
