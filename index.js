@@ -129,6 +129,65 @@ app.delete("/usuarios/:id", (req, res) => {
     res.json({ message: "El Usuario fue eliminado correctamente!" });
 });
 
+
+
+
+// ======================== CRUD EVENTOS ========================
+
+app.get("/eventos", (req, res) => {
+    const data = readData();
+    res.json(data.eventos);
+});
+
+app.get("/eventos/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const eventos = data.eventos.find((e) => e.id === id);
+    res.json(eventos);
+});
+
+app.post("/eventos", (req, res) => {
+    const data = readData();
+    const body = req.body;
+    const newEvento = {
+        id: data.eventos.length + 1,
+        ...body,
+    };
+    data.eventos.push(newEvento);
+    writeData(data);
+    res.json(newEvento);
+});
+
+app.put("/eventos/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const updateEventos = req.body;
+
+    const index = data.eventos.findIndex((e) => e.id === id);
+    if (index === -1) {
+        return res.status(404).json({ mensaje: "El evento no ha sido encontrado" });
+    }
+
+    data.eventos[index] = { id, ...updateEventos };
+    writeData(data);
+    res.json(data.eventos[index]);
+});
+
+app.delete("/eventos/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const index = data.eventos.findIndex((e) => e.id === id);
+
+     if (index === -1) {
+        return res.status(404).json({ message: "Evento no encontrado" });
+    }
+    
+    data.eventos.splice(index, 1);
+    writeData(data);
+    res.json({ message: "El evento fue eliminado correctamente!" });
+});
+
+
 // Servidor
 app.listen(3000, () => {
     console.log("La API está levantada en el puerto 3000");
