@@ -1,137 +1,135 @@
 import express from "express";
-import fs from "fs"; //permite trabajar con archivos en el sistema
-import bodyParser from "body-parser"
-import cors from "cors"; //importamos cord
+import fs from "fs";
+import bodyParser from "body-parser";
+import cors from "cors";
+
+
 const app = express();
-
 app.use(bodyParser.json());
+app.use(cors());
 
-// UASAMOS CORS PARA PODER HACER PETICIONES DEDE EL FRON
-
-app.use(cors())
-
-
-//Leer la data del archivo
 const readData = () => {
     try {
-        const data = fs.readFileSync("./db.json"); // La funcion readFileSync lee la data y es asincrona
-        return JSON.parse(data)
-    } catch (error) { 
-        console.log("Error al intentar leer los datos", error)
+        const data = fs.readFileSync("./db.json");
+        return JSON.parse(data);
+    } catch (error) {
+        console.log("Error al intentar leer los datos", error);
     }
 };
 
-readData();
-
-//Escribir en el archivo json
 const writeData = (data) => {
     try {
-        fs.writeFileSync("./db.json", JSON.stringify(data))
+        fs.writeFileSync("./db.json", JSON.stringify(data));
     } catch (error) {
-        console.log("Error al escribir los datos", error)
+        console.log("Error al escribir los datos", error);
     }
 };
 
-
-app.get("/", (req, respuesta) => {
-    // se reciben los dos parametros
-    respuesta.send("Bienvenido mi primera API con Nodejs! 🗿 ") // La respuesta readFileSync lee la data y es asincrona
+app.get("/", (req, res) => {
+    res.send("Bienvenido mi primera API con Nodejs! 🗿");
 });
 
+// ======================== CRUD AUTOS ========================
 
-//Usar los datos del archivo mediante rutas
-app.get("/autos", (req, respuesta) => {
-    const data = readData()
-    respuesta.json(data.autos)
-})
-
-
-// Define una ruta GET para obtener un auto por su id
-app.get("/autos/:id", (req, respuesta) => {
-    //lee los datos de los autos
-    const data = readData()
-
-    //convierte el parametro de la URL (id) de string a numero entero
-    const id = parseInt(req.params.id)
-
-    // Busca el auto en la coleccion de autos usando el ID proporcionado
-    const auto = data.autos.find((Auto) => Auto.id === id)
-
-    // Devuelve el auto encontrado en formato JSON
-    respuesta.json(auto);
-});
-
-
-// Define una ruta POST para agregar un nuevo auto
-app.post("/autos", (req, respuesta) => {
-    // Lee los archivos actuales de los autos 
+app.get("/autos", (req, res) => {
     const data = readData();
-
-
-    // Extrae el cuerpo de la solicitud (datos de el nuevo auto)
-    const body = req.body;
-
-    //Crea un nuevo objeto de el auto con ID unico
-    const newCar = {
-        id: data.autos.length + 1, // Asigna un ID basado en la longitud del array
-        ...body, // Copia todas las propiedades enviadas en el cuerpo de la solicitud
-    };
-
-    
-    // Agrega el nuevo auto
-    data.autos.push(newCar);
-
-    
-    // Guarda los datos Actualizados
-    writeData(data);
-
-
-    //Responde con el nuevo auto recien creado en formato JSON
-    respuesta.json(newCar)
+    res.json(data.autos);
 });
 
+app.get("/autos/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const auto = data.autos.find((a) => a.id === id);
+    res.json(auto);
+});
 
-// Actualizar
+app.post("/autos", (req, res) => {
+    const data = readData();
+    const body = req.body;
+    const newCar = {
+        id: data.autos.length + 1,
+        ...body,
+    };
+    data.autos.push(newCar);
+    writeData(data);
+    res.json(newCar);
+});
+
 app.put("/autos/:id", (req, res) => {
     const data = readData();
     const id = parseInt(req.params.id);
-    const newCar = req.body;
+    const updatedCar = req.body;
 
-    const index = data.autos.findIndex(p => p.id === id);
+    const index = data.autos.findIndex((a) => a.id === id);
     if (index === -1) {
-        return res.status(404).json({ mensaje: "Auto no encontrada" });
+        return res.status(404).json({ mensaje: "Auto no encontrado" });
     }
 
-    data.autos[index] = { id, ...newCar };
+    data.autos[index] = { id, ...updatedCar };
     writeData(data);
-
     res.json(data.autos[index]);
 });
 
-
-//Ruta para eliminar un auto por su ID
-app.delete("/autos/:id", (req, respuesta) => {
-    // leer los datos actuales
+app.delete("/autos/:id", (req, res) => {
     const data = readData();
-
-    //Obtener el ID de el auto que se va a eliminar desde los parametros de la URL y convertirlo a numero
     const id = parseInt(req.params.id);
-
-    // Buscar el indice de el auto en el array de autos usando el ID
-    const CarIndex = data.autos.findIndex((Auto) => Auto.id === id);
-
-    // Si el auto existe, se limina de el array usando Splice
-    data.autos.splice(CarIndex, 1);
-
-    // Guardamos los datos actualizados desepues de la eliminación
-    writeData(data)
-
-    // Se envia una respuesta JSON indicando que el libro fue eliminado con éxito
-    respuesta.json({ message: "El Auto fue eliminada Correctamente!" });
+    const index = data.autos.findIndex((a) => a.id === id);
+    data.autos.splice(index, 1);
+    writeData(data);
+    res.json({ message: "El Auto fue eliminado correctamente!" });
 });
 
+// ======================== CRUD USUARIOS ========================
 
-//La app espera la solicitud
+app.get("/usuarios", (req, res) => {
+    const data = readData();
+    res.json(data.usuarios);
+});
+
+app.get("/usuarios/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const usuario = data.usuarios.find((u) => u.id === id);
+    res.json(usuario);
+});
+
+app.post("/usuarios", (req, res) => {
+    const data = readData();
+    const body = req.body;
+    const newUser = {
+        id: data.usuarios.length + 1,
+        ...body,
+    };
+    data.usuarios.push(newUser);
+    writeData(data);
+    res.json(newUser);
+});
+
+app.put("/usuarios/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const updatedUser = req.body;
+
+    const index = data.usuarios.findIndex((u) => u.id === id);
+    if (index === -1) {
+        return res.status(404).json({ mensaje: "Usuario no encontrado" });
+    }
+
+    data.usuarios[index] = { id, ...updatedUser };
+    writeData(data);
+    res.json(data.usuarios[index]);
+});
+
+app.delete("/usuarios/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const index = data.usuarios.findIndex((u) => u.id === id);
+    data.usuarios.splice(index, 1);
+    writeData(data);
+    res.json({ message: "El Usuario fue eliminado correctamente!" });
+});
+
+// Servidor
 app.listen(3000, () => {
-    console.log("La api esta levantada en el puerto 3000 ");
+    console.log("La API está levantada en el puerto 3000");
 });
