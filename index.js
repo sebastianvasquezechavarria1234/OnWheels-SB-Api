@@ -192,3 +192,55 @@ app.delete("/eventos/:id", (req, res) => {
 app.listen(3000, () => {
     console.log("La API está levantada en el puerto 3000");
 });
+
+// ======================== CRUD CLASES ========================
+
+app.get("/clases", (req, res) => {
+    const data = readData();
+    res.json(data.clases);
+});
+
+app.get("/clases/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const clases = data.clases.find((u) => u.id === id);
+    res.json(clases);
+});
+
+app.post("/clases", (req, res) => {
+    const data = readData();
+    const body = req.body;
+    const newClass = {
+        id: data.clases.length + 1,
+        ...body,
+    };
+    data.clases.push(newUser);
+    writeData(data);
+    res.json(newClass);
+});
+
+app.put("/clases/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const updatedClass = req.body;
+
+    const index = data.clases.findIndex((u) => u.id === id);
+    if (index === -1) {
+        return res.status(404).json({ mensaje: "clase no encontrada" });
+    }
+
+    data.clases[index] = { id, ...updatedClass };
+    writeData(data);
+    res.json(data.clases[index]);
+});
+
+app.delete("/clases/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const index = data.clases.findIndex((u) => u.id === id);
+    data.clases.splice(index, 1);
+    writeData(data);
+    res.json({ message: "la clase fue eliminada correctamente!" });
+});
+
+
