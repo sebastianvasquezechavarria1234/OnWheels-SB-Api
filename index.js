@@ -244,3 +244,65 @@ app.delete("/clases/:id", (req, res) => {
 });
 
 
+
+// ======================== CRUD productos ========================
+
+app.get("/productos", (req, res) => {
+    const data = readData();
+    res.json(data.productos);
+});
+
+app.get("/productos/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const productos = data.productos.find((e) => e.id === id);
+    res.json(productos);
+});
+
+app.post("/productos", (req, res) => {
+    const data = readData();
+    const body = req.body;
+    const newEvento = {
+        id: data.productos.length + 1,
+        ...body,
+    };
+    data.productos.push(newEvento);
+    writeData(data);
+    res.json(newEvento);
+});
+
+app.put("/productos/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const updateproductos = req.body;
+
+    const index = data.productos.findIndex((e) => e.id === id);
+    if (index === -1) {
+        return res.status(404).json({ mensaje: "El evento no ha sido encontrado" });
+    }
+
+    data.productos[index] = { id, ...updateproductos };
+    writeData(data);
+    res.json(data.productos[index]);
+});
+
+app.delete("/productos/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const index = data.productos.findIndex((e) => e.id === id);
+
+     if (index === -1) {
+        return res.status(404).json({ message: "Evento no encontrado" });
+    }
+    
+    data.productos.splice(index, 1);
+    writeData(data);
+    res.json({ message: "El evento fue eliminado correctamente!" });
+});
+
+
+// Servidor
+app.listen(3000, () => {
+    console.log("La API está levantada en el puerto 3000");
+});
+
