@@ -214,7 +214,7 @@ app.post("/clases", (req, res) => {
         id: data.clases.length + 1,
         ...body,
     };
-    data.clases.push(newUser);
+    data.clases.push(newClass);
     writeData(data);
     res.json(newClass);
 });
@@ -262,13 +262,13 @@ app.get("/productos/:id", (req, res) => {
 app.post("/productos", (req, res) => {
     const data = readData();
     const body = req.body;
-    const newEvento = {
+    const newproducto = {
         id: data.productos.length + 1,
         ...body,
     };
-    data.productos.push(newEvento);
+    data.productos.push(newproducto);
     writeData(data);
-    res.json(newEvento);
+    res.json(newproducto);
 });
 
 app.put("/productos/:id", (req, res) => {
