@@ -192,3 +192,117 @@ app.delete("/eventos/:id", (req, res) => {
 app.listen(3000, () => {
     console.log("La API está levantada en el puerto 3000");
 });
+
+// ======================== CRUD CLASES ========================
+
+app.get("/clases", (req, res) => {
+    const data = readData();
+    res.json(data.clases);
+});
+
+app.get("/clases/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const clases = data.clases.find((u) => u.id === id);
+    res.json(clases);
+});
+
+app.post("/clases", (req, res) => {
+    const data = readData();
+    const body = req.body;
+    const newClass = {
+        id: data.clases.length + 1,
+        ...body,
+    };
+    data.clases.push(newClass);
+    writeData(data);
+    res.json(newClass);
+});
+
+app.put("/clases/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const updatedClass = req.body;
+
+    const index = data.clases.findIndex((u) => u.id === id);
+    if (index === -1) {
+        return res.status(404).json({ mensaje: "clase no encontrada" });
+    }
+
+    data.clases[index] = { id, ...updatedClass };
+    writeData(data);
+    res.json(data.clases[index]);
+});
+
+app.delete("/clases/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const index = data.clases.findIndex((u) => u.id === id);
+    data.clases.splice(index, 1);
+    writeData(data);
+    res.json({ message: "la clase fue eliminada correctamente!" });
+});
+
+
+
+// ======================== CRUD productos ========================
+
+app.get("/productos", (req, res) => {
+    const data = readData();
+    res.json(data.productos);
+});
+
+app.get("/productos/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const productos = data.productos.find((e) => e.id === id);
+    res.json(productos);
+});
+
+app.post("/productos", (req, res) => {
+    const data = readData();
+    const body = req.body;
+    const newproducto = {
+        id: data.productos.length + 1,
+        ...body,
+    };
+    data.productos.push(newproducto);
+    writeData(data);
+    res.json(newproducto);
+});
+
+app.put("/productos/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const updateproductos = req.body;
+
+    const index = data.productos.findIndex((e) => e.id === id);
+    if (index === -1) {
+        return res.status(404).json({ mensaje: "El evento no ha sido encontrado" });
+    }
+
+    data.productos[index] = { id, ...updateproductos };
+    writeData(data);
+    res.json(data.productos[index]);
+});
+
+app.delete("/productos/:id", (req, res) => {
+    const data = readData();
+    const id = parseInt(req.params.id);
+    const index = data.productos.findIndex((e) => e.id === id);
+
+     if (index === -1) {
+        return res.status(404).json({ message: "Evento no encontrado" });
+    }
+    
+    data.productos.splice(index, 1);
+    writeData(data);
+    res.json({ message: "El evento fue eliminado correctamente!" });
+});
+
+
+// Servidor
+app.listen(3000, () => {
+    console.log("La API está levantada en el puerto 3000");
+});
+
