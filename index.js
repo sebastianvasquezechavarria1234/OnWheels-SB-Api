@@ -14,15 +14,17 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // Conexión a MongoDB (sin useNewUrlParser ni useUnifiedTopology)
+// Conexión a MongoDB con configuración específica para Atlas
 mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Conectado a MongoDB"))
-  .catch((err) => console.error("❌ Error al conectar a MongoDB:", err));
-
-// Ruta de bienvenida
-app.get("/", (req, res) => {
-  res.send("🚀 Bienvenido a mi primera API con MongoDB y Node.js!");
-});
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 30000,
+    socketTimeoutMS: 45000,
+    bufferCommands: false,
+    bufferMaxEntries: 0,
+    family: 4 // Usar IPv4
+  })
+  .then(() => console.log("✅ Conectado a MongoDB Atlas"))
+  .catch((err) => console.error("❌ Error al conectar a MongoDB:", err))
 
 // ======================== CRUD USUARIOS ========================
 
