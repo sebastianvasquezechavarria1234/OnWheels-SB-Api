@@ -1,12 +1,25 @@
-// models/Usuario.js
-import mongoose from "mongoose";
+import mongoose from "mongoose"
 
-const usuarioSchema = new mongoose.Schema({
-  nombre: { type: String, required: true },
-  apellido: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  telefono: { type: String, required: true },
-  rol: { type: String, required: true },
-}, { timestamps: true });
+const usuariosSchema = new mongoose.Schema({
+  nombre: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  email: {
+    type: String,
+    required: true,
+    trim: true,
+    unique: true,
+  },
+  password: {
+    type: String,
+    required: true,
+  },
+  fechaCreacion: {
+    type: Date,
+    default: Date.now,
+  },
+})
 
-export default mongoose.model("Usuarios", usuarioSchema);
+export default mongoose.model("Usuarios", usuariosSchema)
