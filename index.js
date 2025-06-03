@@ -15,14 +15,9 @@ app.use(bodyParser.json());
 
 
 // Conexión simple y compatible
-// Conexión sin DNS SRV
+// Conexión SIMPLE sin opciones problemáticas
 mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    ssl: true,
-    directConnection: true
-  })
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Conectado a MongoDB Atlas"))
   .catch((err) => console.error("❌ Error al conectar a MongoDB:", err));
 // ======================== CRUD USUARIOS ========================
