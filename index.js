@@ -1,7 +1,7 @@
 import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
-import connectDB from "./config/database.js"
+import mongoose from "mongoose" 
 
 // Importar rutas
 import usuariosRoutes from "./routes/usuarios.js"
@@ -11,14 +11,49 @@ import productosRoutes from "./routes/productos.js"
 
 dotenv.config()
 
-// Conectar a MongoDB
-connectDB()
+// Conexión a Base de datos
+const uri = `mongodb+srv://api-directo:kloe@cluster0.b4uonwn.mongodb.net/jwt-directo?retryWrites=true&w=majority&appName=Cluster0`;
+
+mongoose.connect(uri)
+  .then(() => console.log('✅ Base de datos conectada'))
+  .catch(e => console.log('❌ error db:', e));
 
 const app = express()
 
 // Middlewares
 app.use(cors())
 app.use(express.json())
+
+//Ruta de token
+const verifyToken = require('./routes/validate-token');
+
+    // Crear tokens
+    const payload = { name: user.name, id: user._id };
+
+    const accessToken = jwt.sign(payload, process.env.TOKEN_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
+
+    // Guardar refreshToken (opcional)
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    res.json({
+        error: null,
+        data: {
+            accessToken,
+            refreshToken
+        }
+    });
+
+    res.json({
+        error: null,
+        data: {
+            accessToken,
+            refreshToken
+        }
+    });
+
+
 
 // Ruta de bienvenida
 app.get("/", (req, res) => {
