@@ -26,7 +26,7 @@ const eventosSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  patrozinador: {
+  patrocinador: {
     type: String,
     required: true,
   },
