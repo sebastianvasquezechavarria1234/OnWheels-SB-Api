@@ -9,7 +9,6 @@ import eventosRoutes from "./routes/eventos.js";
 import clasesRoutes from "./routes/clases.js";
 import productosRoutes from "./routes/productos.js";
 
-
 dotenv.config();
 
 // Conexión a Base de datos
@@ -38,11 +37,6 @@ app.get("/", (req, res) => {
       productos: "/api/productos",
     },
   });
-});
-
-// Ruta protegida de ejemplo
-app.get("/api/protegido", verifyToken, (req, res) => {
-  res.json({ mensaje: "✅ Acceso autorizado al recurso protegido." });
 });
 
 // Rutas de la API
