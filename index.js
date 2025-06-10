@@ -8,7 +8,7 @@ import usuariosRoutes from "./routes/usuarios.js";
 import eventosRoutes from "./routes/eventos.js";
 import clasesRoutes from "./routes/clases.js";
 import productosRoutes from "./routes/productos.js";
-import verifyToken from "./routes/validate-token.js"; // ✅ corregido
+
 
 dotenv.config();
 
