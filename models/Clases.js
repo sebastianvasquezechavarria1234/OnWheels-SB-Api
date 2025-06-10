@@ -29,30 +29,6 @@ const clasesSchema = new mongoose.Schema({
     required: true,
     enum: ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"],
   },
-  duracion: {
-    type: Number, // en minutos
-    required: true,
-    min: 30,
-  },
-  precio: {
-    type: Number,
-    required: true,
-    min: 0,
-  },
-  capacidad: {
-    type: Number,
-    required: true,
-    min: 1,
-  },
-  alumnosInscritos: {
-    type: Number,
-    default: 0,
-    min: 0,
-  },
-  equipoIncluido: {
-    type: Boolean,
-    default: false,
-  },
   ubicacion: {
     type: String,
     required: true,
