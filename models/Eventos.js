@@ -1,6 +1,10 @@
 import mongoose from "mongoose"
 
 const eventosSchema = new mongoose.Schema({
+  imagen: {
+    type: String,
+    required: true,
+  },
   nombre: {
     type: String,
     required: true,
@@ -28,8 +32,8 @@ const eventosSchema = new mongoose.Schema({
   },
   estado: {
     type: String,
-    enum: ["programado", "en_curso", "finalizado", "cancelado"],
-    default: "programado",
+    enum: ["Programado", "Finalizado", "Cancelado"],
+    default: "Programado",
     required: true,
   }
 })
