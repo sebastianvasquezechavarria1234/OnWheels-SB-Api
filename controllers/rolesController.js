@@ -1,57 +1,115 @@
-import Roles from "../models/Roles.js"
+import sql from "mssql"
+import Rol from "../models/Rol.js"
 
+// ✅ Obtener todos los roles
 export const getRoles = async (req, res) => {
   try {
-    const { rol } = req.query
-    const filtro = rol ? { rol } : {}
-    const roles = await Roles.find(filtro).sort({ nombre: 1 })
-    res.json(roles)
+    const pool = await sql.connect()
+    const result = await pool.request().query("SELECT * FROM ROLES ORDER BY nombre_rol ASC")
+    res.json(result.recordset)
   } catch (err) {
     console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener los rols" })
+    res.status(500).json({ mensaje: "Error al obtener roles" })
   }
 }
 
+// ✅ Obtener rol por ID
 export const getRolById = async (req, res) => {
   try {
-    const rol = await Roles.findById(req.params.id)
-    if (!rol) return res.status(404).json({ mensaje: "rol no encontrado" })
-    res.json(rol)
+    const { id } = req.params
+    const pool = await sql.connect()
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .query("SELECT * FROM ROLES WHERE id_rol = @id")
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ mensaje: "Rol no encontrado" })
+    }
+
+    res.json(result.recordset[0])
   } catch (err) {
     console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener el rol" })
+    res.status(500).json({ mensaje: "Error al obtener rol" })
   }
 }
 
-export const createRoles = async (req, res) => {
+// ✅ Crear rol
+export const createRol = async (req, res) => {
   try {
-    const nuevoRol = new Roles(req.body)
-    const guardado = await nuevoRol.save()
-    res.status(201).json(guardado)
+    const { nombre_rol, descripcion, estado } = req.body
+
+    const pool = await sql.connect()
+    const result = await pool.request()
+      .input("nombre_rol", sql.VarChar, nombre_rol)
+      .input("descripcion", sql.VarChar, descripcion)
+      .input("estado", sql.Bit, estado) // suponiendo que estado es booleano (0/1)
+      .query(`
+        INSERT INTO ROLES (nombre_rol, descripcion, estado)
+        VALUES (@nombre_rol, @descripcion, @estado);
+        SELECT SCOPE_IDENTITY() AS id;
+      `)
+
+    const nuevoRol = new Rol({
+      id_rol: result.recordset[0].id,
+      nombre_rol,
+      descripcion,
+      estado
+    })
+
+    res.status(201).json(nuevoRol)
   } catch (err) {
     console.error(err)
-    res.status(400).json({ mensaje: "Error al crear el rol", error: err.message })
+    res.status(400).json({ mensaje: "Error al crear rol", error: err.message })
   }
 }
 
+// ✅ Actualizar rol
 export const updateRol = async (req, res) => {
   try {
-    const actualizado = await Roles.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
-    if (!actualizado) return res.status(404).json({ mensaje: "rol no encontrado" })
-    res.json(actualizado)
+    const { id } = req.params
+    const { nombre_rol, descripcion, estado } = req.body
+
+    const pool = await sql.connect()
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .input("nombre_rol", sql.VarChar, nombre_rol)
+      .input("descripcion", sql.VarChar, descripcion)
+      .input("estado", sql.Bit, estado)
+      .query(`
+        UPDATE ROLES
+        SET nombre_rol = @nombre_rol,
+            descripcion = @descripcion,
+            estado = @estado
+        WHERE id_rol = @id
+      `)
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ mensaje: "Rol no encontrado" })
+    }
+
+    res.json({ mensaje: "Rol actualizado correctamente" })
   } catch (err) {
     console.error(err)
-    res.status(400).json({ mensaje: "Error al actualizar el rol", error: err.message })
+    res.status(400).json({ mensaje: "Error al actualizar rol", error: err.message })
   }
 }
 
+// ✅ Eliminar rol
 export const deleteRol = async (req, res) => {
   try {
-    const eliminado = await Roles.findByIdAndDelete(req.params.id)
-    if (!eliminado) return res.status(404).json({ mensaje: "rol no encontrado" })
-    res.json({ mensaje: "rol eliminado correctamente" })
+    const { id } = req.params
+    const pool = await sql.connect()
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .query("DELETE FROM ROLES WHERE id_rol = @id")
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ mensaje: "Rol no encontrado" })
+    }
+
+    res.json({ mensaje: "Rol eliminado correctamente" })
   } catch (err) {
     console.error(err)
-    res.status(500).json({ mensaje: "Error al eliminar el rol" })
+    res.status(500).json({ mensaje: "Error al eliminar rol" })
   }
 }

@@ -1,20 +1,10 @@
-import mongoose from "mongoose"
+class CategoriaEventos {
+  constructor({ id_categoria_evento, nombre, descripcion, imagen }) {
+    this.id_categoria_evento = id_categoria_evento
+    this.nombre = nombre
+    this.descripcion = descripcion
+    this.imagen = imagen
+  }
+}
 
-const categoriasSchema = new mongoose.Schema({
-  imagen: {
-    type: String,
-    required: true,
-  },
-  nombre: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  descripcion: {
-    type: String,
-    required: true,
-  },
-
-})
-
-export default mongoose.model("CategoriaEventos", categoriasSchema)
+export default CategoriaEventos
