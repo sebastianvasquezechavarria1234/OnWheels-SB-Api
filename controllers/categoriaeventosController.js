@@ -1,57 +1,110 @@
+import sql from "mssql"
 import CategoriaEventos from "../models/CategoriaEventos.js"
-
-export const getCategoriaEventos = async (req, res) => {
+// Obtener todas las categorías
+export const getCategorias = async (req, res) => {
   try {
-    const { categoria } = req.query
-    const filtro = categoria ? { categoria } : {}
-    const categorias = await CategoriaEventos.find(filtro).sort({ nombre: 1 })
+    const pool = await sql.connect()
+    const result = await pool.request().query("SELECT * FROM CATEGORIAS_EVENTOS")
+    
+    const categorias = result.recordset.map(row => new CategoriaEventos(row))
     res.json(categorias)
   } catch (err) {
     console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener los Categorias" })
+    res.status(500).json({ mensaje: "Error al obtener categorías" })
   }
 }
 
-export const getCategoriaEventosById = async (req, res) => {
+// Obtener por ID
+export const getCategoriaById = async (req, res) => {
   try {
-    const categoria = await CategoriaEventos.findById(req.params.id)
-    if (!categoria) return res.status(404).json({ mensaje: "Categoria no encontrado" })
+    const { id } = req.params
+    const pool = await sql.connect()
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .query("SELECT * FROM CATEGORIAS_EVENTOS WHERE id_categoria_evento = @id")
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ mensaje: "Categoría no encontrada" })
+    }
+
+    const categoria = new CategoriaEventos(result.recordset[0])
     res.json(categoria)
   } catch (err) {
     console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener el Categoria" })
+    res.status(500).json({ mensaje: "Error al obtener la categoría" })
   }
 }
 
-export const createCategoriaEventos = async (req, res) => {
+// Crear nueva categoría
+export const createCategoria = async (req, res) => {
   try {
-    const nuevoCategoria = new CategoriaEventos(req.body)
-    const guardado = await nuevoCategoria.save()
-    res.status(201).json(guardado)
+    const { nombre, descripcion, imagen } = req.body
+    const pool = await sql.connect()
+    const result = await pool.request()
+      .input("nombre", sql.VarChar, nombre)
+      .input("descripcion", sql.VarChar, descripcion)
+      .input("imagen", sql.VarChar, imagen)
+      .query(`INSERT INTO CATEGORIAS_EVENTOS (nombre, descripcion, imagen)
+              VALUES (@nombre, @descripcion, @imagen);
+              SELECT SCOPE_IDENTITY() as id;`)
+
+    const nuevaCategoria = new CategoriaEventos({
+      id_categoria_evento: result.recordset[0].id,
+      nombre,
+      descripcion,
+      imagen
+    })
+
+    res.status(201).json(nuevaCategoria)
   } catch (err) {
     console.error(err)
-    res.status(400).json({ mensaje: "Error al crear el Categoria", error: err.message })
+    res.status(400).json({ mensaje: "Error al crear categoría", error: err.message })
   }
 }
 
-export const updateCategoriaEventos = async (req, res) => {
+// Actualizar categoría
+export const updateCategoria = async (req, res) => {
   try {
-    const actualizado = await CategoriaEventos.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
-    if (!actualizado) return res.status(404).json({ mensaje: "Categoria no encontrado" })
-    res.json(actualizado)
+    const { id } = req.params
+    const { nombre, descripcion, imagen } = req.body
+
+    const pool = await sql.connect()
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .input("nombre", sql.VarChar, nombre)
+      .input("descripcion", sql.VarChar, descripcion)
+      .input("imagen", sql.VarChar, imagen)
+      .query(`UPDATE CATEGORIAS_EVENTOS
+              SET nombre = @nombre, descripcion = @descripcion, imagen = @imagen
+              WHERE id_categoria_evento = @id`)
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ mensaje: "Categoría no encontrada" })
+    }
+
+    res.json({ mensaje: "Categoría actualizada correctamente" })
   } catch (err) {
     console.error(err)
-    res.status(400).json({ mensaje: "Error al actualizar el Categoria", error: err.message })
+    res.status(400).json({ mensaje: "Error al actualizar categoría", error: err.message })
   }
 }
 
-export const deleteCategoriaEventos = async (req, res) => {
+// Eliminar categoría
+export const deleteCategoria = async (req, res) => {
   try {
-    const eliminado = await Categorias.findByIdAndDelete(req.params.id)
-    if (!eliminado) return res.status(404).json({ mensaje: "Categoria no encontrado" })
-    res.json({ mensaje: "Categoria eliminado correctamente" })
+    const { id } = req.params
+    const pool = await sql.connect()
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .query("DELETE FROM CATEGORIAS_EVENTOS WHERE id_categoria_evento = @id")
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ mensaje: "Categoría no encontrada" })
+    }
+
+    res.json({ mensaje: "Categoría eliminada correctamente" })
   } catch (err) {
     console.error(err)
-    res.status(500).json({ mensaje: "Error al eliminar el Categoria" })
+    res.status(500).json({ mensaje: "Error al eliminar categoría" })
   }
 }

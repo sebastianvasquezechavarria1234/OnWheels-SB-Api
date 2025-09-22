@@ -1,16 +1,7 @@
-import mongoose from "mongoose"
-
-const categoriasSchema = new mongoose.Schema({
-  nombre: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  descripcion: {
-    type: String,
-    required: true,
-  },
-
-})
-
-export default mongoose.model("CategoriaProductos", categoriasSchema)
+export default class CategoriaProducto {
+  constructor({ id_categoria, nombre_categoria, descripcion }) {
+    this.id_categoria = id_categoria
+    this.nombre_categoria = nombre_categoria
+    this.descripcion = descripcion
+  }
+}
