@@ -1,11 +1,12 @@
 import sql from "mssql"
 import CategoriaEventos from "../models/CategoriaEventos.js"
+
 // Obtener todas las categorías
 export const getCategorias = async (req, res) => {
   try {
     const pool = await sql.connect()
     const result = await pool.request().query("SELECT * FROM CATEGORIAS_EVENTOS")
-    
+
     const categorias = result.recordset.map(row => new CategoriaEventos(row))
     res.json(categorias)
   } catch (err) {
@@ -38,19 +39,19 @@ export const getCategoriaById = async (req, res) => {
 // Crear nueva categoría
 export const createCategoria = async (req, res) => {
   try {
-    const { nombre, descripcion, imagen } = req.body
+    const { nombre_categoria, descripcion, imagen } = req.body
     const pool = await sql.connect()
     const result = await pool.request()
-      .input("nombre", sql.VarChar, nombre)
-      .input("descripcion", sql.VarChar, descripcion)
-      .input("imagen", sql.VarChar, imagen)
-      .query(`INSERT INTO CATEGORIAS_EVENTOS (nombre, descripcion, imagen)
-              VALUES (@nombre, @descripcion, @imagen);
+      .input("nombre_categoria", sql.NVarChar, nombre_categoria)
+      .input("descripcion", sql.NVarChar, descripcion)
+      .input("imagen", sql.NVarChar, imagen)
+      .query(`INSERT INTO CATEGORIAS_EVENTOS (nombre_categoria, descripcion, imagen)
+              VALUES (@nombre_categoria, @descripcion, @imagen);
               SELECT SCOPE_IDENTITY() as id;`)
 
     const nuevaCategoria = new CategoriaEventos({
       id_categoria_evento: result.recordset[0].id,
-      nombre,
+      nombre_categoria,
       descripcion,
       imagen
     })
@@ -66,16 +67,16 @@ export const createCategoria = async (req, res) => {
 export const updateCategoria = async (req, res) => {
   try {
     const { id } = req.params
-    const { nombre, descripcion, imagen } = req.body
+    const { nombre_categoria, descripcion, imagen } = req.body
 
     const pool = await sql.connect()
     const result = await pool.request()
       .input("id", sql.Int, id)
-      .input("nombre", sql.VarChar, nombre)
-      .input("descripcion", sql.VarChar, descripcion)
-      .input("imagen", sql.VarChar, imagen)
+      .input("nombre_categoria", sql.NVarChar, nombre_categoria)
+      .input("descripcion", sql.NVarChar, descripcion)
+      .input("imagen", sql.NVarChar, imagen)
       .query(`UPDATE CATEGORIAS_EVENTOS
-              SET nombre = @nombre, descripcion = @descripcion, imagen = @imagen
+              SET nombre_categoria = @nombre_categoria, descripcion = @descripcion, imagen = @imagen
               WHERE id_categoria_evento = @id`)
 
     if (result.rowsAffected[0] === 0) {

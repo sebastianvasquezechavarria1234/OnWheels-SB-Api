@@ -1,19 +1,21 @@
 import sql from "mssql"
-import CategoriaProducto from "../models/CategoriaProducto.js"
+import CategoriaProducto from "../models/CategoriaProductos.js"
 
-// ✅ Obtener todas las categorías
+// Obtener todas las categorías
 export const getCategorias = async (req, res) => {
   try {
     const pool = await sql.connect()
-    const result = await pool.request().query("SELECT * FROM CATEGORIAS_DE_PRODUCTOS ORDER BY nombre_categoria ASC")
-    res.json(result.recordset)
+    const result = await pool.request().query("SELECT * FROM CATEGORIAS_DE_PRODUCTOS")
+
+    const categorias = result.recordset.map(row => new CategoriaProducto(row))
+    res.json(categorias)
   } catch (err) {
     console.error(err)
     res.status(500).json({ mensaje: "Error al obtener categorías" })
   }
 }
 
-// ✅ Obtener categoría por ID
+// Obtener categoría por ID
 export const getCategoriaById = async (req, res) => {
   try {
     const { id } = req.params
@@ -26,18 +28,18 @@ export const getCategoriaById = async (req, res) => {
       return res.status(404).json({ mensaje: "Categoría no encontrada" })
     }
 
-    res.json(result.recordset[0])
+    const categoria = new CategoriaProducto(result.recordset[0])
+    res.json(categoria)
   } catch (err) {
     console.error(err)
     res.status(500).json({ mensaje: "Error al obtener categoría" })
   }
 }
 
-// ✅ Crear categoría
+// Crear nueva categoría
 export const createCategoria = async (req, res) => {
   try {
     const { nombre_categoria, descripcion } = req.body
-
     const pool = await sql.connect()
     const result = await pool.request()
       .input("nombre_categoria", sql.VarChar, nombre_categoria)
@@ -61,7 +63,7 @@ export const createCategoria = async (req, res) => {
   }
 }
 
-// ✅ Actualizar categoría
+// Actualizar categoría
 export const updateCategoria = async (req, res) => {
   try {
     const { id } = req.params
@@ -74,8 +76,7 @@ export const updateCategoria = async (req, res) => {
       .input("descripcion", sql.VarChar, descripcion)
       .query(`
         UPDATE CATEGORIAS_DE_PRODUCTOS
-        SET nombre_categoria = @nombre_categoria,
-            descripcion = @descripcion
+        SET nombre_categoria = @nombre_categoria, descripcion = @descripcion
         WHERE id_categoria = @id
       `)
 
@@ -90,7 +91,7 @@ export const updateCategoria = async (req, res) => {
   }
 }
 
-// ✅ Eliminar categoría
+// Eliminar categoría
 export const deleteCategoria = async (req, res) => {
   try {
     const { id } = req.params

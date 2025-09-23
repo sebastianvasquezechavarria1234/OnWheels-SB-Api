@@ -1,19 +1,18 @@
-// db/mssqlPool.js
 import sql from "mssql";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 const config = {
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
   server: process.env.DB_SERVER,
+  port: parseInt(process.env.DB_PORT, 10),
   database: process.env.DB_DATABASE,
   options: {
-    encrypt: false,
-    trustServerCertificate: true
+    encrypt: process.env.DB_ENCRYPT === "true", // Usa variable .env
+    trustServerCertificate: true,
   },
-  authentication: {
-    type: "default"
-  }
 };
 
 let poolPromise = null;
