@@ -1,16 +1,15 @@
-// db/mssqlPool.js
 import sql from "mssql";
 
 const config = {
-  user: "onwheels_user",       // tu usuario SQL Server
-  password: "ONWHEELS123",     // tu contraseña
-  server: "localhost",         // servidor (puede ser "localhost" o "DESKTOP-0JQL45K")
-  database: "OnWheelsDB",      // tu base de datos
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  server: process.env.DB_SERVER,
+  port: parseInt(process.env.DB_PORT, 10),
+  database: process.env.DB_DATABASE,
   options: {
-    encrypt: false,            // desactiva en local
-    trustServerCertificate: true
+    encrypt: process.env.DB_ENCRYPT === "true", // Usa variable .env
+    trustServerCertificate: true,
   },
-  port: 1433                   // 👈 asegúrate de tener este puerto
 };
 
 let pool;

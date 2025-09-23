@@ -5,7 +5,7 @@ import {
   createCategoria,
   updateCategoria,
   deleteCategoria
-} from "../controllers/categoriasEventosController.js"
+} from "../controllers/categoriaEventosController.js"
 
 const router = Router()
 

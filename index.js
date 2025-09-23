@@ -2,7 +2,12 @@ import express from "express";
 import { getPool } from "./db/mssqlPool.js";
 
 
+
 // Importar rutas
+import sedesRoutes from "./routes/sedes.js";  // Corregido
+import comprasRoutes from "./routes/compras.js";  // Corregido
+import categoriaproductosRoutes from "./routes/categoriaProductos.js";  // Corregido
+import categoriaEventosRoutes from "./routes/categoriaEventos.js";  // Corregido
 import productosRoutes from "./routes/productos.js";  // Corregido
 import rolesRoutes from "./routes/roles.js";  // Correcto
 import usuariosRoutes from "./routes/usuarios.js";
@@ -47,6 +52,10 @@ app.get("/", (req, res) => {
       categorias: "/api/categorias",
       productos: "/api/productos",
       proveedores: "/api/proveedores",
+      categoriaEventos: "/api/categoriaEventos",
+      categoriaProductos: "/api/categoriaProductos",
+      compras: "/api/compras",
+      sedes: "/api/sedes"
     },
   });
 });
@@ -58,6 +67,11 @@ app.use("/api/roles", rolesRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/eventos", eventosRoutes);
 app.use("/api/clases", clasesRoutes);
+app.use("/api/categoria-eventos", categoriaEventosRoutes);
+app.use("/api/categoria-productos", categoriaproductosRoutes);
+app.use("/api/compras", comprasRoutes);
+app.use("/api/sedes", sedesRoutes);
+
 
 
 
