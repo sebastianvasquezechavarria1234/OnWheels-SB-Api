@@ -5,7 +5,8 @@ import {
   createCategoria,
   updateCategoria,
   deleteCategoria
-} from "../controllers/categoriaProductosController.js"
+} 
+from "../controllers/categoriaProductosController.js"
 
 const router = express.Router()
 
@@ -16,3 +17,5 @@ router.put("/:id", updateCategoria)     // Actualizar
 router.delete("/:id", deleteCategoria)  // Eliminar
 
 export default router
+
+

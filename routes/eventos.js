@@ -4,16 +4,15 @@ import {
   getEventoById,
   createEvento,
   updateEvento,
-  deleteEvento,
+  deleteEvento
 } from "../controllers/eventosController.js"
 
 const router = express.Router()
 
-// Rutas simples sin parámetros complejos
-router.get("/", getEventos)
-router.get("/:id", getEventoById)
-router.post("/", createEvento)
-router.put("/:id", updateEvento)
-router.delete("/:id", deleteEvento)
+router.get("/", getEventos)             // Obtener todos
+router.get("/:id", getEventoById)       // Obtener por ID
+router.post("/", createEvento)          // Crear
+router.put("/:id", updateEvento)        // Actualizar
+router.delete("/:id", deleteEvento)     // Eliminar
 
 export default router

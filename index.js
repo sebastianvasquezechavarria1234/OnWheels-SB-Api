@@ -6,6 +6,7 @@ import { getPool } from "./db/mssqlPool.js";
 
 
 // Importar rutas
+import patrocinadoresRoutes from "./routes/patrocinadores.js";
 import sedesRoutes from "./routes/sedes.js";  // Corregido
 import comprasRoutes from "./routes/compras.js";  // Corregido
 import categoriaproductosRoutes from "./routes/categoriaProductos.js";  // Corregido
@@ -53,7 +54,8 @@ app.get("/", (req, res) => {
       categoriaEventos: "/api/categoriaEventos",
       categoriaProductos: "/api/categoriaProductos",
       compras: "/api/compras",
-      sedes: "/api/sedes"
+      sedes: "/api/sedes",
+      patrocinadores: "/api/patrocinadores",
     },
   });
 });
@@ -69,6 +71,7 @@ app.use("/api/categoria-eventos", categoriaEventosRoutes);
 app.use("/api/categoria-productos", categoriaproductosRoutes);
 app.use("/api/compras", comprasRoutes);
 app.use("/api/sedes", sedesRoutes);
+app.use("/api/patrocinadores", patrocinadoresRoutes);
 
 
 // Levantar el servidor
