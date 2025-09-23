@@ -1,6 +1,4 @@
 import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
 import { getPool } from "./db/mssqlPool.js";
 
 
@@ -10,29 +8,32 @@ import rolesRoutes from "./routes/roles.js";  // Correcto
 import usuariosRoutes from "./routes/usuarios.js";
 import eventosRoutes from "./routes/eventos.js";
 import clasesRoutes from "./routes/clases.js";
-import proveedoresRoutes from "./routes/proveedores.js"; 
-
-
-dotenv.config();
+import proveedoresRoutes from "./routes/proveedores.js";
 
 const app = express();
+const PORT = 3000;
 
-// Middlewares
-app.use(cors());
-app.use(express.json());
-
-// Probar conexión a SQL Server al arrancar
-(async () => {
+// 🧪 Ruta de prueba de conexión a la BD
+app.get("/test-db", async (req, res) => {
   try {
     const pool = await getPool();
-    const result = await pool.request().query("SELECT 1 AS conectado");
-    console.log("✅ Conectado a SQL Server:", result.recordset[0]);
+    const result = await pool.request().query("SELECT GETDATE() AS fecha");
+    res.json(result.recordset);
   } catch (err) {
-    console.error("❌ Error conectando a SQL Server:", err);
+    console.error("❌ Error consultando la BD:", err.message); // mensaje limpio
+    console.error("📋 Detalle completo:", err); // detalle técnico
+    res.status(500).json({ error: "Error en la base de datos", detalle: err.message });
   }
-})();
+});
 
-// Ruta de bienvenida
+
+
+
+
+
+
+
+
 app.get("/", (req, res) => {
   res.json({
     mensaje: "🛹 Bienvenido a OnWheels Skateboard API",
@@ -43,6 +44,7 @@ app.get("/", (req, res) => {
       eventos: "/api/eventos",
       clases: "/api/clases",
       roles: "/api/roles",
+      categorias: "/api/categorias",
       productos: "/api/productos",
       proveedores: "/api/proveedores",
     },
@@ -57,9 +59,12 @@ app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/eventos", eventosRoutes);
 app.use("/api/clases", clasesRoutes);
 
-// Levantar el servidor
-const PORT = process.env.PORT || 3000;
+
+
+
+
+
+// 🚀 Servidor
 app.listen(PORT, () => {
-  console.log(`🌐 OnWheels API corriendo en puerto ${PORT}`);
-  console.log(`🗄️ Usando SQL Server`);
+  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
 });

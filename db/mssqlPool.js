@@ -1,28 +1,29 @@
 // db/mssqlPool.js
 import sql from "mssql";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const config = {
-  server: process.env.DB_SERVER,
-  database: process.env.DB_DATABASE,
+  user: "onwheels_user",       // tu usuario SQL Server
+  password: "ONWHEELS123",     // tu contraseña
+  server: "localhost",         // servidor (puede ser "localhost" o "DESKTOP-0JQL45K")
+  database: "OnWheelsDB",      // tu base de datos
   options: {
-    encrypt: false,
+    encrypt: false,            // desactiva en local
     trustServerCertificate: true
   },
-  authentication: {
-    type: "default"
-  }
+  port: 1433                   // 👈 asegúrate de tener este puerto
 };
 
-let poolPromise = null;
+let pool;
 
-export function getPool() {
-  if (!poolPromise) {
-    poolPromise = sql.connect(config);
+export const getPool = async () => {
+  try {
+    if (!pool) {
+      pool = await sql.connect(config);
+      console.log("✅ Conectado a SQL Server");
+    }
+    return pool;
+  } catch (err) {
+    console.error("❌ Error en conexión:", err);
+    throw err;
   }
-  return poolPromise;
-}
-
-export { sql };
+};
