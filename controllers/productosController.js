@@ -1,5 +1,5 @@
 import sql from "mssql"
-import Producto from "../models/Productos.js"; 
+import Producto from "../models/Productos.js"
 
 // ✅ Obtener todos los productos con su categoría
 export const getProductos = async (req, res) => {
@@ -11,6 +11,7 @@ export const getProductos = async (req, res) => {
         p.nombre_producto,
         p.descripcion,
         p.precio_compra,
+        p.precio,
         p.imagen_producto,
         p.estado,
         p.porcentaje_ganancia,
@@ -42,6 +43,7 @@ export const getProductoById = async (req, res) => {
           p.nombre_producto,
           p.descripcion,
           p.precio_compra,
+          p.precio,
           p.imagen_producto,
           p.estado,
           p.porcentaje_ganancia,
@@ -73,6 +75,7 @@ export const createProducto = async (req, res) => {
       nombre_producto,
       descripcion,
       precio_compra,
+      precio,
       imagen_producto,
       estado,
       porcentaje_ganancia,
@@ -84,15 +87,16 @@ export const createProducto = async (req, res) => {
       .input("id_categoria", sql.Int, id_categoria)
       .input("nombre_producto", sql.VarChar, nombre_producto)
       .input("descripcion", sql.VarChar, descripcion)
-      .input("precio_compra", sql.Decimal(18,2), precio_compra)
+      .input("precio_compra", sql.Decimal(10,2), precio_compra)
+      .input("precio", sql.Decimal(10,2), precio)
       .input("imagen_producto", sql.VarChar, imagen_producto)
       .input("estado", sql.Bit, estado)
       .input("porcentaje_ganancia", sql.Decimal(5,2), porcentaje_ganancia)
       .input("descuento_producto", sql.Decimal(5,2), descuento_producto)
       .query(`
         INSERT INTO PRODUCTOS 
-        (id_categoria, nombre_producto, descripcion, precio_compra, imagen_producto, estado, porcentaje_ganancia, descuento_producto)
-        VALUES (@id_categoria, @nombre_producto, @descripcion, @precio_compra, @imagen_producto, @estado, @porcentaje_ganancia, @descuento_producto);
+        (id_categoria, nombre_producto, descripcion, precio_compra, precio, imagen_producto, estado, porcentaje_ganancia, descuento_producto)
+        VALUES (@id_categoria, @nombre_producto, @descripcion, @precio_compra, @precio, @imagen_producto, @estado, @porcentaje_ganancia, @descuento_producto);
         SELECT SCOPE_IDENTITY() AS id;
       `)
 
@@ -102,6 +106,7 @@ export const createProducto = async (req, res) => {
       nombre_producto,
       descripcion,
       precio_compra,
+      precio,
       imagen_producto,
       estado,
       porcentaje_ganancia,
@@ -122,6 +127,7 @@ export const updateProducto = async (req, res) => {
       nombre_producto,
       descripcion,
       precio_compra,
+      precio,
       imagen_producto,
       estado,
       porcentaje_ganancia,
@@ -134,7 +140,8 @@ export const updateProducto = async (req, res) => {
       .input("id_categoria", sql.Int, id_categoria)
       .input("nombre_producto", sql.VarChar, nombre_producto)
       .input("descripcion", sql.VarChar, descripcion)
-      .input("precio_compra", sql.Decimal(18,2), precio_compra)
+      .input("precio_compra", sql.Decimal(10,2), precio_compra)
+      .input("precio", sql.Decimal(10,2), precio)
       .input("imagen_producto", sql.VarChar, imagen_producto)
       .input("estado", sql.Bit, estado)
       .input("porcentaje_ganancia", sql.Decimal(5,2), porcentaje_ganancia)
@@ -145,6 +152,7 @@ export const updateProducto = async (req, res) => {
             nombre_producto = @nombre_producto,
             descripcion = @descripcion,
             precio_compra = @precio_compra,
+            precio = @precio,
             imagen_producto = @imagen_producto,
             estado = @estado,
             porcentaje_ganancia = @porcentaje_ganancia,

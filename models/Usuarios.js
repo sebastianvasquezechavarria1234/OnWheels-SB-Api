@@ -1,41 +1,26 @@
-import mongoose from "mongoose"
-
-const usuariosSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  lastName: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  email: {
-    type: String,
-    required: true,
-    trim: true,
-    unique: true,
-  },
-  phone: {
-    type: String,
-    required: true,
-    trim: true,
-    unique: true,
-  },
-  role: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  password: {
-    type: String,
-    required: true,
-  },
-  fechaCreacion: {
-    type: Date,
-    default: Date.now,
-  },
-})
-
-export default mongoose.model("Usuarios", usuariosSchema)
+// models/Usuario.js
+export default class Usuario {
+  constructor({
+    id_usuario,
+    documento,
+    tipo_documento,
+    nombre_completo,
+    email,
+    telefono,
+    fecha_nacimiento,
+    direccion,
+    contraseña,
+    tipo_genero
+  }) {
+    this.id_usuario = id_usuario
+    this.documento = documento
+    this.tipo_documento = tipo_documento
+    this.nombre_completo = nombre_completo
+    this.email = email
+    this.telefono = telefono
+    this.fecha_nacimiento = fecha_nacimiento
+    this.direccion = direccion
+    this.contraseña = contraseña
+    this.tipo_genero = tipo_genero
+  }
+}

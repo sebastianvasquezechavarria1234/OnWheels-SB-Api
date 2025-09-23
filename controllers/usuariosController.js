@@ -1,177 +1,139 @@
-import mongoose from "mongoose"
-import bcrypt from "bcryptjs"
+import sql from "mssql"
 
-// Modelo de Usuario para MongoDB
-const usuarioSchema = new mongoose.Schema({
-  id: {
-    type: Number,
-    unique: true,
-  },
-  name: String,
-  lastName: String,
-  email: {
-    type: String,
-    unique: true,
-    lowercase: true,
-    trim: true,
-  },
-  phone: String,
-  role: String,
-  password: String,
-  fechaCreacion: {
-    type: Date,
-    default: Date.now,
-  },
-})
-
-// Middleware para generar ID incremental
-usuarioSchema.pre("save", async function (next) {
-  if (this.isNew && !this.id) {
-    try {
-      // Buscar el último usuario por ID incremental
-      const ultimoUsuario = await this.constructor.findOne({}, {}, { sort: { id: -1 } })
-
-      // Si no hay usuarios, empezar en 1, si hay usuarios, sumar 1 al último ID
-      this.id = ultimoUsuario && ultimoUsuario.id ? ultimoUsuario.id + 1 : 1
-
-      console.log(`🆔 Generando ID: ${this.id}`)
-    } catch (error) {
-      console.error("Error generando ID:", error)
-      return next(error)
-    }
-  }
-  next()
-})
-
-const Usuario = mongoose.model("Usuario", usuarioSchema)
-
+// ✅ Obtener todos
 export const getUsuarios = async (req, res) => {
   try {
-    const usuarios = await Usuario.find().select("-password -__v")
-    res.json(usuarios)
+    const pool = await sql.connect()
+    const result = await pool.request().query("SELECT * FROM USUARIOS ORDER BY nombre_completo ASC")
+    res.json(result.recordset)
   } catch (err) {
     console.error(err)
     res.status(500).json({ mensaje: "Error al obtener usuarios" })
   }
 }
 
-export const createUsuario = async (req, res) => {
-  try {
-    // Verificar si el email ya existe
-    const emailNormalizado = req.body.email.toLowerCase().trim()
-    const emailExiste = await Usuario.findOne({ email: emailNormalizado })
-
-    if (emailExiste) {
-      return res.status(400).json({
-        mensaje: `El email ${emailNormalizado} ya está registrado`,
-        error: "EMAIL_DUPLICADO",
-      })
-    }
-
-    // Encriptar contraseña
-    const hashedPassword = await bcrypt.hash(req.body.password, 10)
-
-    // Crear usuario
-    const nuevoUsuario = new Usuario({
-      name: req.body.name,
-      lastName: req.body.lastName,
-      email: emailNormalizado,
-      phone: req.body.phone,
-      role: req.body.role || "estudiante",
-      password: hashedPassword,
-    })
-
-    await nuevoUsuario.save()
-
-    // No devolver la contraseña
-    const usuarioGuardado = nuevoUsuario.toObject()
-    delete usuarioGuardado.password
-    delete usuarioGuardado.__v
-
-    res.status(201).json(usuarioGuardado)
-  } catch (err) {
-    // Manejar error de duplicado
-    if (err.code === 11000) {
-      const campo = Object.keys(err.keyPattern)[0]
-      return res.status(400).json({
-        mensaje: `El ${campo} ya está registrado`,
-        error: "CAMPO_DUPLICADO",
-      })
-    }
-
-    console.error(err)
-    res.status(400).json({ mensaje: "Error al crear usuario", error: err.message })
-  }
-}
-
+// ✅ Obtener por ID
 export const getUsuarioById = async (req, res) => {
   try {
-    const usuario = await Usuario.findOne({ id: Number.parseInt(req.params.id) }).select("-password -__v")
+    const { id } = req.params
+    const pool = await sql.connect()
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .query("SELECT * FROM USUARIOS WHERE id_usuario = @id")
 
-    if (!usuario) {
+    if (result.recordset.length === 0) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" })
     }
 
-    res.json(usuario)
+    res.json(result.recordset[0])
   } catch (err) {
     console.error(err)
     res.status(500).json({ mensaje: "Error al obtener usuario" })
   }
 }
 
-export const updateUsuario = async (req, res) => {
+// ✅ Verificar si email existe
+export const verificarEmail = async (req, res) => {
   try {
-    // No permitir actualizar contraseña por esta vía
-    delete req.body.password
+    const { email } = req.params
+    const pool = await sql.connect()
+    const result = await pool.request()
+      .input("email", sql.VarChar, email)
+      .query("SELECT * FROM USUARIOS WHERE email = @email")
 
-    // Normalizar email si se está actualizando
-    if (req.body.email) {
-      req.body.email = req.body.email.toLowerCase().trim()
-
-      // Verificar si el email ya existe
-      const emailExiste = await Usuario.findOne({
-        email: req.body.email,
-        id: { $ne: Number.parseInt(req.params.id) },
-      })
-
-      if (emailExiste) {
-        return res.status(400).json({
-          mensaje: `El email ${req.body.email} ya está registrado por otro usuario`,
-          error: "EMAIL_DUPLICADO",
-        })
-      }
+    if (result.recordset.length > 0) {
+      return res.json({ existe: true, usuario: result.recordset[0] })
     }
 
-    const usuarioActualizado = await Usuario.findOneAndUpdate({ id: Number.parseInt(req.params.id) }, req.body, {
-      new: true,
-      runValidators: true,
-    }).select("-password -__v")
+    res.json({ existe: false })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ mensaje: "Error al verificar email" })
+  }
+}
 
-    if (!usuarioActualizado) {
+// ✅ Crear
+export const createUsuario = async (req, res) => {
+  try {
+    const { documento, tipo_documento, nombre_completo, email, telefono, fecha_nacimiento, direccion, contraseña, tipo_genero } = req.body
+
+    const pool = await sql.connect()
+    const result = await pool.request()
+      .input("documento", sql.VarChar, documento)
+      .input("tipo_documento", sql.VarChar, tipo_documento)
+      .input("nombre_completo", sql.VarChar, nombre_completo)
+      .input("email", sql.VarChar, email)
+      .input("telefono", sql.VarChar, telefono)
+      .input("fecha_nacimiento", sql.Date, fecha_nacimiento)
+      .input("direccion", sql.VarChar, direccion)
+      .input("contraseña", sql.VarChar, contraseña)
+      .input("tipo_genero", sql.VarChar, tipo_genero)
+      .query(`
+        INSERT INTO USUARIOS (documento, tipo_documento, nombre_completo, email, telefono, fecha_nacimiento, direccion, contraseña, tipo_genero)
+        VALUES (@documento, @tipo_documento, @nombre_completo, @email, @telefono, @fecha_nacimiento, @direccion, @contraseña, @tipo_genero);
+        SELECT SCOPE_IDENTITY() AS id;
+      `)
+
+    res.status(201).json({ mensaje: "Usuario creado correctamente", id_usuario: result.recordset[0].id })
+  } catch (err) {
+    console.error(err)
+    res.status(400).json({ mensaje: "Error al crear usuario", error: err.message })
+  }
+}
+
+// ✅ Actualizar
+export const updateUsuario = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { documento, tipo_documento, nombre_completo, email, telefono, fecha_nacimiento, direccion, contraseña, tipo_genero } = req.body
+
+    const pool = await sql.connect()
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .input("documento", sql.VarChar, documento)
+      .input("tipo_documento", sql.VarChar, tipo_documento)
+      .input("nombre_completo", sql.VarChar, nombre_completo)
+      .input("email", sql.VarChar, email)
+      .input("telefono", sql.VarChar, telefono)
+      .input("fecha_nacimiento", sql.Date, fecha_nacimiento)
+      .input("direccion", sql.VarChar, direccion)
+      .input("contraseña", sql.VarChar, contraseña)
+      .input("tipo_genero", sql.VarChar, tipo_genero)
+      .query(`
+        UPDATE USUARIOS
+        SET documento = @documento,
+            tipo_documento = @tipo_documento,
+            nombre_completo = @nombre_completo,
+            email = @email,
+            telefono = @telefono,
+            fecha_nacimiento = @fecha_nacimiento,
+            direccion = @direccion,
+            contraseña = @contraseña,
+            tipo_genero = @tipo_genero
+        WHERE id_usuario = @id
+      `)
+
+    if (result.rowsAffected[0] === 0) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" })
     }
 
-    res.json(usuarioActualizado)
+    res.json({ mensaje: "Usuario actualizado correctamente" })
   } catch (err) {
-    // Manejar error de duplicado
-    if (err.code === 11000) {
-      const campo = Object.keys(err.keyPattern)[0]
-      return res.status(400).json({
-        mensaje: `El ${campo} ya está registrado por otro usuario`,
-        error: "CAMPO_DUPLICADO",
-      })
-    }
-
     console.error(err)
     res.status(400).json({ mensaje: "Error al actualizar usuario", error: err.message })
   }
 }
 
+// ✅ Eliminar
 export const deleteUsuario = async (req, res) => {
   try {
-    const usuarioEliminado = await Usuario.findOneAndDelete({ id: Number.parseInt(req.params.id) })
+    const { id } = req.params
+    const pool = await sql.connect()
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .query("DELETE FROM USUARIOS WHERE id_usuario = @id")
 
-    if (!usuarioEliminado) {
+    if (result.rowsAffected[0] === 0) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" })
     }
 
@@ -179,21 +141,5 @@ export const deleteUsuario = async (req, res) => {
   } catch (err) {
     console.error(err)
     res.status(500).json({ mensaje: "Error al eliminar usuario" })
-  }
-}
-
-// Verificar si un email existe
-export const verificarEmail = async (req, res) => {
-  try {
-    const emailNormalizado = req.params.email.toLowerCase().trim()
-    const usuario = await Usuario.findOne({ email: emailNormalizado })
-
-    res.json({
-      existe: !!usuario,
-      disponible: !usuario,
-    })
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al verificar email" })
   }
 }
