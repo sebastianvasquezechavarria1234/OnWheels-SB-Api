@@ -6,6 +6,11 @@ import { getPool } from "./db/mssqlPool.js";
 
 
 // Importar rutas
+import matriculasRoutes from "./routes/matriculas.js";  // Corregido
+import preinscripcionesRoutes from "./routes/preinscripciones.js";
+import planesClasesRoutes from "./routes/planes.js";  // Corregido
+import nivelesClasesRoutes from "./routes/nivelesClases.js";
+import ventasRoutes from "./routes/ventas.js";  // Corregido
 import patrocinadoresRoutes from "./routes/patrocinadores.js";
 import sedesRoutes from "./routes/sedes.js";  // Corregido
 import comprasRoutes from "./routes/compras.js";  // Corregido
@@ -17,6 +22,7 @@ import usuariosRoutes from "./routes/usuarios.js";
 import eventosRoutes from "./routes/eventos.js";
 import clasesRoutes from "./routes/clases.js";
 import proveedoresRoutes from "./routes/proveedores.js"; 
+
 
 
 dotenv.config();
@@ -56,6 +62,10 @@ app.get("/", (req, res) => {
       compras: "/api/compras",
       sedes: "/api/sedes",
       patrocinadores: "/api/patrocinadores",
+      ventas: "/api/ventas",
+      niveles: "/api/niveles",
+      planes: "/api/planes",
+      preinscripciones: "/api/preinscripciones",
     },
   });
 });
@@ -72,6 +82,11 @@ app.use("/api/categoria-productos", categoriaproductosRoutes);
 app.use("/api/compras", comprasRoutes);
 app.use("/api/sedes", sedesRoutes);
 app.use("/api/patrocinadores", patrocinadoresRoutes);
+app.use("/api/ventas", ventasRoutes);
+app.use("/api/niveles", nivelesClasesRoutes);
+app.use("/api/planes", planesClasesRoutes);
+app.use("/api/preinscripciones", preinscripcionesRoutes);
+app.use("/api/matriculas", matriculasRoutes);
 
 
 // Levantar el servidor
