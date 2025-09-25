@@ -6,6 +6,8 @@ import { getPool } from "./db/mssqlPool.js";
 
 
 // Importar rutas
+import authRoutes from './routes/authRoutes.js';
+
 import matriculasRoutes from "./routes/matriculas.js";  // Corregido
 import preinscripcionesRoutes from "./routes/preinscripciones.js";
 import planesClasesRoutes from "./routes/planes.js";  // Corregido
@@ -30,6 +32,8 @@ dotenv.config();
 const app = express();
 
 // Middlewares
+app.use('/api/auth', authRoutes);
+
 app.use(cors());
 app.use(express.json());
 
@@ -71,6 +75,7 @@ app.get("/", (req, res) => {
 });
 
 // Rutas de la API
+
 app.use("/api/productos", productosRoutes);
 app.use("/api/proveedores", proveedoresRoutes);
 app.use("/api/roles", rolesRoutes);
