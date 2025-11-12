@@ -1,5 +1,5 @@
 // controllers/matriculasController.js
-import { getPool } from "../db/mssqlPool.js";
+import { getPool } from "../db/postgresPool.js";
 
 // ✅ Obtener todas las matrículas
 export const getMatriculas = async (req, res) => {

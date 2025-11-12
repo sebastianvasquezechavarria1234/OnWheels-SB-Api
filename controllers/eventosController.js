@@ -1,37 +1,52 @@
-import sql from "mssql"
-import Evento from "../models/Eventos.js"
+import { getPool } from "../db/postgresPool.js";
+import Evento from "../models/Eventos.js";
 
-// ✅ Obtener todos los eventos
+// ✅ Obtener todos los eventos (con nombre de categoría)
 export const getEventos = async (req, res) => {
   try {
-    const pool = await sql.connect()
-    const result = await pool.request().query("SELECT * FROM EVENTOS ORDER BY fecha_evento ASC")
-    res.json(result.recordset)
+    const pool = await getPool();
+    const result = await pool.query(`
+      SELECT 
+        e.*, 
+        c.nombre_categoria_evento AS nombre_categoria
+      FROM EVENTOS e
+      LEFT JOIN CATEGORIA_EVENTO c ON e.id_categoria_evento = c.id_categoria_evento
+      ORDER BY e.fecha_evento ASC
+    `);
+    res.json(result.rows);
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener eventos" })
+    console.error(err);
+    res.status(500).json({ mensaje: "Error al obtener eventos" });
   }
-}
+};
 
 // ✅ Obtener un evento por ID
 export const getEventoById = async (req, res) => {
   try {
-    const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("SELECT * FROM EVENTOS WHERE id_evento = @id")
+    const { id } = req.params;
+    const pool = await getPool();
+    const result = await pool.query(
+      `
+      SELECT 
+        e.*, 
+        c.nombre_categoria_evento AS nombre_categoria
+      FROM EVENTOS e
+      LEFT JOIN CATEGORIA_EVENTO c ON e.id_categoria_evento = c.id_categoria_evento
+      WHERE e.id_evento = $1
+      `,
+      [id]
+    );
 
-    if (result.recordset.length === 0) {
-      return res.status(404).json({ mensaje: "Evento no encontrado" })
+    if (result.rows.length === 0) {
+      return res.status(404).json({ mensaje: "Evento no encontrado" });
     }
 
-    res.json(result.recordset[0])
+    res.json(result.rows[0]);
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener el evento" })
+    console.error(err);
+    res.status(500).json({ mensaje: "Error al obtener el evento" });
   }
-}
+};
 
 // ✅ Crear un nuevo evento
 export const createEvento = async (req, res) => {
@@ -46,50 +61,41 @@ export const createEvento = async (req, res) => {
       descripcion,
       imagen_evento,
       estado
-    } = req.body
+    } = req.body;
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id_categoria_evento", sql.Int, id_categoria_evento)
-      .input("id_sede", sql.Int, id_sede)
-      .input("nombre_evento", sql.NVarChar, nombre_evento)
-      .input("fecha_evento", sql.Date, fecha_evento)
-      .input("hora_inicio", sql.Time, hora_inicio || null)
-      .input("hora_aproximada_fin", sql.Time, hora_aproximada_fin || null)
-      .input("descripcion", sql.NVarChar, descripcion || null)
-      .input("imagen_evento", sql.NVarChar, imagen_evento || null)
-      .input("estado", sql.NVarChar, estado || "activo")
-      .query(`
-        INSERT INTO EVENTOS 
-        (id_categoria_evento, id_sede, nombre_evento, fecha_evento, hora_inicio, hora_aproximada_fin, descripcion, imagen_evento, estado)
-        VALUES (@id_categoria_evento, @id_sede, @nombre_evento, @fecha_evento, @hora_inicio, @hora_aproximada_fin, @descripcion, @imagen_evento, @estado);
-        SELECT SCOPE_IDENTITY() AS id;
-      `)
+    const pool = await getPool();
+    const result = await pool.query(
+      `
+      INSERT INTO EVENTOS 
+      (id_categoria_evento, id_sede, nombre_evento, fecha_evento, hora_inicio, hora_aproximada_fin, descripcion, imagen_evento, estado)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 'activo'))
+      RETURNING *
+      `,
+      [
+        id_categoria_evento,
+        id_sede,
+        nombre_evento,
+        fecha_evento,
+        hora_inicio || null,
+        hora_aproximada_fin || null,
+        descripcion || null,
+        imagen_evento || null,
+        estado || "activo"
+      ]
+    );
 
-    const nuevoEvento = new Evento({
-      id_evento: result.recordset[0].id,
-      id_categoria_evento,
-      id_sede,
-      nombre_evento,
-      fecha_evento,
-      hora_inicio,
-      hora_aproximada_fin,
-      descripcion,
-      imagen_evento,
-      estado
-    })
-
-    res.status(201).json(nuevoEvento)
+    const nuevoEvento = new Evento(result.rows[0]);
+    res.status(201).json(nuevoEvento);
   } catch (err) {
-    console.error(err)
-    res.status(400).json({ mensaje: "Error al crear evento", error: err.message })
+    console.error(err);
+    res.status(400).json({ mensaje: "Error al crear evento", error: err.message });
   }
-}
+};
 
 // ✅ Actualizar evento
 export const updateEvento = async (req, res) => {
   try {
-    const { id } = req.params
+    const { id } = req.params;
     const {
       id_categoria_evento,
       id_sede,
@@ -100,61 +106,63 @@ export const updateEvento = async (req, res) => {
       descripcion,
       imagen_evento,
       estado
-    } = req.body
+    } = req.body;
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .input("id_categoria_evento", sql.Int, id_categoria_evento)
-      .input("id_sede", sql.Int, id_sede)
-      .input("nombre_evento", sql.NVarChar, nombre_evento)
-      .input("fecha_evento", sql.Date, fecha_evento)
-      .input("hora_inicio", sql.Time, hora_inicio || null)
-      .input("hora_aproximada_fin", sql.Time, hora_aproximada_fin || null)
-      .input("descripcion", sql.NVarChar, descripcion || null)
-      .input("imagen_evento", sql.NVarChar, imagen_evento || null)
-      .input("estado", sql.NVarChar, estado)
-      .query(`
-        UPDATE EVENTOS
-        SET id_categoria_evento = @id_categoria_evento,
-            id_sede = @id_sede,
-            nombre_evento = @nombre_evento,
-            fecha_evento = @fecha_evento,
-            hora_inicio = @hora_inicio,
-            hora_aproximada_fin = @hora_aproximada_fin,
-            descripcion = @descripcion,
-            imagen_evento = @imagen_evento,
-            estado = @estado
-        WHERE id_evento = @id
-      `)
+    const pool = await getPool();
+    const result = await pool.query(
+      `
+      UPDATE EVENTOS
+      SET id_categoria_evento = $1,
+          id_sede = $2,
+          nombre_evento = $3,
+          fecha_evento = $4,
+          hora_inicio = $5,
+          hora_aproximada_fin = $6,
+          descripcion = $7,
+          imagen_evento = $8,
+          estado = $9
+      WHERE id_evento = $10
+      RETURNING *
+      `,
+      [
+        id_categoria_evento,
+        id_sede,
+        nombre_evento,
+        fecha_evento,
+        hora_inicio || null,
+        hora_aproximada_fin || null,
+        descripcion || null,
+        imagen_evento || null,
+        estado,
+        id
+      ]
+    );
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ mensaje: "Evento no encontrado" })
+    if (result.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Evento no encontrado" });
     }
 
-    res.json({ mensaje: "Evento actualizado correctamente" })
+    res.json({ mensaje: "Evento actualizado correctamente" });
   } catch (err) {
-    console.error(err)
-    res.status(400).json({ mensaje: "Error al actualizar evento", error: err.message })
+    console.error(err);
+    res.status(400).json({ mensaje: "Error al actualizar evento", error: err.message });
   }
-}
+};
 
 // ✅ Eliminar evento
 export const deleteEvento = async (req, res) => {
   try {
-    const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("DELETE FROM EVENTOS WHERE id_evento = @id")
+    const { id } = req.params;
+    const pool = await getPool();
+    const result = await pool.query("DELETE FROM EVENTOS WHERE id_evento = $1", [id]);
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ mensaje: "Evento no encontrado" })
+    if (result.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Evento no encontrado" });
     }
 
-    res.json({ mensaje: "Evento eliminado correctamente" })
+    res.json({ mensaje: "Evento eliminado correctamente" });
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al eliminar evento", error: err.message })
+    console.error(err);
+    res.status(500).json({ mensaje: "Error al eliminar evento", error: err.message });
   }
-}
+};

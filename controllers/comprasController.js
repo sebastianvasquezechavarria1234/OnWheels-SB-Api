@@ -1,22 +1,21 @@
-import sql from "mssql"
+import { getPool } from "../db/postgresPool.js"
 import Compra from "../models/Compras.js"
 
 // ✅ Obtener todas las compras
 export const getCompras = async (req, res) => {
   try {
-    const pool = await sql.connect()
-    const result = await pool.request().query(`
-      SELECT c.id_compra, c.NIT_proveedor, p.nombre_proveedor,
+    const pool = await getPool()
+    const result = await pool.query(`
+      SELECT c.id_compra, c.nit_proveedor, p.nombre_proveedor,
              c.fecha_compra, c.fecha_aproximada_entrega,
              c.total_compra, c.estado
-      FROM COMPRAS c
-      INNER JOIN PROVEEDORES p ON c.NIT_proveedor = p.NIT_proveedor
+      FROM compras c
+      INNER JOIN proveedores p ON c.nit_proveedor = p.nit_proveedor
       ORDER BY c.fecha_compra DESC
     `)
-
-    res.json(result.recordset)
-  } catch (err) {
-    console.error(err)
+    res.json(result.rows)
+  } catch (error) {
+    console.error("Error al obtener compras:", error)
     res.status(500).json({ mensaje: "Error al obtener compras" })
   }
 }
@@ -25,25 +24,23 @@ export const getCompras = async (req, res) => {
 export const getCompraById = async (req, res) => {
   try {
     const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query(`
-        SELECT c.id_compra, c.NIT_proveedor, p.nombre_proveedor,
-               c.fecha_compra, c.fecha_aproximada_entrega,
-               c.total_compra, c.estado
-        FROM COMPRAS c
-        INNER JOIN PROVEEDORES p ON c.NIT_proveedor = p.NIT_proveedor
-        WHERE c.id_compra = @id
-      `)
+    const pool = await getPool()
+    const result = await pool.query(`
+      SELECT c.id_compra, c.nit_proveedor, p.nombre_proveedor,
+             c.fecha_compra, c.fecha_aproximada_entrega,
+             c.total_compra, c.estado
+      FROM compras c
+      INNER JOIN proveedores p ON c.nit_proveedor = p.nit_proveedor
+      WHERE c.id_compra = $1
+    `, [id])
 
-    if (result.recordset.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Compra no encontrada" })
     }
 
-    res.json(result.recordset[0])
-  } catch (err) {
-    console.error(err)
+    res.json(result.rows[0])
+  } catch (error) {
+    console.error("Error al obtener compra:", error)
     res.status(500).json({ mensaje: "Error al obtener compra" })
   }
 }
@@ -51,34 +48,20 @@ export const getCompraById = async (req, res) => {
 // ✅ Crear compra
 export const createCompra = async (req, res) => {
   try {
-    const { NIT_proveedor, fecha_compra, fecha_aproximada_entrega, total_compra, estado } = req.body
+    const { nit_proveedor, fecha_compra, fecha_aproximada_entrega, total_compra, estado } = req.body
+    const pool = await getPool()
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("NIT_proveedor", sql.VarChar, NIT_proveedor)
-      .input("fecha_compra", sql.Date, fecha_compra)
-      .input("fecha_aproximada_entrega", sql.Date, fecha_aproximada_entrega || null)
-      .input("total_compra", sql.Decimal(12,2), total_compra)
-      .input("estado", sql.VarChar, estado)
-      .query(`
-        INSERT INTO COMPRAS (NIT_proveedor, fecha_compra, fecha_aproximada_entrega, total_compra, estado)
-        VALUES (@NIT_proveedor, @fecha_compra, @fecha_aproximada_entrega, @total_compra, @estado);
-        SELECT SCOPE_IDENTITY() AS id;
-      `)
+    const result = await pool.query(`
+      INSERT INTO compras (nit_proveedor, fecha_compra, fecha_aproximada_entrega, total_compra, estado)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `, [nit_proveedor, fecha_compra, fecha_aproximada_entrega || null, total_compra, estado])
 
-    const nuevaCompra = new Compra({
-      id_compra: result.recordset[0].id,
-      NIT_proveedor,
-      fecha_compra,
-      fecha_aproximada_entrega,
-      total_compra,
-      estado
-    })
-
+    const nuevaCompra = new Compra(result.rows[0])
     res.status(201).json(nuevaCompra)
-  } catch (err) {
-    console.error(err)
-    res.status(400).json({ mensaje: "Error al crear compra", error: err.message })
+  } catch (error) {
+    console.error("Error al crear compra:", error)
+    res.status(400).json({ mensaje: "Error al crear compra", error: error.message })
   }
 }
 
@@ -86,34 +69,28 @@ export const createCompra = async (req, res) => {
 export const updateCompra = async (req, res) => {
   try {
     const { id } = req.params
-    const { NIT_proveedor, fecha_compra, fecha_aproximada_entrega, total_compra, estado } = req.body
+    const { nit_proveedor, fecha_compra, fecha_aproximada_entrega, total_compra, estado } = req.body
+    const pool = await getPool()
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .input("NIT_proveedor", sql.VarChar, NIT_proveedor)
-      .input("fecha_compra", sql.Date, fecha_compra)
-      .input("fecha_aproximada_entrega", sql.Date, fecha_aproximada_entrega || null)
-      .input("total_compra", sql.Decimal(12,2), total_compra)
-      .input("estado", sql.VarChar, estado)
-      .query(`
-        UPDATE COMPRAS
-        SET NIT_proveedor = @NIT_proveedor,
-            fecha_compra = @fecha_compra,
-            fecha_aproximada_entrega = @fecha_aproximada_entrega,
-            total_compra = @total_compra,
-            estado = @estado
-        WHERE id_compra = @id
-      `)
+    const result = await pool.query(`
+      UPDATE compras
+      SET nit_proveedor = $1,
+          fecha_compra = $2,
+          fecha_aproximada_entrega = $3,
+          total_compra = $4,
+          estado = $5
+      WHERE id_compra = $6
+      RETURNING *
+    `, [nit_proveedor, fecha_compra, fecha_aproximada_entrega || null, total_compra, estado, id])
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Compra no encontrada" })
     }
 
     res.json({ mensaje: "Compra actualizada correctamente" })
-  } catch (err) {
-    console.error(err)
-    res.status(400).json({ mensaje: "Error al actualizar compra", error: err.message })
+  } catch (error) {
+    console.error("Error al actualizar compra:", error)
+    res.status(400).json({ mensaje: "Error al actualizar compra", error: error.message })
   }
 }
 
@@ -121,18 +98,17 @@ export const updateCompra = async (req, res) => {
 export const deleteCompra = async (req, res) => {
   try {
     const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("DELETE FROM COMPRAS WHERE id_compra = @id")
+    const pool = await getPool()
 
-    if (result.rowsAffected[0] === 0) {
+    const result = await pool.query("DELETE FROM compras WHERE id_compra = $1", [id])
+
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Compra no encontrada" })
     }
 
     res.json({ mensaje: "Compra eliminada correctamente" })
-  } catch (err) {
-    console.error(err)
+  } catch (error) {
+    console.error("Error al eliminar compra:", error)
     res.status(500).json({ mensaje: "Error al eliminar compra" })
   }
 }

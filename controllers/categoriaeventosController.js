@@ -1,13 +1,11 @@
-import sql from "mssql"
+import pool from "../config/postgresPool.js"
 import CategoriaEventos from "../models/CategoriaEventos.js"
 
 // Obtener todas las categorías
 export const getCategorias = async (req, res) => {
   try {
-    const pool = await sql.connect()
-    const result = await pool.request().query("SELECT * FROM CATEGORIAS_EVENTOS")
-
-    const categorias = result.recordset.map(row => new CategoriaEventos(row))
+    const result = await pool.query("SELECT * FROM categorias_eventos")
+    const categorias = result.rows.map(row => new CategoriaEventos(row))
     res.json(categorias)
   } catch (err) {
     console.error(err)
@@ -19,16 +17,16 @@ export const getCategorias = async (req, res) => {
 export const getCategoriaById = async (req, res) => {
   try {
     const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("SELECT * FROM CATEGORIAS_EVENTOS WHERE id_categoria_evento = @id")
+    const result = await pool.query(
+      "SELECT * FROM categorias_eventos WHERE id_categoria_evento = $1",
+      [id]
+    )
 
-    if (result.recordset.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Categoría no encontrada" })
     }
 
-    const categoria = new CategoriaEventos(result.recordset[0])
+    const categoria = new CategoriaEventos(result.rows[0])
     res.json(categoria)
   } catch (err) {
     console.error(err)
@@ -40,17 +38,16 @@ export const getCategoriaById = async (req, res) => {
 export const createCategoria = async (req, res) => {
   try {
     const { nombre_categoria, descripcion, imagen } = req.body
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("nombre_categoria", sql.NVarChar, nombre_categoria)
-      .input("descripcion", sql.NVarChar, descripcion)
-      .input("imagen", sql.NVarChar, imagen)
-      .query(`INSERT INTO CATEGORIAS_EVENTOS (nombre_categoria, descripcion, imagen)
-              VALUES (@nombre_categoria, @descripcion, @imagen);
-              SELECT SCOPE_IDENTITY() as id;`)
+
+    const result = await pool.query(
+      `INSERT INTO categorias_eventos (nombre_categoria, descripcion, imagen)
+       VALUES ($1, $2, $3)
+       RETURNING id_categoria_evento`,
+      [nombre_categoria, descripcion, imagen]
+    )
 
     const nuevaCategoria = new CategoriaEventos({
-      id_categoria_evento: result.recordset[0].id,
+      id_categoria_evento: result.rows[0].id_categoria_evento,
       nombre_categoria,
       descripcion,
       imagen
@@ -69,17 +66,14 @@ export const updateCategoria = async (req, res) => {
     const { id } = req.params
     const { nombre_categoria, descripcion, imagen } = req.body
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .input("nombre_categoria", sql.NVarChar, nombre_categoria)
-      .input("descripcion", sql.NVarChar, descripcion)
-      .input("imagen", sql.NVarChar, imagen)
-      .query(`UPDATE CATEGORIAS_EVENTOS
-              SET nombre_categoria = @nombre_categoria, descripcion = @descripcion, imagen = @imagen
-              WHERE id_categoria_evento = @id`)
+    const result = await pool.query(
+      `UPDATE categorias_eventos
+       SET nombre_categoria = $1, descripcion = $2, imagen = $3
+       WHERE id_categoria_evento = $4`,
+      [nombre_categoria, descripcion, imagen, id]
+    )
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Categoría no encontrada" })
     }
 
@@ -94,12 +88,12 @@ export const updateCategoria = async (req, res) => {
 export const deleteCategoria = async (req, res) => {
   try {
     const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("DELETE FROM CATEGORIAS_EVENTOS WHERE id_categoria_evento = @id")
+    const result = await pool.query(
+      "DELETE FROM categorias_eventos WHERE id_categoria_evento = $1",
+      [id]
+    )
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Categoría no encontrada" })
     }
 

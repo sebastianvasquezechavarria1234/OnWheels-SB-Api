@@ -1,14 +1,42 @@
 // controllers/preinscripcionesController.js
-import { getPool } from "../db/mssqlPool.js";
+import { getPool } from "../db/postgresPool.js";
 
 // ✅ Obtener todas las preinscripciones
-export const getPreinscripciones = async (req, res) => {
+ export const getPreinscripciones = async (req, res) => {
   try {
-    const pool = await getPool();
-    const result = await pool.request().query("SELECT * FROM PREINSCRIPCIONES");
+    const pool = await sql.connect();
+    const result = await pool.request().query(`
+      SELECT 
+        p.id_preinscripcion,
+        p.nivel_experiencia,
+        p.edad,
+        p.otra_enfermedad,
+        u.id_usuario,
+        u.nombre_completo AS nombre_usuario,
+        u.email AS email_usuario,
+        u.telefono AS telefono_usuario,
+        u.direccion AS direccion_usuario,
+        u.fecha_nacimiento,
+        u.tipo_documento,
+        u.documento,
+        u.tipo_genero,
+        a.id_acudiente,
+        a.nombre_completo AS nombre_acudiente,
+        a.telefono_principal,
+        a.telefono_secundario,
+        a.email AS email_acudiente,
+        a.direccion AS direccion_acudiente,
+        a.parentesco
+      FROM PREINSCRIPCIONES p
+      INNER JOIN USUARIOS u ON p.id_usuario = u.id_usuario
+      LEFT JOIN ACUDIENTES a ON p.id_acudiente = a.id_acudiente
+      ORDER BY p.id_preinscripcion DESC
+    `);
+
     res.json(result.recordset);
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error al obtener preinscripciones", error: error.message });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ mensaje: "Error al obtener preinscripciones" });
   }
 };
 

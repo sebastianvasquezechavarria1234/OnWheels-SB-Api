@@ -1,4 +1,4 @@
-import { Router } from "express"
+import express from "express"
 import {
   getCategorias,
   getCategoriaById,
@@ -7,7 +7,7 @@ import {
   deleteCategoria
 } from "../controllers/categoriaEventosController.js"
 
-const router = Router()
+const router = express.Router()
 
 router.get("/", getCategorias)
 router.get("/:id", getCategoriaById)

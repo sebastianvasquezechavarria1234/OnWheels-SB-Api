@@ -1,7 +1,7 @@
 // controllers/planesClasesController.js
 
 
-import { getPool } from "../db/mssqlPool.js";
+import { getPool } from "../db/postgresPool.js";
 
 // ✅ Obtener todos los planes
 export const getPlanes = async (req, res) => {

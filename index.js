@@ -1,59 +1,52 @@
+// index.js
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { getPool } from "./db/mssqlPool.js";
+import pool from "./db/postgresPool.js"; 
 
-
-
-// Importar rutas
-import authRoutes from './routes/authRoutes.js';
-
-import matriculasRoutes from "./routes/matriculas.js";  // Corregido
+import variantesRoutes from "./routes/variantes.js";
+import tallaRoutes from "./routes/tallas.js";
+import colorRoutes from "./routes/colores.js";
+import authRoutes from "./routes/authRoutes.js";
+import matriculasRoutes from "./routes/matriculas.js";
 import preinscripcionesRoutes from "./routes/preinscripciones.js";
-import planesClasesRoutes from "./routes/planes.js";  // Corregido
+import planesClasesRoutes from "./routes/planes.js";
 import nivelesClasesRoutes from "./routes/nivelesClases.js";
-import ventasRoutes from "./routes/ventas.js";  // Corregido
+import ventasRoutes from "./routes/ventas.js";
 import patrocinadoresRoutes from "./routes/patrocinadores.js";
-import sedesRoutes from "./routes/sedes.js";  // Corregido
-import comprasRoutes from "./routes/compras.js";  // Corregido
-import categoriaproductosRoutes from "./routes/categoriaProductos.js";  // Corregido
-import categoriaEventosRoutes from "./routes/categoriaEventos.js";  // Corregido
-import productosRoutes from "./routes/productos.js";  // Corregido
-import rolesRoutes from "./routes/roles.js";  // Correcto
+import sedesRoutes from "./routes/sedes.js";
+import comprasRoutes from "./routes/compras.js";
+import categoriaproductosRoutes from "./routes/categoriaProductos.js";
+import categoriaEventosRoutes from "./routes/categoriaEventos.js";
+import productosRoutes from "./routes/productos.js";
+import rolesRoutes from "./routes/roles.js";
 import usuariosRoutes from "./routes/usuarios.js";
 import eventosRoutes from "./routes/eventos.js";
 import clasesRoutes from "./routes/clases.js";
-import proveedoresRoutes from "./routes/proveedores.js"; 
-
-
+import proveedoresRoutes from "./routes/proveedores.js";
 
 dotenv.config();
 
 const app = express();
 
-// Middlewares
-app.use('/api/auth', authRoutes);
-
 app.use(cors());
 app.use(express.json());
+app.use("/api/auth", authRoutes);
 
-// Probar conexión a SQL Server al arrancar
 (async () => {
   try {
-    const pool = await getPool();
-    const result = await pool.request().query("SELECT 1 AS conectado");
-    console.log("✅ Conectado a SQL Server:", result.recordset[0]);
+    const res = await pool.query("SELECT NOW() AS conectado");
+    console.log("✅ Conectado a PostgreSQL:", res.rows[0]);
   } catch (err) {
-    console.error("❌ Error conectando a SQL Server:", err);
+    console.error("❌ Error conectando a PostgreSQL:", err);
   }
 })();
 
-// Ruta de bienvenida
 app.get("/", (req, res) => {
   res.json({
     mensaje: "🛹 Bienvenido a OnWheels Skateboard API",
     version: "1.0.0",
-    storage: "SQL Server",
+    storage: "PostgreSQL",
     endpoints: {
       usuarios: "/api/usuarios",
       eventos: "/api/eventos",
@@ -70,11 +63,13 @@ app.get("/", (req, res) => {
       niveles: "/api/niveles",
       planes: "/api/planes",
       preinscripciones: "/api/preinscripciones",
+      matriculas: "/api/matriculas",
+      tallas: "/api/tallas",
+      colores: "/api/colores",
+      variantes: "/api/variantes",
     },
   });
 });
-
-// Rutas de la API
 
 app.use("/api/productos", productosRoutes);
 app.use("/api/proveedores", proveedoresRoutes);
@@ -92,11 +87,12 @@ app.use("/api/niveles", nivelesClasesRoutes);
 app.use("/api/planes", planesClasesRoutes);
 app.use("/api/preinscripciones", preinscripcionesRoutes);
 app.use("/api/matriculas", matriculasRoutes);
+app.use("/api/tallas", tallaRoutes);
+app.use("/api/colores", colorRoutes);
+app.use("/api/variantes", variantesRoutes);
 
-
-// Levantar el servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🌐 OnWheels API corriendo en puerto ${PORT}`);
-  console.log(`🗄️ Usando SQL Server`);
+  console.log(`🗄️ Usando PostgreSQL`);
 });

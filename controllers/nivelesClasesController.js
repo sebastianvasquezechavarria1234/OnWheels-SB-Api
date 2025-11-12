@@ -1,4 +1,4 @@
-import { getPool } from "../db/mssqlPool.js";
+import { getPool } from "../db/postgresPool.js";
 
 // ✅ Obtener todos los niveles
 export const getNiveles = async (req, res) => {
