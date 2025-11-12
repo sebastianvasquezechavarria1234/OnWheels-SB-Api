@@ -1,31 +1,29 @@
-import sql from "mssql"
+// controllers/usuariosController.js
+import pool from "../db/postgresPool.js"
+import Usuario from "../models/Usuarios.js"
 
-// ✅ Obtener todos
+// ✅ Obtener todos los usuarios
 export const getUsuarios = async (req, res) => {
   try {
-    const pool = await sql.connect()
-    const result = await pool.request().query("SELECT * FROM USUARIOS ORDER BY nombre_completo ASC")
-    res.json(result.recordset)
+    const result = await pool.query("SELECT * FROM usuarios ORDER BY nombre_completo ASC")
+    res.json(result.rows)
   } catch (err) {
     console.error(err)
     res.status(500).json({ mensaje: "Error al obtener usuarios" })
   }
 }
 
-// ✅ Obtener por ID
+// ✅ Obtener usuario por ID
 export const getUsuarioById = async (req, res) => {
   try {
     const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("SELECT * FROM USUARIOS WHERE id_usuario = @id")
+    const result = await pool.query("SELECT * FROM usuarios WHERE id_usuario = $1", [id])
 
-    if (result.recordset.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" })
     }
 
-    res.json(result.recordset[0])
+    res.json(result.rows[0])
   } catch (err) {
     console.error(err)
     res.status(500).json({ mensaje: "Error al obtener usuario" })
@@ -36,13 +34,10 @@ export const getUsuarioById = async (req, res) => {
 export const verificarEmail = async (req, res) => {
   try {
     const { email } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("email", sql.VarChar, email)
-      .query("SELECT * FROM USUARIOS WHERE email = @email")
+    const result = await pool.query("SELECT * FROM usuarios WHERE email = $1", [email])
 
-    if (result.recordset.length > 0) {
-      return res.json({ existe: true, usuario: result.recordset[0] })
+    if (result.rows.length > 0) {
+      return res.json({ existe: true, usuario: result.rows[0] })
     }
 
     res.json({ existe: false })
@@ -52,68 +47,102 @@ export const verificarEmail = async (req, res) => {
   }
 }
 
-// ✅ Crear
+// ✅ Crear usuario
 export const createUsuario = async (req, res) => {
   try {
-    const { documento, tipo_documento, nombre_completo, email, telefono, fecha_nacimiento, direccion, contraseña, tipo_genero } = req.body
+    const {
+      documento,
+      tipo_documento,
+      nombre_completo,
+      email,
+      telefono,
+      fecha_nacimiento,
+      direccion,
+      contraseña,
+      tipo_genero
+    } = req.body
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("documento", sql.VarChar, documento)
-      .input("tipo_documento", sql.VarChar, tipo_documento)
-      .input("nombre_completo", sql.VarChar, nombre_completo)
-      .input("email", sql.VarChar, email)
-      .input("telefono", sql.VarChar, telefono)
-      .input("fecha_nacimiento", sql.Date, fecha_nacimiento)
-      .input("direccion", sql.VarChar, direccion)
-      .input("contraseña", sql.VarChar, contraseña)
-      .input("tipo_genero", sql.VarChar, tipo_genero)
-      .query(`
-        INSERT INTO USUARIOS (documento, tipo_documento, nombre_completo, email, telefono, fecha_nacimiento, direccion, contraseña, tipo_genero)
-        VALUES (@documento, @tipo_documento, @nombre_completo, @email, @telefono, @fecha_nacimiento, @direccion, @contraseña, @tipo_genero);
-        SELECT SCOPE_IDENTITY() AS id;
-      `)
+    const result = await pool.query(
+      `INSERT INTO usuarios 
+      (documento, tipo_documento, nombre_completo, email, telefono, fecha_nacimiento, direccion, contraseña, tipo_genero)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      RETURNING id_usuario`,
+      [
+        documento,
+        tipo_documento,
+        nombre_completo,
+        email,
+        telefono,
+        fecha_nacimiento,
+        direccion,
+        contraseña,
+        tipo_genero
+      ]
+    )
 
-    res.status(201).json({ mensaje: "Usuario creado correctamente", id_usuario: result.recordset[0].id })
+    const nuevoUsuario = new Usuario({
+      id_usuario: result.rows[0].id_usuario,
+      documento,
+      tipo_documento,
+      nombre_completo,
+      email,
+      telefono,
+      fecha_nacimiento,
+      direccion,
+      contraseña,
+      tipo_genero
+    })
+
+    res.status(201).json(nuevoUsuario)
   } catch (err) {
     console.error(err)
     res.status(400).json({ mensaje: "Error al crear usuario", error: err.message })
   }
 }
 
-// ✅ Actualizar
+// ✅ Actualizar usuario
 export const updateUsuario = async (req, res) => {
   try {
     const { id } = req.params
-    const { documento, tipo_documento, nombre_completo, email, telefono, fecha_nacimiento, direccion, contraseña, tipo_genero } = req.body
+    const {
+      documento,
+      tipo_documento,
+      nombre_completo,
+      email,
+      telefono,
+      fecha_nacimiento,
+      direccion,
+      contraseña,
+      tipo_genero
+    } = req.body
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .input("documento", sql.VarChar, documento)
-      .input("tipo_documento", sql.VarChar, tipo_documento)
-      .input("nombre_completo", sql.VarChar, nombre_completo)
-      .input("email", sql.VarChar, email)
-      .input("telefono", sql.VarChar, telefono)
-      .input("fecha_nacimiento", sql.Date, fecha_nacimiento)
-      .input("direccion", sql.VarChar, direccion)
-      .input("contraseña", sql.VarChar, contraseña)
-      .input("tipo_genero", sql.VarChar, tipo_genero)
-      .query(`
-        UPDATE USUARIOS
-        SET documento = @documento,
-            tipo_documento = @tipo_documento,
-            nombre_completo = @nombre_completo,
-            email = @email,
-            telefono = @telefono,
-            fecha_nacimiento = @fecha_nacimiento,
-            direccion = @direccion,
-            contraseña = @contraseña,
-            tipo_genero = @tipo_genero
-        WHERE id_usuario = @id
-      `)
+    const result = await pool.query(
+      `UPDATE usuarios
+       SET documento = $1,
+           tipo_documento = $2,
+           nombre_completo = $3,
+           email = $4,
+           telefono = $5,
+           fecha_nacimiento = $6,
+           direccion = $7,
+           contraseña = $8,
+           tipo_genero = $9
+       WHERE id_usuario = $10`,
+      [
+        documento,
+        tipo_documento,
+        nombre_completo,
+        email,
+        telefono,
+        fecha_nacimiento,
+        direccion,
+        contraseña,
+        tipo_genero,
+        id
+      ]
+    )
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" })
     }
 
@@ -124,16 +153,13 @@ export const updateUsuario = async (req, res) => {
   }
 }
 
-// ✅ Eliminar
+// ✅ Eliminar usuario
 export const deleteUsuario = async (req, res) => {
   try {
     const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("DELETE FROM USUARIOS WHERE id_usuario = @id")
+    const result = await pool.query("DELETE FROM usuarios WHERE id_usuario = $1", [id])
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" })
     }
 

@@ -1,12 +1,23 @@
-// controllers/matriculasController.js
-import { getPool } from "../db/mssqlPool.js";
+import { getPool } from "../db/postgresPool.js";
+import Matricula from "../models/Matricula.js";
 
-// ✅ Obtener todas las matrículas
+// ✅ Obtener todas las matrículas (con datos de estudiante, clase y plan)
 export const getMatriculas = async (req, res) => {
   try {
     const pool = await getPool();
-    const result = await pool.request().query("SELECT * FROM MATRICULAS");
-    res.json(result.recordset);
+    const result = await pool.query(`
+      SELECT 
+        m.*, 
+        e.nombre_completo AS nombre_estudiante,
+        c.descripcion AS descripcion_clase,
+        p.nombre_plan AS nombre_plan
+      FROM MATRICULAS m
+      INNER JOIN ESTUDIANTES e ON m.id_estudiante = e.id_estudiante
+      INNER JOIN CLASES c ON m.id_clase = c.id_clase
+      INNER JOIN PLANES_CLASES p ON m.id_plan = p.id_plan
+      ORDER BY m.fecha_matricula DESC
+    `);
+    res.json(result.rows);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al obtener matrículas", error: error.message });
   }
@@ -17,16 +28,27 @@ export const getMatriculaById = async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_matricula", id)
-      .query("SELECT * FROM MATRICULAS WHERE id_matricula = @id_matricula");
+    const result = await pool.query(
+      `
+      SELECT 
+        m.*, 
+        e.nombre_completo AS nombre_estudiante,
+        c.descripcion AS descripcion_clase,
+        p.nombre_plan AS nombre_plan
+      FROM MATRICULAS m
+      INNER JOIN ESTUDIANTES e ON m.id_estudiante = e.id_estudiante
+      INNER JOIN CLASES c ON m.id_clase = c.id_clase
+      INNER JOIN PLANES_CLASES p ON m.id_plan = p.id_plan
+      WHERE m.id_matricula = $1
+      `,
+      [id]
+    );
 
-    if (result.recordset.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Matrícula no encontrada" });
     }
 
-    res.json(result.recordset[0]);
+    res.json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al obtener matrícula", error: error.message });
   }
@@ -35,24 +57,20 @@ export const getMatriculaById = async (req, res) => {
 // ✅ Crear matrícula
 export const createMatricula = async (req, res) => {
   try {
-    const { id_preinscripcion, id_clase, id_plan, id_metodo_pago, fecha_matricula, valor_matricula } = req.body;
+    const { id_estudiante, id_clase, id_plan, fecha_matricula, estado } = req.body;
 
     const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_preinscripcion", id_preinscripcion)
-      .input("id_clase", id_clase)
-      .input("id_plan", id_plan)
-      .input("id_metodo_pago", id_metodo_pago)
-      .input("fecha_matricula", fecha_matricula)
-      .input("valor_matricula", valor_matricula)
-      .query(`
-        INSERT INTO MATRICULAS (id_preinscripcion, id_clase, id_plan, id_metodo_pago, fecha_matricula, valor_matricula)
-        OUTPUT INSERTED.*
-        VALUES (@id_preinscripcion, @id_clase, @id_plan, @id_metodo_pago, @fecha_matricula, @valor_matricula)
-      `);
+    const result = await pool.query(
+      `
+      INSERT INTO MATRICULAS (id_estudiante, id_clase, id_plan, fecha_matricula, estado)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+      `,
+      [id_estudiante, id_clase, id_plan, fecha_matricula || new Date(), estado || "Activa"]
+    );
 
-    res.status(201).json({ mensaje: "Matrícula creada", matricula: result.recordset[0] });
+    const nuevaMatricula = new Matricula(result.rows[0]);
+    res.status(201).json(nuevaMatricula);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al crear matrícula", error: error.message });
   }
@@ -62,30 +80,29 @@ export const createMatricula = async (req, res) => {
 export const updateMatricula = async (req, res) => {
   try {
     const { id } = req.params;
-    const { id_preinscripcion, id_clase, id_plan, id_metodo_pago, fecha_matricula, valor_matricula } = req.body;
+    const { id_estudiante, id_clase, id_plan, fecha_matricula, estado } = req.body;
 
     const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_matricula", id)
-      .input("id_preinscripcion", id_preinscripcion)
-      .input("id_clase", id_clase)
-      .input("id_plan", id_plan)
-      .input("id_metodo_pago", id_metodo_pago)
-      .input("fecha_matricula", fecha_matricula)
-      .input("valor_matricula", valor_matricula)
-      .query(`
-        UPDATE MATRICULAS
-        SET id_preinscripcion=@id_preinscripcion, id_clase=@id_clase, id_plan=@id_plan,
-            id_metodo_pago=@id_metodo_pago, fecha_matricula=@fecha_matricula, valor_matricula=@valor_matricula
-        WHERE id_matricula=@id_matricula
-      `);
+    const result = await pool.query(
+      `
+      UPDATE MATRICULAS
+      SET 
+        id_estudiante = $1,
+        id_clase = $2,
+        id_plan = $3,
+        fecha_matricula = $4,
+        estado = $5
+      WHERE id_matricula = $6
+      RETURNING *
+      `,
+      [id_estudiante, id_clase, id_plan, fecha_matricula, estado, id]
+    );
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Matrícula no encontrada" });
     }
 
-    res.json({ mensaje: "Matrícula actualizada" });
+    res.json({ mensaje: "Matrícula actualizada correctamente" });
   } catch (error) {
     res.status(500).json({ mensaje: "Error al actualizar matrícula", error: error.message });
   }
@@ -96,16 +113,13 @@ export const deleteMatricula = async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_matricula", id)
-      .query("DELETE FROM MATRICULAS WHERE id_matricula=@id_matricula");
+    const result = await pool.query("DELETE FROM MATRICULAS WHERE id_matricula = $1", [id]);
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Matrícula no encontrada" });
     }
 
-    res.json({ mensaje: "Matrícula eliminada" });
+    res.json({ mensaje: "Matrícula eliminada correctamente" });
   } catch (error) {
     res.status(500).json({ mensaje: "Error al eliminar matrícula", error: error.message });
   }

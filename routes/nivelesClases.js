@@ -1,28 +1,18 @@
-// routes/nivelesClases.js
 import express from "express";
 import {
   getNiveles,
   getNivelById,
   createNivel,
   updateNivel,
-  deleteNivel,
-} from "../controllers/nivelesClasesController.js";
+  deleteNivel
+} from "../controllers/nivelesController.js";
 
 const router = express.Router();
 
-// GET /api/niveles
-router.get("/", getNiveles);
-
-// GET /api/niveles/:id
-router.get("/:id", getNivelById);
-
-// POST /api/niveles
-router.post("/", createNivel);
-
-// PUT /api/niveles/:id
-router.put("/:id", updateNivel);
-
-// DELETE /api/niveles/:id
-router.delete("/:id", deleteNivel);
+router.get("/", getNiveles);       // Listar todos los niveles
+router.get("/:id", getNivelById);  // Obtener nivel por ID
+router.post("/", createNivel);     // Crear nuevo nivel
+router.put("/:id", updateNivel);   // Actualizar nivel existente
+router.delete("/:id", deleteNivel); // Eliminar nivel
 
 export default router;

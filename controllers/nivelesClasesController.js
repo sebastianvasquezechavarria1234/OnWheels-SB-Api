@@ -1,11 +1,12 @@
-import { getPool } from "../db/mssqlPool.js";
+import { getPool } from "../db/postgresPool.js";
+import Nivel from "../models/Nivel.js";
 
 // ✅ Obtener todos los niveles
 export const getNiveles = async (req, res) => {
   try {
     const pool = await getPool();
-    const result = await pool.request().query("SELECT * FROM NIVELES_CLASES");
-    res.json(result.recordset);
+    const result = await pool.query("SELECT * FROM NIVELES_CLASES ORDER BY id_nivel ASC");
+    res.json(result.rows);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al obtener niveles", error: error.message });
   }
@@ -16,16 +17,14 @@ export const getNivelById = async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_nivel", id)
-      .query("SELECT * FROM NIVELES_CLASES WHERE id_nivel = @id_nivel");
+    const result = await pool.query("SELECT * FROM NIVELES_CLASES WHERE id_nivel = $1", [id]);
 
-    if (result.recordset.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Nivel no encontrado" });
     }
 
-    res.json(result.recordset[0]);
+    const nivel = new Nivel(result.rows[0]);
+    res.json(nivel);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al obtener nivel", error: error.message });
   }
@@ -36,15 +35,16 @@ export const createNivel = async (req, res) => {
   try {
     const { nombre_nivel, descripcion } = req.body;
     const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("nombre_nivel", nombre_nivel)
-      .input("descripcion", descripcion)
-      .query(
-        "INSERT INTO NIVELES_CLASES (nombre_nivel, descripcion) OUTPUT INSERTED.* VALUES (@nombre_nivel, @descripcion)"
-      );
 
-    res.status(201).json({ mensaje: "Nivel creado", nivel: result.recordset[0] });
+    const result = await pool.query(
+      `INSERT INTO NIVELES_CLASES (nombre_nivel, descripcion)
+       VALUES ($1, $2)
+       RETURNING *`,
+      [nombre_nivel, descripcion]
+    );
+
+    const nuevoNivel = new Nivel(result.rows[0]);
+    res.status(201).json({ mensaje: "Nivel creado", nivel: nuevoNivel });
   } catch (error) {
     res.status(500).json({ mensaje: "Error al crear nivel", error: error.message });
   }
@@ -57,20 +57,19 @@ export const updateNivel = async (req, res) => {
     const { nombre_nivel, descripcion } = req.body;
 
     const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_nivel", id)
-      .input("nombre_nivel", nombre_nivel)
-      .input("descripcion", descripcion)
-      .query(
-        "UPDATE NIVELES_CLASES SET nombre_nivel=@nombre_nivel, descripcion=@descripcion WHERE id_nivel=@id_nivel"
-      );
+    const result = await pool.query(
+      `UPDATE NIVELES_CLASES
+       SET nombre_nivel = $1, descripcion = $2
+       WHERE id_nivel = $3
+       RETURNING *`,
+      [nombre_nivel, descripcion, id]
+    );
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Nivel no encontrado" });
     }
 
-    res.json({ mensaje: "Nivel actualizado" });
+    res.json({ mensaje: "Nivel actualizado correctamente", nivel: result.rows[0] });
   } catch (error) {
     res.status(500).json({ mensaje: "Error al actualizar nivel", error: error.message });
   }
@@ -81,16 +80,14 @@ export const deleteNivel = async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_nivel", id)
-      .query("DELETE FROM NIVELES_CLASES WHERE id_nivel=@id_nivel");
 
-    if (result.rowsAffected[0] === 0) {
+    const result = await pool.query("DELETE FROM NIVELES_CLASES WHERE id_nivel = $1", [id]);
+
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Nivel no encontrado" });
     }
 
-    res.json({ mensaje: "Nivel eliminado" });
+    res.json({ mensaje: "Nivel eliminado correctamente" });
   } catch (error) {
     res.status(500).json({ mensaje: "Error al eliminar nivel", error: error.message });
   }

@@ -1,14 +1,14 @@
-import sql from "mssql"
+// controllers/sedesController.js
+import pool from "../db/postgresPool.js"
 import Sede from "../models/Sedes.js"
 
 // ✅ Obtener todas las sedes
 export const getSedes = async (req, res) => {
   try {
-    const pool = await sql.connect()
-    const result = await pool.request().query("SELECT * FROM SEDES ORDER BY nombre_sede ASC")
-    res.json(result.recordset)
+    const result = await pool.query("SELECT * FROM sedes ORDER BY nombre_sede ASC")
+    res.json(result.rows)
   } catch (err) {
-    console.error(err)
+    console.error("Error al obtener sedes:", err)
     res.status(500).json({ mensaje: "Error al obtener sedes" })
   }
 }
@@ -17,18 +17,15 @@ export const getSedes = async (req, res) => {
 export const getSedeById = async (req, res) => {
   try {
     const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("SELECT * FROM SEDES WHERE id_sede = @id")
+    const result = await pool.query("SELECT * FROM sedes WHERE id_sede = $1", [id])
 
-    if (result.recordset.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Sede no encontrada" })
     }
 
-    res.json(result.recordset[0])
+    res.json(result.rows[0])
   } catch (err) {
-    console.error(err)
+    console.error("Error al obtener sede:", err)
     res.status(500).json({ mensaje: "Error al obtener sede" })
   }
 }
@@ -38,29 +35,17 @@ export const createSede = async (req, res) => {
   try {
     const { nombre_sede, direccion, ciudad, telefono_sede } = req.body
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("nombre_sede", sql.NVarChar, nombre_sede)
-      .input("direccion", sql.NVarChar, direccion)
-      .input("ciudad", sql.NVarChar, ciudad)
-      .input("telefono_sede", sql.NVarChar, telefono_sede)
-      .query(`
-        INSERT INTO SEDES (nombre_sede, direccion, ciudad, telefono_sede)
-        VALUES (@nombre_sede, @direccion, @ciudad, @telefono_sede);
-        SELECT SCOPE_IDENTITY() AS id;
-      `)
+    const result = await pool.query(
+      `INSERT INTO sedes (nombre_sede, direccion, ciudad, telefono_sede)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [nombre_sede, direccion, ciudad, telefono_sede]
+    )
 
-    const nuevaSede = new Sede({
-      id_sede: result.recordset[0].id,
-      nombre_sede,
-      direccion,
-      ciudad,
-      telefono_sede
-    })
-
+    const nuevaSede = new Sede(result.rows[0])
     res.status(201).json(nuevaSede)
   } catch (err) {
-    console.error(err)
+    console.error("Error al crear sede:", err)
     res.status(400).json({ mensaje: "Error al crear sede", error: err.message })
   }
 }
@@ -71,29 +56,24 @@ export const updateSede = async (req, res) => {
     const { id } = req.params
     const { nombre_sede, direccion, ciudad, telefono_sede } = req.body
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .input("nombre_sede", sql.NVarChar, nombre_sede)
-      .input("direccion", sql.NVarChar, direccion)
-      .input("ciudad", sql.NVarChar, ciudad)
-      .input("telefono_sede", sql.NVarChar, telefono_sede)
-      .query(`
-        UPDATE SEDES
-        SET nombre_sede = @nombre_sede,
-            direccion = @direccion,
-            ciudad = @ciudad,
-            telefono_sede = @telefono_sede
-        WHERE id_sede = @id
-      `)
+    const result = await pool.query(
+      `UPDATE sedes
+       SET nombre_sede = $1,
+           direccion = $2,
+           ciudad = $3,
+           telefono_sede = $4
+       WHERE id_sede = $5
+       RETURNING *`,
+      [nombre_sede, direccion, ciudad, telefono_sede, id]
+    )
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Sede no encontrada" })
     }
 
-    res.json({ mensaje: "Sede actualizada correctamente" })
+    res.json({ mensaje: "Sede actualizada correctamente", sede: result.rows[0] })
   } catch (err) {
-    console.error(err)
+    console.error("Error al actualizar sede:", err)
     res.status(400).json({ mensaje: "Error al actualizar sede", error: err.message })
   }
 }
@@ -102,18 +82,15 @@ export const updateSede = async (req, res) => {
 export const deleteSede = async (req, res) => {
   try {
     const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("DELETE FROM SEDES WHERE id_sede = @id")
+    const result = await pool.query("DELETE FROM sedes WHERE id_sede = $1", [id])
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Sede no encontrada" })
     }
 
     res.json({ mensaje: "Sede eliminada correctamente" })
   } catch (err) {
-    console.error(err)
+    console.error("Error al eliminar sede:", err)
     res.status(500).json({ mensaje: "Error al eliminar sede" })
   }
 }

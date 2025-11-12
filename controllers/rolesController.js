@@ -42,7 +42,7 @@ export const createRol = async (req, res) => {
     const result = await pool.request()
       .input("nombre_rol", sql.VarChar, nombre_rol)
       .input("descripcion", sql.VarChar, descripcion)
-      .input("estado", sql.Bit, estado) // suponiendo que estado es booleano (0/1)
+      .input("estado", sql.Bit, estado)
       .query(`
         INSERT INTO ROLES (nombre_rol, descripcion, estado)
         VALUES (@nombre_rol, @descripcion, @estado);

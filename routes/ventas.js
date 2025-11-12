@@ -1,27 +1,18 @@
-import express from "express"
+import express from "express";
 import {
   getVentas,
   getVentaById,
   createVenta,
   updateVenta,
   deleteVenta
-} from "../controllers/ventasController.js"
+} from "../controllers/ventasController.js";
 
-const router = express.Router()
+const router = express.Router();
 
-// GET /api/ventas - Obtener todas las ventas
-router.get("/", getVentas)
+router.get("/", getVentas);          // Obtener todas las ventas
+router.get("/:id", getVentaById);    // Obtener venta por ID
+router.post("/", createVenta);       // Crear venta
+router.put("/:id", updateVenta);     // Actualizar venta
+router.delete("/:id", deleteVenta);  // Eliminar venta
 
-// GET /api/ventas/:id - Obtener venta por ID
-router.get("/:id", getVentaById)
-
-// POST /api/ventas - Crear nueva venta
-router.post("/", createVenta)
-
-// PUT /api/ventas/:id - Actualizar venta
-router.put("/:id", updateVenta)
-
-// DELETE /api/ventas/:id - Eliminar venta
-router.delete("/:id", deleteVenta)
-
-export default router
+export default router;

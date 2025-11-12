@@ -1,28 +1,18 @@
-// routes/planesClases.js
 import express from "express";
 import {
   getPlanes,
   getPlanById,
   createPlan,
   updatePlan,
-  deletePlan,
+  deletePlan
 } from "../controllers/planesController.js";
 
 const router = express.Router();
 
-// GET /api/planes
-router.get("/", getPlanes);
-
-// GET /api/planes/:id
-router.get("/:id", getPlanById);
-
-// POST /api/planes
-router.post("/", createPlan);
-
-// PUT /api/planes/:id
-router.put("/:id", updatePlan);
-
-// DELETE /api/planes/:id
-router.delete("/:id", deletePlan);
+router.get("/", getPlanes);        // Obtener todos los planes
+router.get("/:id", getPlanById);   // Obtener plan por ID
+router.post("/", createPlan);      // Crear plan
+router.put("/:id", updatePlan);    // Actualizar plan
+router.delete("/:id", deletePlan); // Eliminar plan
 
 export default router;

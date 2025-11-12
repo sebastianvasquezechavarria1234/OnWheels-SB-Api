@@ -1,11 +1,10 @@
-import sql from "mssql"
-import Producto from "../models/Productos.js"
+import pool from "../db/postgresPool.js";
+import Producto from "../models/Productos.js";
 
 // ✅ Obtener todos los productos con su categoría
 export const getProductos = async (req, res) => {
   try {
-    const pool = await sql.connect()
-    const result = await pool.request().query(`
+    const result = await pool.query(`
       SELECT 
         p.id_producto,
         p.nombre_producto,
@@ -18,54 +17,52 @@ export const getProductos = async (req, res) => {
         p.descuento_producto,
         p.id_categoria,
         c.nombre_categoria AS categoria_nombre
-      FROM PRODUCTOS p
-      INNER JOIN CATEGORIAS_DE_PRODUCTOS c 
+      FROM productos p
+      INNER JOIN categorias_de_productos c 
         ON p.id_categoria = c.id_categoria
-    `)
+      ORDER BY p.nombre_producto ASC
+    `);
 
-    res.json(result.recordset)
+    res.json(result.rows);
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener productos" })
+    console.error("❌ Error al obtener productos:", err);
+    res.status(500).json({ mensaje: "Error al obtener productos" });
   }
-}
+};
 
-// ✅ Obtener un producto por ID
+// ✅ Obtener producto por ID
 export const getProductoById = async (req, res) => {
   try {
-    const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query(`
-        SELECT 
-          p.id_producto,
-          p.nombre_producto,
-          p.descripcion,
-          p.precio_compra,
-          p.precio,
-          p.imagen_producto,
-          p.estado,
-          p.porcentaje_ganancia,
-          p.descuento_producto,
-          p.id_categoria,
-          c.nombre_categoria AS categoria_nombre
-        FROM PRODUCTOS p
-        INNER JOIN CATEGORIAS_DE_PRODUCTOS c 
-          ON p.id_categoria = c.id_categoria
-        WHERE p.id_producto = @id
-      `)
+    const { id } = req.params;
+    const result = await pool.query(`
+      SELECT 
+        p.id_producto,
+        p.nombre_producto,
+        p.descripcion,
+        p.precio_compra,
+        p.precio,
+        p.imagen_producto,
+        p.estado,
+        p.porcentaje_ganancia,
+        p.descuento_producto,
+        p.id_categoria,
+        c.nombre_categoria AS categoria_nombre
+      FROM productos p
+      INNER JOIN categorias_de_productos c 
+        ON p.id_categoria = c.id_categoria
+      WHERE p.id_producto = $1
+    `, [id]);
 
-    if (result.recordset.length === 0) {
-      return res.status(404).json({ mensaje: "Producto no encontrado" })
+    if (result.rows.length === 0) {
+      return res.status(404).json({ mensaje: "Producto no encontrado" });
     }
 
-    res.json(result.recordset[0])
+    res.json(result.rows[0]);
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener el producto" })
+    console.error("❌ Error al obtener producto:", err);
+    res.status(500).json({ mensaje: "Error al obtener el producto" });
   }
-}
+};
 
 // ✅ Crear producto
 export const createProducto = async (req, res) => {
@@ -80,28 +77,28 @@ export const createProducto = async (req, res) => {
       estado,
       porcentaje_ganancia,
       descuento_producto
-    } = req.body
+    } = req.body;
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id_categoria", sql.Int, id_categoria)
-      .input("nombre_producto", sql.VarChar, nombre_producto)
-      .input("descripcion", sql.VarChar, descripcion)
-      .input("precio_compra", sql.Decimal(10,2), precio_compra)
-      .input("precio", sql.Decimal(10,2), precio)
-      .input("imagen_producto", sql.VarChar, imagen_producto)
-      .input("estado", sql.Bit, estado)
-      .input("porcentaje_ganancia", sql.Decimal(5,2), porcentaje_ganancia)
-      .input("descuento_producto", sql.Decimal(5,2), descuento_producto)
-      .query(`
-        INSERT INTO PRODUCTOS 
-        (id_categoria, nombre_producto, descripcion, precio_compra, precio, imagen_producto, estado, porcentaje_ganancia, descuento_producto)
-        VALUES (@id_categoria, @nombre_producto, @descripcion, @precio_compra, @precio, @imagen_producto, @estado, @porcentaje_ganancia, @descuento_producto);
-        SELECT SCOPE_IDENTITY() AS id;
-      `)
+    const result = await pool.query(
+      `INSERT INTO productos 
+      (id_categoria, nombre_producto, descripcion, precio_compra, precio, imagen_producto, estado, porcentaje_ganancia, descuento_producto)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING id_producto`,
+      [
+        id_categoria,
+        nombre_producto,
+        descripcion,
+        precio_compra,
+        precio,
+        imagen_producto,
+        estado,
+        porcentaje_ganancia,
+        descuento_producto
+      ]
+    );
 
-    res.status(201).json({ 
-      id_producto: result.recordset[0].id,
+    const nuevoProducto = new Producto({
+      id_producto: result.rows[0].id_producto,
       id_categoria,
       nombre_producto,
       descripcion,
@@ -111,17 +108,19 @@ export const createProducto = async (req, res) => {
       estado,
       porcentaje_ganancia,
       descuento_producto
-    })
+    });
+
+    res.status(201).json(nuevoProducto);
   } catch (err) {
-    console.error(err)
-    res.status(400).json({ mensaje: "Error al crear producto", error: err.message })
+    console.error("❌ Error al crear producto:", err);
+    res.status(400).json({ mensaje: "Error al crear producto", error: err.message });
   }
-}
+};
 
 // ✅ Actualizar producto
 export const updateProducto = async (req, res) => {
   try {
-    const { id } = req.params
+    const { id } = req.params;
     const {
       id_categoria,
       nombre_producto,
@@ -132,61 +131,58 @@ export const updateProducto = async (req, res) => {
       estado,
       porcentaje_ganancia,
       descuento_producto
-    } = req.body
+    } = req.body;
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .input("id_categoria", sql.Int, id_categoria)
-      .input("nombre_producto", sql.VarChar, nombre_producto)
-      .input("descripcion", sql.VarChar, descripcion)
-      .input("precio_compra", sql.Decimal(10,2), precio_compra)
-      .input("precio", sql.Decimal(10,2), precio)
-      .input("imagen_producto", sql.VarChar, imagen_producto)
-      .input("estado", sql.Bit, estado)
-      .input("porcentaje_ganancia", sql.Decimal(5,2), porcentaje_ganancia)
-      .input("descuento_producto", sql.Decimal(5,2), descuento_producto)
-      .query(`
-        UPDATE PRODUCTOS
-        SET id_categoria = @id_categoria,
-            nombre_producto = @nombre_producto,
-            descripcion = @descripcion,
-            precio_compra = @precio_compra,
-            precio = @precio,
-            imagen_producto = @imagen_producto,
-            estado = @estado,
-            porcentaje_ganancia = @porcentaje_ganancia,
-            descuento_producto = @descuento_producto
-        WHERE id_producto = @id
-      `)
+    const result = await pool.query(
+      `UPDATE productos
+       SET id_categoria = $1,
+           nombre_producto = $2,
+           descripcion = $3,
+           precio_compra = $4,
+           precio = $5,
+           imagen_producto = $6,
+           estado = $7,
+           porcentaje_ganancia = $8,
+           descuento_producto = $9
+       WHERE id_producto = $10`,
+      [
+        id_categoria,
+        nombre_producto,
+        descripcion,
+        precio_compra,
+        precio,
+        imagen_producto,
+        estado,
+        porcentaje_ganancia,
+        descuento_producto,
+        id
+      ]
+    );
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ mensaje: "Producto no encontrado" })
+    if (result.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Producto no encontrado" });
     }
 
-    res.json({ mensaje: "Producto actualizado correctamente" })
+    res.json({ mensaje: "Producto actualizado correctamente" });
   } catch (err) {
-    console.error(err)
-    res.status(400).json({ mensaje: "Error al actualizar producto", error: err.message })
+    console.error("❌ Error al actualizar producto:", err);
+    res.status(400).json({ mensaje: "Error al actualizar producto", error: err.message });
   }
-}
+};
 
 // ✅ Eliminar producto
 export const deleteProducto = async (req, res) => {
   try {
-    const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("DELETE FROM PRODUCTOS WHERE id_producto = @id")
+    const { id } = req.params;
+    const result = await pool.query("DELETE FROM productos WHERE id_producto = $1", [id]);
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ mensaje: "Producto no encontrado" })
+    if (result.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Producto no encontrado" });
     }
 
-    res.json({ mensaje: "Producto eliminado correctamente" })
+    res.json({ mensaje: "Producto eliminado correctamente" });
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al eliminar producto" })
+    console.error("❌ Error al eliminar producto:", err);
+    res.status(500).json({ mensaje: "Error al eliminar producto" });
   }
-}
+};

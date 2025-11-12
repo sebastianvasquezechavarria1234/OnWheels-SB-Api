@@ -1,5 +1,5 @@
-// models/Usuario.js
-export default class Usuario {
+// models/Usuarios.js
+class Usuario {
   constructor({
     id_usuario,
     documento,
@@ -24,3 +24,5 @@ export default class Usuario {
     this.tipo_genero = tipo_genero
   }
 }
+
+export default Usuario

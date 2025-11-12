@@ -1,18 +1,18 @@
-import express from "express"
+import express from "express";
 import {
   getProveedores,
   getProveedorById,
   createProveedor,
   updateProveedor,
   deleteProveedor
-} from "../controllers/proveedoresController.js"
+} from "../controllers/proveedoresController.js";
 
-const router = express.Router()
+const router = express.Router();
 
-router.get("/", getProveedores)             // Obtener todos
-router.get("/:nit", getProveedorById)       // Obtener por NIT
-router.post("/", createProveedor)           // Crear
-router.put("/:nit", updateProveedor)        // Actualizar
-router.delete("/:nit", deleteProveedor)     // Eliminar
+router.get("/", getProveedores);           // Obtener todos los proveedores
+router.get("/:nit", getProveedorById);     // Obtener proveedor por NIT
+router.post("/", createProveedor);         // Crear proveedor
+router.put("/:nit", updateProveedor);      // Actualizar proveedor
+router.delete("/:nit", deleteProveedor);   // Eliminar proveedor
 
-export default router
+export default router;
