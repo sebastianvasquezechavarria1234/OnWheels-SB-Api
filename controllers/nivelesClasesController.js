@@ -1,97 +1,72 @@
-import { getPool } from "../db/postgresPool.js";
+// controllers/nivelesController.js
+import pool from "../db/postgresPool.js";
 
-// ✅ Obtener todos los niveles
-export const getNiveles = async (req, res) => {
+// Obtener todos los niveles
+export const obtenerNiveles = async (req, res) => {
   try {
-    const pool = await getPool();
-    const result = await pool.request().query("SELECT * FROM NIVELES_CLASES");
-    res.json(result.recordset);
+    const result = await pool.query("SELECT * FROM niveles");
+    res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al obtener niveles", error: error.message });
+    res.status(500).json({ error: "Error al obtener los niveles" });
   }
 };
 
-// ✅ Obtener un nivel por ID
-export const getNivelById = async (req, res) => {
+// Obtener un nivel por ID
+export const obtenerNivelPorId = async (req, res) => {
+  const { id } = req.params;
   try {
-    const { id } = req.params;
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_nivel", id)
-      .query("SELECT * FROM NIVELES_CLASES WHERE id_nivel = @id_nivel");
-
-    if (result.recordset.length === 0) {
+    const result = await pool.query("SELECT * FROM niveles WHERE id_nivel = $1", [id]);
+    if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Nivel no encontrado" });
     }
-
-    res.json(result.recordset[0]);
+    res.json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al obtener nivel", error: error.message });
+    res.status(500).json({ error: "Error al obtener el nivel" });
   }
 };
 
-// ✅ Crear un nivel
-export const createNivel = async (req, res) => {
+// Crear un nuevo nivel
+export const crearNivel = async (req, res) => {
+  const { nombre_nivel, descripcion } = req.body;
   try {
-    const { nombre_nivel, descripcion } = req.body;
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("nombre_nivel", nombre_nivel)
-      .input("descripcion", descripcion)
-      .query(
-        "INSERT INTO NIVELES_CLASES (nombre_nivel, descripcion) OUTPUT INSERTED.* VALUES (@nombre_nivel, @descripcion)"
-      );
-
-    res.status(201).json({ mensaje: "Nivel creado", nivel: result.recordset[0] });
+    const result = await pool.query(
+      "INSERT INTO niveles (nombre_nivel, descripcion) VALUES ($1, $2) RETURNING *",
+      [nombre_nivel, descripcion]
+    );
+    res.status(201).json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al crear nivel", error: error.message });
+    res.status(500).json({ error: "Error al crear el nivel" });
   }
 };
 
-// ✅ Actualizar un nivel
-export const updateNivel = async (req, res) => {
+// Actualizar un nivel
+export const actualizarNivel = async (req, res) => {
+  const { id } = req.params;
+  const { nombre_nivel, descripcion } = req.body;
   try {
-    const { id } = req.params;
-    const { nombre_nivel, descripcion } = req.body;
-
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_nivel", id)
-      .input("nombre_nivel", nombre_nivel)
-      .input("descripcion", descripcion)
-      .query(
-        "UPDATE NIVELES_CLASES SET nombre_nivel=@nombre_nivel, descripcion=@descripcion WHERE id_nivel=@id_nivel"
-      );
-
-    if (result.rowsAffected[0] === 0) {
+    const result = await pool.query(
+      "UPDATE niveles SET nombre_nivel = $1, descripcion = $2 WHERE id_nivel = $3 RETURNING *",
+      [nombre_nivel, descripcion, id]
+    );
+    if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Nivel no encontrado" });
     }
-
-    res.json({ mensaje: "Nivel actualizado" });
+    res.json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al actualizar nivel", error: error.message });
+    res.status(500).json({ error: "Error al actualizar el nivel" });
   }
 };
 
-// ✅ Eliminar un nivel
-export const deleteNivel = async (req, res) => {
+// Eliminar un nivel
+export const eliminarNivel = async (req, res) => {
+  const { id } = req.params;
   try {
-    const { id } = req.params;
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_nivel", id)
-      .query("DELETE FROM NIVELES_CLASES WHERE id_nivel=@id_nivel");
-
-    if (result.rowsAffected[0] === 0) {
+    const result = await pool.query("DELETE FROM niveles WHERE id_nivel = $1 RETURNING *", [id]);
+    if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Nivel no encontrado" });
     }
-
-    res.json({ mensaje: "Nivel eliminado" });
+    res.json({ mensaje: "Nivel eliminado correctamente" });
   } catch (error) {
-    res.status(500).json({ mensaje: "Error al eliminar nivel", error: error.message });
+    res.status(500).json({ error: "Error al eliminar el nivel" });
   }
 };

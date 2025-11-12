@@ -3,7 +3,8 @@ import dotenv from 'dotenv';
 import { validationResult } from 'express-validator';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { getPool, sql } from '../db/postgresPool.js';
+import pool from "../db/postgresPool.js";
+
 
 dotenv.config();
 

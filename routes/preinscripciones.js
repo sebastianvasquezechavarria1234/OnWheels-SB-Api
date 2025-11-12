@@ -1,28 +1,14 @@
-// routes/preinscripciones.js
 import express from "express";
 import {
-  getPreinscripciones,
-  getPreinscripcionById,
-  createPreinscripcion,
-  updatePreinscripcion,
-  deletePreinscripcion,
+  listarPreinscripciones,
+  aceptarPreinscripcion,
+  rechazarPreinscripcion
 } from "../controllers/preinscripcionController.js";
 
 const router = express.Router();
 
-// GET /api/preinscripciones
-router.get("/", getPreinscripciones);
-
-// GET /api/preinscripciones/:id
-router.get("/:id", getPreinscripcionById);
-
-// POST /api/preinscripciones
-router.post("/", createPreinscripcion);
-
-// PUT /api/preinscripciones/:id
-router.put("/:id", updatePreinscripcion);
-
-// DELETE /api/preinscripciones/:id
-router.delete("/:id", deletePreinscripcion);
+router.get("/", listarPreinscripciones); // Mostrar todas las preinscripciones pendientes
+router.put("/:id/aceptar", aceptarPreinscripcion); // Aceptar preinscripción
+router.put("/:id/rechazar", rechazarPreinscripcion); // Rechazar preinscripción
 
 export default router;

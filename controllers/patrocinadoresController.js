@@ -1,119 +1,102 @@
-import sql from "mssql"
-import Patrocinador from "../models/Patrocinadores.js"
+import pool from "../db/postgresPool.js";
+import Patrocinador from "../models/Patrocinadores.js";
 
 // ✅ Obtener todos los patrocinadores
 export const getPatrocinadores = async (req, res) => {
   try {
-    const pool = await sql.connect()
-    const result = await pool.request().query("SELECT * FROM PATROCINADORES ORDER BY nombre_patrocinador ASC")
-    res.json(result.recordset)
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener patrocinadores" })
+    const pool = await getPool();
+    const result = await pool.query("SELECT * FROM PATROCINADORES ORDER BY nombre_patrocinador ASC");
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: "Error al obtener patrocinadores", error: error.message });
   }
-}
+};
 
 // ✅ Obtener patrocinador por ID
 export const getPatrocinadorById = async (req, res) => {
   try {
-    const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("SELECT * FROM PATROCINADORES WHERE id_patrocinador = @id")
+    const { id } = req.params;
+    const pool = await getPool();
+    const result = await pool.query("SELECT * FROM PATROCINADORES WHERE id_patrocinador = $1", [id]);
 
-    if (result.recordset.length === 0) {
-      return res.status(404).json({ mensaje: "Patrocinador no encontrado" })
+    if (result.rows.length === 0) {
+      return res.status(404).json({ mensaje: "Patrocinador no encontrado" });
     }
 
-    res.json(result.recordset[0])
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener patrocinador" })
+    const patrocinador = new Patrocinador(result.rows[0]);
+    res.json(patrocinador);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: "Error al obtener patrocinador", error: error.message });
   }
-}
+};
 
 // ✅ Crear patrocinador
 export const createPatrocinador = async (req, res) => {
   try {
-    const { nombre_patrocinador, email, telefono, logo_patrocinador } = req.body
+    const { nombre_patrocinador, email, telefono, logo_patrocinador } = req.body;
+    const pool = await getPool();
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("nombre_patrocinador", sql.NVarChar, nombre_patrocinador)
-      .input("email", sql.NVarChar, email)
-      .input("telefono", sql.NVarChar, telefono)
-      .input("logo_patrocinador", sql.NVarChar, logo_patrocinador)
-      .query(`
-        INSERT INTO PATROCINADORES (nombre_patrocinador, email, telefono, logo_patrocinador)
-        VALUES (@nombre_patrocinador, @email, @telefono, @logo_patrocinador);
-        SELECT SCOPE_IDENTITY() AS id;
-      `)
+    const result = await pool.query(
+      `INSERT INTO PATROCINADORES (nombre_patrocinador, email, telefono, logo_patrocinador)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [nombre_patrocinador, email, telefono, logo_patrocinador]
+    );
 
-    const nuevoPatrocinador = new Patrocinador({
-      id_patrocinador: result.recordset[0].id,
-      nombre_patrocinador,
-      email,
-      telefono,
-      logo_patrocinador
-    })
-
-    res.status(201).json(nuevoPatrocinador)
-  } catch (err) {
-    console.error(err)
-    res.status(400).json({ mensaje: "Error al crear patrocinador", error: err.message })
+    const nuevoPatrocinador = new Patrocinador(result.rows[0]);
+    res.status(201).json(nuevoPatrocinador);
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ mensaje: "Error al crear patrocinador", error: error.message });
   }
-}
+};
 
 // ✅ Actualizar patrocinador
 export const updatePatrocinador = async (req, res) => {
   try {
-    const { id } = req.params
-    const { nombre_patrocinador, email, telefono, logo_patrocinador } = req.body
+    const { id } = req.params;
+    const { nombre_patrocinador, email, telefono, logo_patrocinador } = req.body;
+    const pool = await getPool();
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .input("nombre_patrocinador", sql.NVarChar, nombre_patrocinador)
-      .input("email", sql.NVarChar, email)
-      .input("telefono", sql.NVarChar, telefono)
-      .input("logo_patrocinador", sql.NVarChar, logo_patrocinador)
-      .query(`
-        UPDATE PATROCINADORES
-        SET nombre_patrocinador = @nombre_patrocinador,
-            email = @email,
-            telefono = @telefono,
-            logo_patrocinador = @logo_patrocinador
-        WHERE id_patrocinador = @id
-      `)
+    const result = await pool.query(
+      `UPDATE PATROCINADORES
+       SET nombre_patrocinador = $1,
+           email = $2,
+           telefono = $3,
+           logo_patrocinador = $4
+       WHERE id_patrocinador = $5
+       RETURNING *`,
+      [nombre_patrocinador, email, telefono, logo_patrocinador, id]
+    );
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ mensaje: "Patrocinador no encontrado" })
+    if (result.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Patrocinador no encontrado" });
     }
 
-    res.json({ mensaje: "Patrocinador actualizado correctamente" })
-  } catch (err) {
-    console.error(err)
-    res.status(400).json({ mensaje: "Error al actualizar patrocinador", error: err.message })
+    res.json({ mensaje: "Patrocinador actualizado correctamente", patrocinador: result.rows[0] });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ mensaje: "Error al actualizar patrocinador", error: error.message });
   }
-}
+};
 
 // ✅ Eliminar patrocinador
 export const deletePatrocinador = async (req, res) => {
   try {
-    const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("DELETE FROM PATROCINADORES WHERE id_patrocinador = @id")
+    const { id } = req.params;
+    const pool = await getPool();
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ mensaje: "Patrocinador no encontrado" })
+    const result = await pool.query("DELETE FROM PATROCINADORES WHERE id_patrocinador = $1", [id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Patrocinador no encontrado" });
     }
 
-    res.json({ mensaje: "Patrocinador eliminado correctamente" })
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al eliminar patrocinador" })
+    res.json({ mensaje: "Patrocinador eliminado correctamente" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: "Error al eliminar patrocinador", error: error.message });
   }
-}
+};

@@ -1,18 +1,12 @@
-import express from "express"
-import {
-  getColores,
-  getColorById,
-  createColor,
-  updateColor,
-  deleteColor
-} from "../controllers/coloresController.js"
+import express from "express";
+import { createColor, getAllColors } from "../controllers/coloresController.js";
 
-const router = express.Router()
+const router = express.Router();
 
-router.get("/", getColores)        // Listar todos los colores
-router.get("/:id", getColorById)   // Obtener un color por ID
-router.post("/", createColor)      // Crear color
-router.put("/:id", updateColor)    // Actualizar color
-router.delete("/:id", deleteColor) // Eliminar color
+// Ruta para crear un color
+router.post("/", createColor);
 
-export default router
+// Ruta para obtener todos los colores
+router.get("/", getAllColors);
+
+export default router;

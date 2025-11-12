@@ -1,4 +1,4 @@
-import { getPool } from "../db/postgresPool.js";
+import pool from "../db/postgresPool.js";
 import Evento from "../models/Eventos.js";
 
 // ✅ Obtener todos los eventos (con nombre de categoría)

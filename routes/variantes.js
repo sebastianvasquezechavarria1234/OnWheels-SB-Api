@@ -1,11 +1,16 @@
 import express from "express";
-import { listarVariantes, crearVariante, actualizarVariante, eliminarVariante } from "../controllers/variantesController.js";
+import {
+  getVariantes,
+  createVariante,
+  updateVariante,
+  deleteVariante,
+} from "../controllers/variantesController.js";
 
 const router = express.Router();
 
-router.get("/", listarVariantes);
-router.post("/", crearVariante);
-router.put("/:id", actualizarVariante);
-router.delete("/:id", eliminarVariante);
+router.get("/", getVariantes);
+router.post("/", createVariante);
+router.put("/:id", updateVariante);
+router.delete("/:id", deleteVariante);
 
 export default router;

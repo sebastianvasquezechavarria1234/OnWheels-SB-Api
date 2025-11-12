@@ -1,4 +1,4 @@
-import { getPool } from "../db/postgresPool.js"
+import pool from "../db/postgresPool.js"
 import Compra from "../models/Compras.js"
 
 // ✅ Obtener todas las compras

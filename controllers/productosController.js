@@ -1,188 +1,198 @@
-import { getPool } from "../db/postgresPool.js";
+import pool from "../db/postgresPool.js";
 import Producto from "../models/Productos.js";
 
 // Listar productos
-export const listarProductos = async (req, res) => {
+export const getProductos = async (req, res) => {
   try {
-    const pool = await getPool();
-    const result = await pool.request().query(`
-      SELECT p.id_producto, p.id_categoria, p.nombre_producto, p.descripcion,
-             p.precio_compra, p.precio, p.imagen_producto, p.estado,
-             p.porcentaje_ganancia, p.descuento_producto,
-             c.nombre_categoria
-      FROM PRODUCTOS p
-      INNER JOIN CATEGORIAS_DE_PRODUCTOS c ON p.id_categoria = c.id_categoria
+    const result = await pool.query(`
+      SELECT 
+        p.id_producto,
+        p.nombre_producto,
+        p.descripcion,
+        p.precio_compra,
+        p.precio,
+        p.imagen_producto,
+        p.estado,
+        p.porcentaje_ganancia,
+        p.descuento_producto,
+        p.id_categoria,
+        c.nombre_categoria AS categoria_nombre
+      FROM productos p
+      INNER JOIN categorias_de_productos c 
+        ON p.id_categoria = c.id_categoria
+      ORDER BY p.nombre_producto ASC
     `);
-    const productos = result.recordset.map(row => new Producto(row));
-    res.json(productos);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Error al obtener productos:", err);
+    res.status(500).json({ mensaje: "Error al obtener productos" });
   }
 };
 
-// Obtener producto por ID
-export const obtenerProducto = async (req, res) => {
+// ✅ Obtener producto por ID
+export const getProductoById = async (req, res) => {
   try {
     const { id } = req.params;
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id", id)
-      .query(`
-        SELECT p.id_producto, p.id_categoria, p.nombre_producto, p.descripcion,
-               p.precio_compra, p.precio, p.imagen_producto, p.estado,
-               p.porcentaje_ganancia, p.descuento_producto,
-               c.nombre_categoria
-        FROM PRODUCTOS p
-        INNER JOIN CATEGORIAS_DE_PRODUCTOS c ON p.id_categoria = c.id_categoria
-        WHERE p.id_producto = @id
-      `);
-    if (result.recordset.length === 0) return res.status(404).json({ mensaje: "Producto no encontrado" });
-    const producto = new Producto(result.recordset[0]);
-    res.json(producto);
-  } catch (error) {
-  console.error("❌ Error SQL creando producto:", error); // imprime en consola todo el error
-  res.status(500).json({ 
-    error: "Error creando producto", 
-    detalle: error.message, 
-    sql: error?.precedingErrors || null 
-  });
-}
+    const result = await pool.query(`
+      SELECT 
+        p.id_producto,
+        p.nombre_producto,
+        p.descripcion,
+        p.precio_compra,
+        p.precio,
+        p.imagen_producto,
+        p.estado,
+        p.porcentaje_ganancia,
+        p.descuento_producto,
+        p.id_categoria,
+        c.nombre_categoria AS categoria_nombre
+      FROM productos p
+      INNER JOIN categorias_de_productos c 
+        ON p.id_categoria = c.id_categoria
+      WHERE p.id_producto = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ mensaje: "Producto no encontrado" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("❌ Error al obtener producto:", err);
+    res.status(500).json({ mensaje: "Error al obtener el producto" });
+  }
 };
-export const crearProducto = async (req, res) => {
+
+// ✅ Crear producto
+export const createProducto = async (req, res) => {
   try {
-    const { 
-      id_categoria, 
-      nombre_producto, 
-      descripcion, 
-      precio_compra, 
-      precio, 
-      imagen_producto, 
-      estado, 
-      porcentaje_ganancia, 
-      descuento_producto 
+    const {
+      id_categoria,
+      nombre_producto,
+      descripcion,
+      precio_compra,
+      precio,
+      imagen_producto,
+      estado,
+      porcentaje_ganancia,
+      descuento_producto
     } = req.body;
 
-    // Validar campos obligatorios
-    if (!id_categoria || !nombre_producto || !precio) {
-      return res.status(400).json({
-        error: "Faltan campos obligatorios: id_categoria, nombre_producto y precio"
-      });
-    }
+    const result = await pool.query(
+      `INSERT INTO productos 
+      (id_categoria, nombre_producto, descripcion, precio_compra, precio, imagen_producto, estado, porcentaje_ganancia, descuento_producto)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING id_producto`,
+      [
+        id_categoria,
+        nombre_producto,
+        descripcion,
+        precio_compra,
+        precio,
+        imagen_producto,
+        estado,
+        porcentaje_ganancia,
+        descuento_producto
+      ]
+    );
 
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_categoria", id_categoria)
-      .input("nombre_producto", nombre_producto)
-      .input("descripcion", descripcion || "")
-      .input("precio_compra", precio_compra ?? 0)
+    const nuevoProducto = new Producto({
+      id_producto: result.rows[0].id_producto,
+      id_categoria,
+      nombre_producto,
+      descripcion,
+      precio_compra,
+      precio,
+      imagen_producto,
+      estado,
+      porcentaje_ganancia,
+      descuento_producto
+    });
 
-      .input("precio", precio)
-      .input("imagen_producto", imagen_producto || null)
-      .input("estado", estado || 1)
-      .input("porcentaje_ganancia", porcentaje_ganancia || 0)
-      .input("descuento_producto", descuento_producto || 0)
-      .query(`
-        INSERT INTO PRODUCTOS (id_categoria, nombre_producto, descripcion, precio_compra, precio, imagen_producto, estado, porcentaje_ganancia, descuento_producto)
-        OUTPUT INSERTED.* 
-        VALUES (@id_categoria, @nombre_producto, @descripcion, @precio_compra, @precio, @imagen_producto, @estado, @porcentaje_ganancia, @descuento_producto)
-      `);
-
-    const nuevo = new Producto(result.recordset[0]);
-    res.json(nuevo);
-
-  } catch (error) {
-    console.error("❌ Error creando producto:", error);
-    res.status(500).json({ error: "Error creando producto", detalle: error.message });
+    res.status(201).json(nuevoProducto);
+  } catch (err) {
+    console.error("❌ Error al crear producto:", err);
+    res.status(400).json({ mensaje: "Error al crear producto", error: err.message });
   }
 };
-
 
 // Actualizar producto
-export const actualizarProducto = async (req, res) => {
+export const updateProducto = async (req, res) => {
   try {
     const { id } = req.params;
-    const { id_categoria, nombre_producto, descripcion, precio_compra, precio, imagen_producto, estado, porcentaje_ganancia, descuento_producto } = req.body;
-    const pool = await getPool();
-    await pool
-      .request()
-      .input("id_producto", id)
-      .input("id_categoria", id_categoria)
-      .input("nombre_producto", nombre_producto)
-      .input("descripcion", descripcion)
-      .input("precio_compra", precio_compra)
-      .input("precio", precio)
-      .input("imagen_producto", imagen_producto)
-      .input("estado", estado)
-      .input("porcentaje_ganancia", porcentaje_ganancia)
-      .input("descuento_producto", descuento_producto)
-      .query(`
-        UPDATE PRODUCTOS
-        SET id_categoria=@id_categoria, nombre_producto=@nombre_producto, descripcion=@descripcion,
-            precio_compra=@precio_compra, precio=@precio, imagen_producto=@imagen_producto,
-            estado=@estado, porcentaje_ganancia=@porcentaje_ganancia, descuento_producto=@descuento_producto
-        WHERE id_producto=@id_producto
-      `);
-    res.json({ message: "Producto actualizado" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
+    const {
+      id_categoria,
+      nombre_producto,
+      descripcion,
+      precio_compra,
+      precio,
+      imagen_producto,
+      estado,
+      porcentaje_ganancia,
+      descuento_producto
+    } = req.body;
 
-// Eliminar producto
-export const eliminarProducto = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const pool = await getPool();
-    await pool.request().input("id_producto", id).query("DELETE FROM PRODUCTOS WHERE id_producto=@id_producto");
-    res.json({ message: "Producto eliminado" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
+    const result = await pool.query(
+      `UPDATE productos
+       SET id_categoria = $1,
+           nombre_producto = $2,
+           descripcion = $3,
+           precio_compra = $4,
+           precio = $5,
+           imagen_producto = $6,
+           estado = $7,
+           porcentaje_ganancia = $8,
+           descuento_producto = $9
+       WHERE id_producto = $10`,
+      [
+        id_categoria,
+        nombre_producto,
+        descripcion,
+        precio_compra,
+        precio,
+        imagen_producto,
+        estado,
+        porcentaje_ganancia,
+        descuento_producto,
+        id
+      ]
+    );
 
-
-// productosController.js
-export const obtenerProductoPorId = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const pool = await getPool();
-
-    // Obtener producto
-    const productoResult = await pool
-      .request()
-      .input("id_producto", id)
-      .query(`
-        SELECT * 
-        FROM PRODUCTOS 
-        WHERE id_producto = @id_producto
-      `);
-
-    if (productoResult.recordset.length === 0) {
-      return res.status(404).json({ error: "Producto no encontrado" });
+    if (result.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Producto no encontrado" });
     }
 
-    const producto = productoResult.recordset[0];
+    res.json({ mensaje: "Producto actualizado correctamente" });
+  } catch (err) {
+    console.error("❌ Error al actualizar producto:", err);
+    res.status(400).json({ mensaje: "Error al actualizar producto", error: err.message });
+  }
+};
 
-    // Obtener variantes de este producto
-    const variantesResult = await pool
-      .request()
-      .input("id_producto", id)
-      .query(`
-        SELECT v.id_variante, v.id_talla, v.id_color, v.stock,
-               t.nombre_talla, c.nombre_color, c.codigo_hex
-        FROM VARIANTES_PRODUCTO v
-        INNER JOIN TALLAS t ON v.id_talla = t.id_talla
-        INNER JOIN COLOR c ON v.id_color = c.id_color
-        WHERE v.id_producto = @id_producto
-      `);
+// productosController.js
+export const getProductoPorId = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query("DELETE FROM productos WHERE id_producto = $1", [id]);
 
-    producto.variantes = variantesResult.recordset;
+    if (result.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Producto no encontrado" });
+    }
 
-    res.json(producto);
+    res.json({ mensaje: "Producto eliminado correctamente" });
+  } catch (err) {
+    console.error("❌ Error al eliminar producto:", err);
+    res.status(500).json({ mensaje: "Error al eliminar producto" });
+  }
+};
+export const deleteProducto = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pool = await getPool();
+    await pool.query("DELETE FROM productos WHERE id = $1", [id]);
+    res.json({ message: "Producto eliminado correctamente" });
   } catch (error) {
-    console.error("❌ Error obteniendo producto:", error);
-    res.status(500).json({ error: "Error obteniendo producto", detalle: error.message });
+    res.status(500).json({ error: "Error al eliminar el producto" });
   }
 };

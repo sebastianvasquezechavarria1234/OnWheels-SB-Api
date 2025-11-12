@@ -1,61 +1,61 @@
-import { getPool } from "../db/postgresPool.js";
-import Talla from "../models/TallaVariante.js";
+import pool from "../db/postgresPool.js";
 
-// Listar
+// ✅ Listar todas las tallas
 export const listarTallas = async (req, res) => {
   try {
-    const pool = await getPool();
-    const result = await pool.request().query("SELECT * FROM TALLAS");
-    const tallas = result.recordset.map(row => new Talla(row));
-    res.json(tallas);
+    const result = await pool.query("SELECT * FROM talla ORDER BY id_talla ASC");
+    res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error al listar tallas:", error);
+    res.status(500).json({ error: "Error al obtener las tallas" });
   }
 };
 
-// Crear
+// ✅ Crear una nueva talla
 export const crearTalla = async (req, res) => {
+  const { nombre } = req.body;
   try {
-    const { nombre_talla, descripcion } = req.body;
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("nombre_talla", nombre_talla)
-      .input("descripcion", descripcion)
-      .query("INSERT INTO TALLAS (nombre_talla, descripcion) OUTPUT INSERTED.* VALUES (@nombre_talla, @descripcion)");
-    const nueva = new Talla(result.recordset[0]);
-    res.json(nueva);
+    const result = await pool.query(
+      "INSERT INTO talla (nombre) VALUES ($1) RETURNING *",
+      [nombre]
+    );
+    res.status(201).json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error al crear talla:", error);
+    res.status(500).json({ error: "Error al crear la talla" });
   }
 };
 
-// Actualizar
+// ✅ Actualizar una talla
 export const actualizarTalla = async (req, res) => {
+  const { id } = req.params;
+  const { nombre } = req.body;
   try {
-    const { id } = req.params;
-    const { nombre_talla, descripcion } = req.body;
-    const pool = await getPool();
-    await pool
-      .request()
-      .input("id_talla", id)
-      .input("nombre_talla", nombre_talla)
-      .input("descripcion", descripcion)
-      .query("UPDATE TALLAS SET nombre_talla=@nombre_talla, descripcion=@descripcion WHERE id_talla=@id_talla");
-    res.json({ message: "Talla actualizada" });
+    const result = await pool.query(
+      "UPDATE talla SET nombre = $1 WHERE id_talla = $2 RETURNING *",
+      [nombre, id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Talla no encontrada" });
+    }
+    res.json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error al actualizar talla:", error);
+    res.status(500).json({ error: "Error al actualizar la talla" });
   }
 };
 
-// Eliminar
+// ✅ Eliminar una talla
 export const eliminarTalla = async (req, res) => {
+  const { id } = req.params;
   try {
-    const { id } = req.params;
-    const pool = await getPool();
-    await pool.request().input("id_talla", id).query("DELETE FROM TALLAS WHERE id_talla=@id_talla");
-    res.json({ message: "Talla eliminada" });
+    const result = await pool.query("DELETE FROM talla WHERE id_talla = $1", [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Talla no encontrada" });
+    }
+    res.json({ mensaje: "Talla eliminada correctamente" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error al eliminar talla:", error);
+    res.status(500).json({ error: "Error al eliminar la talla" });
   }
 };

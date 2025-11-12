@@ -10,10 +10,10 @@ import {
 
 const router = express.Router()
 
-router.get("/", getSedes)          // Todas las sedes
-router.get("/:id", getSedeById)    // Sede por ID
-router.post("/", createSede)       // Crear sede
-router.put("/:id", updateSede)     // Actualizar sede
-router.delete("/:id", deleteSede)  // Eliminar sede
+router.get("/", getSedes)
+router.get("/:id", getSedeById)
+router.post("/", createSede)
+router.put("/:id", updateSede)
+router.delete("/:id", deleteSede)
 
 export default router

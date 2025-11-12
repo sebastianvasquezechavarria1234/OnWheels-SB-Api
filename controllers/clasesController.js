@@ -1,4 +1,4 @@
-import pool from "../config/postgresPool.js"
+import pool from "../db/postgresPool.js"
 
 // Obtener todas las clases
 export const getClases = async (req, res) => {

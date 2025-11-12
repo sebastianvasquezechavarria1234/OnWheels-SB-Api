@@ -9,10 +9,10 @@ import {
 
 const router = express.Router()
 
-router.get("/", getRoles)          // Todos los roles
-router.get("/:id", getRolById)     // Rol por ID
-router.post("/", createRol)        // Crear rol
-router.put("/:id", updateRol)      // Actualizar rol
-router.delete("/:id", deleteRol)   // Eliminar rol
+router.get("/", getRoles)        // Obtener todos los roles
+router.get("/:id", getRolById)   // Obtener un rol por ID
+router.post("/", createRol)      // Crear rol
+router.put("/:id", updateRol)    // Actualizar rol
+router.delete("/:id", deleteRol) // Eliminar rol
 
 export default router

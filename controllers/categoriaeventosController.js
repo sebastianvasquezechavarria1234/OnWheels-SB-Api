@@ -1,4 +1,4 @@
-import pool from "../config/postgresPool.js"
+import pool from "../db/postgresPool.js"
 import CategoriaEventos from "../models/CategoriaEventos.js"
 
 // Obtener todas las categorías

@@ -1,16 +1,14 @@
-// controllers/planesClasesController.js
-
-
-import { getPool } from "../db/postgresPool.js";
+import pool from "../db/postgresPool.js";
+import Plan from "../models/Planes.js";
 
 // ✅ Obtener todos los planes
 export const getPlanes = async (req, res) => {
   try {
-    const pool = await getPool();
-    const result = await pool.request().query("SELECT * FROM PLANES_CLASES");
-    res.json(result.recordset);
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error al obtener planes", error: error.message });
+    const result = await pool.query("SELECT * FROM planes ORDER BY nombre_plan ASC");
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Error al obtener planes:", err);
+    res.status(500).json({ mensaje: "Error al obtener planes" });
   }
 };
 
@@ -18,42 +16,43 @@ export const getPlanes = async (req, res) => {
 export const getPlanById = async (req, res) => {
   try {
     const { id } = req.params;
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_plan", id)
-      .query("SELECT * FROM PLANES_CLASES WHERE id_plan = @id_plan");
+    const result = await pool.query("SELECT * FROM planes WHERE id_plan = $1", [id]);
 
-    if (result.recordset.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Plan no encontrado" });
     }
 
-    res.json(result.recordset[0]);
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error al obtener plan", error: error.message });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("❌ Error al obtener plan:", err);
+    res.status(500).json({ mensaje: "Error al obtener plan" });
   }
 };
 
-// ✅ Crear plan
+// ✅ Crear nuevo plan
 export const createPlan = async (req, res) => {
   try {
-    const { nombre_plan, descripcion, precio, descuento_porcentaje } = req.body;
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("nombre_plan", nombre_plan)
-      .input("descripcion", descripcion)
-      .input("precio", precio)
-      .input("descuento_porcentaje", descuento_porcentaje)
-      .query(`
-        INSERT INTO PLANES_CLASES (nombre_plan, descripcion, precio, descuento_porcentaje)
-        OUTPUT INSERTED.*
-        VALUES (@nombre_plan, @descripcion, @precio, @descuento_porcentaje)
-      `);
+    const { nombre_plan, descripcion, precio, duracion_meses } = req.body;
 
-    res.status(201).json({ mensaje: "Plan creado", plan: result.recordset[0] });
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error al crear plan", error: error.message });
+    const result = await pool.query(
+      `INSERT INTO planes (nombre_plan, descripcion, precio, duracion_meses)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id_plan`,
+      [nombre_plan, descripcion, precio, duracion_meses]
+    );
+
+    const nuevoPlan = new Plan({
+      id_plan: result.rows[0].id_plan,
+      nombre_plan,
+      descripcion,
+      precio,
+      duracion_meses
+    });
+
+    res.status(201).json(nuevoPlan);
+  } catch (err) {
+    console.error("❌ Error al crear plan:", err);
+    res.status(400).json({ mensaje: "Error al crear plan", error: err.message });
   }
 };
 
@@ -61,29 +60,26 @@ export const createPlan = async (req, res) => {
 export const updatePlan = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre_plan, descripcion, precio, descuento_porcentaje } = req.body;
+    const { nombre_plan, descripcion, precio, duracion_meses } = req.body;
 
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_plan", id)
-      .input("nombre_plan", nombre_plan)
-      .input("descripcion", descripcion)
-      .input("precio", precio)
-      .input("descuento_porcentaje", descuento_porcentaje)
-      .query(`
-        UPDATE PLANES_CLASES
-        SET nombre_plan=@nombre_plan, descripcion=@descripcion, precio=@precio, descuento_porcentaje=@descuento_porcentaje
-        WHERE id_plan=@id_plan
-      `);
+    const result = await pool.query(
+      `UPDATE planes
+       SET nombre_plan = $1,
+           descripcion = $2,
+           precio = $3,
+           duracion_meses = $4
+       WHERE id_plan = $5`,
+      [nombre_plan, descripcion, precio, duracion_meses, id]
+    );
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Plan no encontrado" });
     }
 
-    res.json({ mensaje: "Plan actualizado" });
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error al actualizar plan", error: error.message });
+    res.json({ mensaje: "Plan actualizado correctamente" });
+  } catch (err) {
+    console.error("❌ Error al actualizar plan:", err);
+    res.status(400).json({ mensaje: "Error al actualizar plan", error: err.message });
   }
 };
 
@@ -91,18 +87,16 @@ export const updatePlan = async (req, res) => {
 export const deletePlan = async (req, res) => {
   try {
     const { id } = req.params;
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_plan", id)
-      .query("DELETE FROM PLANES_CLASES WHERE id_plan=@id_plan");
 
-    if (result.rowsAffected[0] === 0) {
+    const result = await pool.query("DELETE FROM planes WHERE id_plan = $1", [id]);
+
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Plan no encontrado" });
     }
 
-    res.json({ mensaje: "Plan eliminado" });
-  } catch (error) {
-    res.status(500).json({ mensaje: "Error al eliminar plan", error: error.message });
+    res.json({ mensaje: "Plan eliminado correctamente" });
+  } catch (err) {
+    console.error("❌ Error al eliminar plan:", err);
+    res.status(500).json({ mensaje: "Error al eliminar plan" });
   }
 };

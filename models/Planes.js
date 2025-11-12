@@ -1,10 +1,10 @@
-// models/PlanClase.js
-export default class PlanClase {
-  constructor({ id_plan, nombre_plan, descripcion, precio, descuento_porcentaje }) {
+// models/Planes.js
+export default class Plan {
+  constructor({ id_plan, nombre_plan, descripcion, precio, duracion_meses }) {
     this.id_plan = id_plan;
     this.nombre_plan = nombre_plan;
     this.descripcion = descripcion;
     this.precio = precio;
-    this.descuento_porcentaje = descuento_porcentaje;
+    this.duracion_meses = duracion_meses;
   }
 }

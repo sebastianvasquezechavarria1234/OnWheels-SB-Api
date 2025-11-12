@@ -1,86 +1,69 @@
-import { getPool } from "../db/postgresPool.js";
-import Variante from "../models/Variantes.js";
+import pool from "../db/postgresPool.js";
 
-// Listar variantes
-export const listarVariantes = async (req, res) => {
+// Obtener todas las variantes con su producto, color y talla
+export const getVariantes = async (req, res) => {
   try {
-    const pool = await getPool();
-    const result = await pool.request().query(`
-      SELECT v.id_variante, v.id_producto, v.id_talla, v.id_color, v.stock,
-             t.nombre_talla, c.nombre_color, c.codigo_hex
-      FROM VARIANTES_PRODUCTO v
-      INNER JOIN TALLAS t ON v.id_talla = t.id_talla
-      INNER JOIN COLOR c ON v.id_color = c.id_color
+    const result = await pool.query(`
+      SELECT v.id_variante, 
+             p.nombre AS producto,
+             c.nombre AS color,
+             t.nombre AS talla,
+             v.stock
+      FROM varianteproducto v
+      INNER JOIN productos p ON v.id_producto = p.id_producto
+      INNER JOIN color c ON v.id_color = c.id_color
+      INNER JOIN talla t ON v.id_talla = t.id_talla
+      ORDER BY v.id_variante ASC
     `);
-    const variantes = result.recordset.map(row => new Variante(row));
-    res.json(variantes);
+    res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-export const crearVariante = async (req, res) => {
-  try {
-    const { id_producto, id_talla, id_color, stock } = req.body;
-
-    // Validación de campos obligatorios
-    if (!id_producto || !id_talla || !id_color) {
-      return res.status(400).json({ error: "Faltan campos obligatorios: id_producto, id_talla, id_color" });
-    }
-
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input("id_producto", id_producto)
-      .input("id_talla", id_talla)
-      .input("id_color", id_color)
-      .input("stock", stock ?? 0) // si no mandas stock, lo pone en 0
-      .query(`
-        INSERT INTO VARIANTES_PRODUCTO (id_producto, id_talla, id_color, stock) 
-        OUTPUT INSERTED.* 
-        VALUES (@id_producto, @id_talla, @id_color, @stock)
-      `);
-
-    const nueva = new Variante(result.recordset[0]);
-    res.json(nueva);
-
-  } catch (error) {
-    console.error("❌ Error creando variante:", error);
-    res.status(500).json({ error: "Error creando variante", detalle: error.message });
+    console.error("Error al obtener variantes:", error);
+    res.status(500).json({ error: "Error al obtener las variantes" });
   }
 };
 
-// Actualizar variante
-export const actualizarVariante = async (req, res) => {
+// Crear nueva variante
+export const createVariante = async (req, res) => {
+  const { id_producto, id_color, id_talla, stock } = req.body;
   try {
-    const { id } = req.params;
-    const { id_producto, id_talla, id_color, stock } = req.body;
-    const pool = await getPool();
-    await pool
-      .request()
-      .input("id_variante", id)
-      .input("id_producto", id_producto)
-      .input("id_talla", id_talla)
-      .input("id_color", id_color)
-      .input("stock", stock)
-      .query(`
-        UPDATE VARIANTES_PRODUCTO
-        SET id_producto=@id_producto, id_talla=@id_talla, id_color=@id_color, stock=@stock
-        WHERE id_variante=@id_variante
-      `);
-    res.json({ message: "Variante actualizada" });
+    const result = await pool.query(
+      `INSERT INTO varianteproducto (id_producto, id_color, id_talla, stock)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [id_producto, id_color, id_talla, stock]
+    );
+    res.status(201).json(result.rows[0]);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error al crear variante:", error);
+    res.status(500).json({ error: "Error al crear la variante" });
+  }
+};
+
+// Actualizar una variante
+export const updateVariante = async (req, res) => {
+  const { id } = req.params;
+  const { id_color, id_talla, stock } = req.body;
+  try {
+    const result = await pool.query(
+      `UPDATE varianteproducto
+       SET id_color = $1, id_talla = $2, stock = $3
+       WHERE id_variante = $4 RETURNING *`,
+      [id_color, id_talla, stock, id]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error al actualizar variante:", error);
+    res.status(500).json({ error: "Error al actualizar la variante" });
   }
 };
 
 // Eliminar variante
-export const eliminarVariante = async (req, res) => {
+export const deleteVariante = async (req, res) => {
+  const { id } = req.params;
   try {
-    const { id } = req.params;
-    const pool = await getPool();
-    await pool.request().input("id_variante", id).query("DELETE FROM VARIANTES_PRODUCTO WHERE id_variante=@id_variante");
-    res.json({ message: "Variante eliminada" });
+    await pool.query("DELETE FROM varianteproducto WHERE id_variante = $1", [id]);
+    res.json({ mensaje: "Variante eliminada correctamente" });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error al eliminar variante:", error);
+    res.status(500).json({ error: "Error al eliminar la variante" });
   }
 };
