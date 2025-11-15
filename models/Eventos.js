@@ -1,41 +1,26 @@
-import mongoose from "mongoose"
-
-const eventosSchema = new mongoose.Schema({
-  imagen: {
-    type: String,
-    required: true,
-  },
-  nombre: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  descripcion: {
-    type: String,
-    required: true,
-  },
-  ubicacion: {
-    type: String,
-    required: true,
-  },
-  direccion: {
-    type: String,
-    required: true,
-  },
-  hora: {
-    type: String,
-    required: true,
-  },
-  patrocinador: {
-    type: String,
-    required: true,
-  },
-  estado: {
-    type: String,
-    enum: ["Programado", "Finalizado", "Cancelado"],
-    default: "Programado",
-    required: true,
+// models/Evento.js
+export default class Evento {
+  constructor({
+    id_evento,
+    id_categoria_evento,
+    id_sede,
+    nombre_evento,
+    fecha_evento,
+    hora_inicio,
+    hora_aproximada_fin,
+    descripcion,
+    imagen_evento,
+    estado
+  }) {
+    this.id_evento = id_evento
+    this.id_categoria_evento = id_categoria_evento
+    this.id_sede = id_sede
+    this.nombre_evento = nombre_evento
+    this.fecha_evento = fecha_evento
+    this.hora_inicio = hora_inicio
+    this.hora_aproximada_fin = hora_aproximada_fin
+    this.descripcion = descripcion
+    this.imagen_evento = imagen_evento
+    this.estado = estado
   }
-})
-
-export default mongoose.model("Eventos", eventosSchema)
+}
