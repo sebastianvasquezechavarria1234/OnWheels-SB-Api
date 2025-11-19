@@ -1,5 +1,5 @@
-// models/Sede.js
-export default class Sede {
+// models/Sedes.js
+class Sede {
   constructor({ id_sede, nombre_sede, direccion, ciudad, telefono_sede }) {
     this.id_sede = id_sede
     this.nombre_sede = nombre_sede
@@ -8,3 +8,5 @@ export default class Sede {
     this.telefono_sede = telefono_sede
   }
 }
+
+export default Sede
