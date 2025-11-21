@@ -1,115 +1,91 @@
 // controllers/authController.js
-import dotenv from 'dotenv';
 import { validationResult } from 'express-validator';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import pool from "../db/postgresPool.js";
+import pool from '../db/postgresPool.js';
 
-
-dotenv.config();
-
-function signToken(payloadObj) {
-  return jwt.sign(payloadObj, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '1h' });
-}
-
+// ==================== REGISTER ====================
 export async function register(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   try {
-    const { nombre, email, telefono, password } = req.body;
-    if (!nombre || !email || !telefono || !password) {
-      return res.status(400).json({ message: 'Todos los campos son requeridos' });
+    const { nombre, email, telefono, contrasena } = req.body;
+
+    if (!nombre || !email || !contrasena) {
+      return res.status(400).json({ message: 'Todos los campos obligatorios deben ser llenados' });
     }
 
-    const pool = await getPool();
-
-    // Verificar existencia por email (normalizamos a lowercase)
-    const check = await pool.request()
-      .input('Email', sql.NVarChar, email.toLowerCase())
-      .query('SELECT TOP 1 * FROM Usuarios WHERE Email = @Email');
-
-    if (check.recordset.length > 0) {
+    // Verificar si el email ya existe
+    const existing = await pool.query(
+      'SELECT * FROM usuarios WHERE email = $1',
+      [email.toLowerCase()]
+    );
+    if (existing.rows.length > 0) {
       return res.status(400).json({ message: 'Email ya registrado' });
     }
 
-    // Hashear contraseña
-    const salt = await bcrypt.genSalt(10);
-    const hashed = await bcrypt.hash(password, salt);
+    // Insertar usuario (con contrasena en texto plano)
+    const insertUser = await pool.query(
+      `INSERT INTO usuarios (nombre_completo, email, telefono, contrasena)
+       VALUES ($1,$2,$3,$4)
+       RETURNING id_usuario, nombre_completo, email`,
+      [nombre, email.toLowerCase(), telefono || null, contrasena]
+    );
 
-    // Insertar usuario (ajusta nombres de columnas si tu tabla usa distintos)
-    const insertResult = await pool.request()
-      .input('Nombre', sql.NVarChar, nombre)
-      .input('Email', sql.NVarChar, email.toLowerCase())
-      .input('Telefono', sql.NVarChar, telefono)
-      .input('Password', sql.NVarChar, hashed)
-      .query(`
-        INSERT INTO Usuarios (nombre_completo, Email, telefono, contraseña, CreatedAt)
-        VALUES (@Nombre, @Email, @Telefono, @Password, GETDATE());
-        SELECT CAST(SCOPE_IDENTITY() AS INT) AS id;
-      `);
-
-    const newId = insertResult.recordset?.[0]?.id ?? null;
-
-    // Opcional: crear token inmediatamente
-    const token = signToken({ id: newId, email: email.toLowerCase() });
+    const newUser = insertUser.rows[0];
 
     res.status(201).json({
-      message: 'Usuario creado',
-      user: { id: newId, nombre, email: email.toLowerCase() },
-      token,
-      expiresIn: process.env.JWT_EXPIRES_IN || '1h'
+      message: 'Usuario creado correctamente',
+      user: {
+        id_usuario: newUser.id_usuario,
+        nombre: newUser.nombre_completo,
+        email: newUser.email,
+      },
     });
   } catch (err) {
     console.error('Register error:', err);
-    res.status(500).json({ message: 'Error en servidor' });
+    res.status(500).json({ message: 'Error en servidor', error: err.message });
   }
 }
 
+// ==================== LOGIN ====================
 export async function login(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: 'Email y password requeridos' });
+    const { email, contrasena } = req.body;
 
-    const pool = await getPool();
-    const result = await pool.request()
-      .input('Email', sql.NVarChar, email.toLowerCase())
-      .query('SELECT TOP 1 * FROM Usuarios WHERE Email = @Email');
+    if (!email || !contrasena) {
+      return res.status(400).json({ message: 'Email y contrasena requeridos' });
+    }
 
-    if (result.recordset.length === 0) {
+    // Buscar usuario
+    const userResult = await pool.query(
+      'SELECT * FROM usuarios WHERE email = $1 LIMIT 1',
+      [email.toLowerCase()]
+    );
+
+    if (userResult.rows.length === 0) {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
-    const user = result.recordset[0];
-    // Nota: campo de contraseña en la tabla lo he dejado como "contraseña" porque tu modelo JS lo usa así.
-    // Si en la BD tu columna se llama diferente (p.e. Password, password, Contrasena) ajusta aquí.
-    const hashedPassword = user['contraseña'] ?? user['password'] ?? user['Password'];
+    const user = userResult.rows[0];
 
-    if (!hashedPassword) {
-      console.error('Campo contraseña no encontrado en user:', Object.keys(user));
-      return res.status(500).json({ message: 'Configuración de usuarios incorrecta' });
+    // Comparación simple de contraseñas en texto plano
+    if (user.contrasena !== contrasena) {
+      return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
-    const isMatch = await bcrypt.compare(password, hashedPassword);
-    if (!isMatch) return res.status(401).json({ message: 'Credenciales inválidas' });
-
-    const payload = { id: user.id_usuario ?? user.Id ?? user.ID ?? user.id, email: user.Email ?? user.email };
-    const token = signToken(payload);
-
     res.json({
-      token,
-      expiresIn: process.env.JWT_EXPIRES_IN || '1h',
+      message: 'Login exitoso',
       user: {
-        id: payload.id,
-        email: payload.email,
-        nombre: user.nombre_completo ?? user.Nombre ?? user.nombre
-      }
+        id_usuario: user.id_usuario,
+        nombre: user.nombre_completo,
+        email: user.email,
+      },
     });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ message: 'Error en servidor' });
+    res.status(500).json({ message: 'Error en servidor', error: err.message });
   }
 }

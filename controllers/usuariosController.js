@@ -56,7 +56,7 @@ export const createUsuario = async (req, res) => {
       email,
       telefono,
       fecha_nacimiento,
-      contraseña,
+      contrasena,
       rol // 👈 nombre del rol (ej: "Administrador", "Cliente", etc.)
     } = req.body
 
@@ -73,7 +73,7 @@ export const createUsuario = async (req, res) => {
         email,
         telefono,
         fecha_nacimiento,
-        contraseña
+        contrasena
       ]
     )
 
@@ -108,7 +108,7 @@ export const createUsuario = async (req, res) => {
         email,
         telefono,
         fecha_nacimiento,
-        contraseña,
+        contrasena,
         rol
       }
     })
@@ -129,7 +129,7 @@ export const updateUsuario = async (req, res) => {
       email,
       telefono,
       fecha_nacimiento,
-      contraseña
+      contrasena
     } = req.body
 
     const result = await pool.query(
@@ -149,7 +149,7 @@ export const updateUsuario = async (req, res) => {
         email,
         telefono,
         fecha_nacimiento,
-        contraseña,
+        contrasena,
         id
       ]
     )
