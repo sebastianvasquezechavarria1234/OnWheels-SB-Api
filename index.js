@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
-import { getPool } from "./db/mssqlPool.js"; // SQL SERVER
+// import { getPool } from "./db/mssqlPool.js"; // SQL SERVER
 import pool from "./db/postgresPool.js";     // POSTGRESQL
 
 // Rutas

@@ -46,7 +46,7 @@ export const verificarEmail = async (req, res) => {
   }
 }
 
-// ✅ Crear usuario
+// ✅ Crear usuario con rol (por nombre del rol)
 export const createUsuario = async (req, res) => {
   try {
     const {
@@ -56,15 +56,15 @@ export const createUsuario = async (req, res) => {
       email,
       telefono,
       fecha_nacimiento,
-      direccion,
       contraseña,
-      tipo_genero
+      rol // 👈 nombre del rol (ej: "Administrador", "Cliente", etc.)
     } = req.body
 
+    // 1️⃣ Crear usuario
     const result = await pool.query(
       `INSERT INTO usuarios 
-      (documento, tipo_documento, nombre_completo, email, telefono, fecha_nacimiento, direccion, contrasena, tipo_genero)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      (documento, tipo_documento, nombre_completo, email, telefono, fecha_nacimiento, contrasena)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
       RETURNING id_usuario`,
       [
         documento,
@@ -73,26 +73,45 @@ export const createUsuario = async (req, res) => {
         email,
         telefono,
         fecha_nacimiento,
-        direccion,
-        contraseña,
-        tipo_genero
+        contraseña
       ]
     )
 
-    const nuevoUsuario = new Usuario({
-      id_usuario: result.rows[0].id_usuario,
-      documento,
-      tipo_documento,
-      nombre_completo,
-      email,
-      telefono,
-      fecha_nacimiento,
-      direccion,
-      contraseña,
-      tipo_genero
-    })
+    const id_usuario = result.rows[0].id_usuario
 
-    res.status(201).json(nuevoUsuario)
+    // 2️⃣ Buscar el id del rol por su nombre
+    const rolResult = await pool.query(
+      `SELECT id_rol FROM roles WHERE LOWER(nombre_rol) = LOWER($1)`,
+      [rol]
+    )
+
+    if (rolResult.rows.length === 0) {
+      return res.status(400).json({ mensaje: `El rol '${rol}' no existe en la base de datos` })
+    }
+
+    const id_rol = rolResult.rows[0].id_rol
+
+    // 3️⃣ Asignar el rol al usuario
+    await pool.query(
+      `INSERT INTO usuario_roles (id_usuario, id_rol) VALUES ($1, $2)`,
+      [id_usuario, id_rol]
+    )
+
+    // 4️⃣ Devolver respuesta con el rol incluido
+    res.status(201).json({
+      mensaje: `Usuario creado correctamente con el rol '${rol}' asignado`,
+      usuario: {
+        id_usuario,
+        documento,
+        tipo_documento,
+        nombre_completo,
+        email,
+        telefono,
+        fecha_nacimiento,
+        contraseña,
+        rol
+      }
+    })
   } catch (err) {
     console.error("Error en transacción:", err)
     res.status(400).json({ mensaje: "Error al crear usuario", error: err.message })
@@ -110,9 +129,7 @@ export const updateUsuario = async (req, res) => {
       email,
       telefono,
       fecha_nacimiento,
-      direccion,
-      contraseña,
-      tipo_genero
+      contraseña
     } = req.body
 
     const result = await pool.query(
@@ -123,10 +140,8 @@ export const updateUsuario = async (req, res) => {
            email = $4,
            telefono = $5,
            fecha_nacimiento = $6,
-           direccion = $7,
-           contrasena = $8,
-           tipo_genero = $9
-       WHERE id_usuario = $10`,
+           contrasena = $7
+       WHERE id_usuario = $8`,
       [
         documento,
         tipo_documento,
@@ -134,9 +149,7 @@ export const updateUsuario = async (req, res) => {
         email,
         telefono,
         fecha_nacimiento,
-        direccion,
         contraseña,
-        tipo_genero,
         id
       ]
     )
@@ -156,13 +169,18 @@ export const updateUsuario = async (req, res) => {
 export const deleteUsuario = async (req, res) => {
   try {
     const { id } = req.params
-    const result = await pool.query('DELETE FROM usuarios WHERE id_usuario = $1', [id])
+
+    // Primero eliminamos su rol (para respetar la FK)
+    await pool.query("DELETE FROM usuario_roles WHERE id_usuario = $1", [id])
+
+    // Luego eliminamos el usuario
+    const result = await pool.query("DELETE FROM usuarios WHERE id_usuario = $1", [id])
 
     if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" })
     }
 
-    res.json({ mensaje: "Usuario eliminado correctamente" })
+    res.json({ mensaje: "Usuario y su rol eliminado correctamente" })
   } catch (err) {
     console.error(err)
     res.status(500).json({ mensaje: "Error al eliminar usuario" })
