@@ -1,9 +1,9 @@
 import Matricula from "../models/Matriculas.js";
 import pool from "../db/postgresPool.js";
 
+// ✅ Obtener todas las matrículas
 export const getMatriculas = async (req, res) => {
   try {
-    const pool = await getPool();
     const result = await pool.query(`
       SELECT 
         m.*, 
@@ -16,6 +16,7 @@ export const getMatriculas = async (req, res) => {
       INNER JOIN PLANES_CLASES p ON m.id_plan = p.id_plan
       ORDER BY m.fecha_matricula DESC
     `);
+
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ mensaje: "Error al obtener matrículas", error: error.message });
@@ -26,7 +27,7 @@ export const getMatriculas = async (req, res) => {
 export const getMatriculaById = async (req, res) => {
   try {
     const { id } = req.params;
-    const pool = await getPool();
+
     const result = await pool.query(
       `
       SELECT 
@@ -58,7 +59,6 @@ export const createMatricula = async (req, res) => {
   try {
     const { id_estudiante, id_clase, id_plan, fecha_matricula, estado } = req.body;
 
-    const pool = await getPool();
     const result = await pool.query(
       `
       INSERT INTO MATRICULAS (id_estudiante, id_clase, id_plan, fecha_matricula, estado)
@@ -81,7 +81,6 @@ export const updateMatricula = async (req, res) => {
     const { id } = req.params;
     const { id_estudiante, id_clase, id_plan, fecha_matricula, estado } = req.body;
 
-    const pool = await getPool();
     const result = await pool.query(
       `
       UPDATE MATRICULAS
@@ -111,8 +110,11 @@ export const updateMatricula = async (req, res) => {
 export const deleteMatricula = async (req, res) => {
   try {
     const { id } = req.params;
-    const pool = await getPool();
-    const result = await pool.query("DELETE FROM MATRICULAS WHERE id_matricula = $1", [id]);
+
+    const result = await pool.query(
+      "DELETE FROM MATRICULAS WHERE id_matricula = $1",
+      [id]
+    );
 
     if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Matrícula no encontrada" });

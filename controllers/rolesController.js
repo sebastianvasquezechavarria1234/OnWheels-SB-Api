@@ -1,12 +1,12 @@
-import sql from "mssql"
+// controllers/rolesController.js
+import pool from "../db/postgresPool.js"
 import Rol from "../models/Roles.js"
 
 // ✅ Obtener todos los roles
 export const getRoles = async (req, res) => {
   try {
-    const pool = await sql.connect()
-    const result = await pool.request().query("SELECT * FROM ROLES ORDER BY nombre_rol ASC")
-    res.json(result.recordset)
+    const result = await pool.query("SELECT * FROM roles ORDER BY nombre_rol ASC")
+    res.json(result.rows)
   } catch (err) {
     console.error(err)
     res.status(500).json({ mensaje: "Error al obtener roles" })
@@ -17,16 +17,13 @@ export const getRoles = async (req, res) => {
 export const getRolById = async (req, res) => {
   try {
     const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("SELECT * FROM ROLES WHERE id_rol = @id")
+    const result = await pool.query("SELECT * FROM roles WHERE id_rol = $1", [id])
 
-    if (result.recordset.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Rol no encontrado" })
     }
 
-    res.json(result.recordset[0])
+    res.json(result.rows[0])
   } catch (err) {
     console.error(err)
     res.status(500).json({ mensaje: "Error al obtener rol" })
@@ -38,19 +35,15 @@ export const createRol = async (req, res) => {
   try {
     const { nombre_rol, descripcion, estado } = req.body
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("nombre_rol", sql.VarChar, nombre_rol)
-      .input("descripcion", sql.VarChar, descripcion)
-      .input("estado", sql.Bit, estado)
-      .query(`
-        INSERT INTO ROLES (nombre_rol, descripcion, estado)
-        VALUES (@nombre_rol, @descripcion, @estado);
-        SELECT SCOPE_IDENTITY() AS id;
-      `)
+    const result = await pool.query(
+      `INSERT INTO roles (nombre_rol, descripcion, estado)
+       VALUES ($1, $2, $3)
+       RETURNING id_rol`,
+      [nombre_rol, descripcion, estado]
+    )
 
     const nuevoRol = new Rol({
-      id_rol: result.recordset[0].id,
+      id_rol: result.rows[0].id_rol,
       nombre_rol,
       descripcion,
       estado
@@ -69,21 +62,16 @@ export const updateRol = async (req, res) => {
     const { id } = req.params
     const { nombre_rol, descripcion, estado } = req.body
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .input("nombre_rol", sql.VarChar, nombre_rol)
-      .input("descripcion", sql.VarChar, descripcion)
-      .input("estado", sql.Bit, estado)
-      .query(`
-        UPDATE ROLES
-        SET nombre_rol = @nombre_rol,
-            descripcion = @descripcion,
-            estado = @estado
-        WHERE id_rol = @id
-      `)
+    const result = await pool.query(
+      `UPDATE roles
+       SET nombre_rol = $1,
+           descripcion = $2,
+           estado = $3
+       WHERE id_rol = $4`,
+      [nombre_rol, descripcion, estado, id]
+    )
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Rol no encontrado" })
     }
 
@@ -98,12 +86,9 @@ export const updateRol = async (req, res) => {
 export const deleteRol = async (req, res) => {
   try {
     const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("DELETE FROM ROLES WHERE id_rol = @id")
+    const result = await pool.query("DELETE FROM roles WHERE id_rol = $1", [id])
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Rol no encontrado" })
     }
 
