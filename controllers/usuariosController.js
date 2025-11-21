@@ -46,7 +46,7 @@ export const verificarEmail = async (req, res) => {
   }
 }
 
-// ✅ Crear usuario con rol (por nombre del rol)
+// ✅ Crear usuario con rol (contraseña en texto plano)
 export const createUsuario = async (req, res) => {
   try {
     const {
@@ -56,8 +56,8 @@ export const createUsuario = async (req, res) => {
       email,
       telefono,
       fecha_nacimiento,
-      contrasena,
-      rol // 👈 nombre del rol (ej: "Administrador", "Cliente", etc.)
+      contrasena, // <- SE GUARDARÁ TAL CUAL
+      rol
     } = req.body
 
     // 1️⃣ Crear usuario
@@ -108,7 +108,7 @@ export const createUsuario = async (req, res) => {
         email,
         telefono,
         fecha_nacimiento,
-        contrasena,
+        contrasena, // <- CONTRASEÑA EN TEXTO PLANO
         rol
       }
     })
@@ -118,7 +118,7 @@ export const createUsuario = async (req, res) => {
   }
 }
 
-// ✅ Actualizar usuario
+// ✅ Actualizar usuario (contraseña en texto plano)
 export const updateUsuario = async (req, res) => {
   try {
     const { id } = req.params
@@ -129,7 +129,7 @@ export const updateUsuario = async (req, res) => {
       email,
       telefono,
       fecha_nacimiento,
-      contrasena
+      contrasena // <- SE ACTUALIZA TAL CUAL
     } = req.body
 
     const result = await pool.query(
@@ -170,10 +170,7 @@ export const deleteUsuario = async (req, res) => {
   try {
     const { id } = req.params
 
-    // Primero eliminamos su rol (para respetar la FK)
     await pool.query("DELETE FROM usuario_roles WHERE id_usuario = $1", [id])
-
-    // Luego eliminamos el usuario
     const result = await pool.query("DELETE FROM usuarios WHERE id_usuario = $1", [id])
 
     if (result.rowCount === 0) {
