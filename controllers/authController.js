@@ -1,4 +1,4 @@
-// controllers/authController.js
+// authController.js
 import { validationResult } from 'express-validator';
 import pool from '../db/postgresPool.js';
 
@@ -32,6 +32,24 @@ export async function register(req, res) {
     );
 
     const newUser = insertUser.rows[0];
+    
+    // ASIGNAR ROL POR DEFECTO "Usuario" si existe, si no, continuar sin rol
+    try {
+      const rolResult = await pool.query(
+        `SELECT id_rol FROM roles WHERE LOWER(nombre_rol) = LOWER($1) AND (estado IS NULL OR estado = true)`,
+        ['Usuario']
+      );
+
+      if (rolResult.rows.length > 0) {
+        const id_rol = rolResult.rows[0].id_rol;
+        await pool.query(
+          `INSERT INTO usuario_roles (id_usuario, id_rol) VALUES ($1, $2)`,
+          [newUser.id_usuario, id_rol]
+        );
+      }
+    } catch (rolError) {
+      console.log('No se pudo asignar rol por defecto, pero el usuario fue creado:', rolError.message);
+    }
 
     res.status(201).json({
       message: 'Usuario creado correctamente',
@@ -39,6 +57,7 @@ export async function register(req, res) {
         id_usuario: newUser.id_usuario,
         nombre: newUser.nombre_completo,
         email: newUser.email,
+        rol: 'Usuario' // Asignamos por defecto para la respuesta
       },
     });
   } catch (err) {
@@ -76,12 +95,31 @@ export async function login(req, res) {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
+    // Obtener el rol del usuario (puede ser null)
+    let rol = null;
+    try {
+      const rolResult = await pool.query(`
+        SELECT r.nombre_rol 
+        FROM usuario_roles ur
+        JOIN roles r ON ur.id_rol = r.id_rol
+        WHERE ur.id_usuario = $1
+        LIMIT 1
+      `, [user.id_usuario]);
+
+      if (rolResult.rows.length > 0) {
+        rol = rolResult.rows[0].nombre_rol;
+      }
+    } catch (rolError) {
+      console.log('Error al obtener rol, pero el login continúa:', rolError.message);
+    }
+
     res.json({
       message: 'Login exitoso',
       user: {
         id_usuario: user.id_usuario,
         nombre: user.nombre_completo,
         email: user.email,
+        rol: rol // Puede ser "Administrador", "Usuario", "estudiante", "instructor" o null
       },
     });
   } catch (err) {

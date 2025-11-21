@@ -2,10 +2,18 @@
 import pool from "../db/postgresPool.js"
 import Usuario from "../models/Usuarios.js"
 
-// ✅ Obtener todos los usuarios
+// ✅ Obtener todos los usuarios con su rol
 export const getUsuarios = async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM usuarios ORDER BY nombre_completo ASC')
+    const result = await pool.query(`
+      SELECT u.*, 
+             (SELECT r.nombre_rol 
+              FROM usuario_roles ur 
+              JOIN roles r ON ur.id_rol = r.id_rol 
+              WHERE ur.id_usuario = u.id_usuario) as rol
+      FROM usuarios u 
+      ORDER BY u.nombre_completo ASC
+    `)
     res.json(result.rows)
   } catch (err) {
     console.error(err)
@@ -13,11 +21,19 @@ export const getUsuarios = async (req, res) => {
   }
 }
 
-// ✅ Obtener usuario por ID
+// ✅ Obtener usuario por ID con su rol
 export const getUsuarioById = async (req, res) => {
   try {
     const { id } = req.params
-    const result = await pool.query('SELECT * FROM usuarios WHERE id_usuario = $1', [id])
+    const result = await pool.query(`
+      SELECT u.*, 
+             (SELECT r.nombre_rol 
+              FROM usuario_roles ur 
+              JOIN roles r ON ur.id_rol = r.id_rol 
+              WHERE ur.id_usuario = u.id_usuario) as rol
+      FROM usuarios u 
+      WHERE u.id_usuario = $1
+    `, [id])
 
     if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" })
@@ -34,7 +50,15 @@ export const getUsuarioById = async (req, res) => {
 export const verificarEmail = async (req, res) => {
   try {
     const { email } = req.params
-    const result = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email])
+    const result = await pool.query(`
+      SELECT u.*, 
+             (SELECT r.nombre_rol 
+              FROM usuario_roles ur 
+              JOIN roles r ON ur.id_rol = r.id_rol 
+              WHERE ur.id_usuario = u.id_usuario) as rol
+      FROM usuarios u 
+      WHERE u.email = $1
+    `, [email])
 
     if (result.rows.length > 0) {
       return res.json({ existe: true, usuario: result.rows[0] })
