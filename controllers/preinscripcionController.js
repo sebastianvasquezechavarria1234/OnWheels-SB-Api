@@ -1,46 +1,47 @@
-import pool from "../db/postgresPool.js";
+import {
+  crearPreinscripcion,
+  obtenerPreinscripcionesPendientes,
+  actualizarEstadoPreinscripcion,
+  obtenerEstudiantePorId
+} from "../models/estudiantesModel.js";
+
+
+// Registrar preinscripción
+export const registrarPreinscripcion = async (req, res) => {
+  try {
+    const nueva = await crearPreinscripcion(req.body);
+    res.status(201).json({ mensaje: "Preinscripción registrada", data: nueva });
+  } catch (error) {
+    res.status(500).json({ mensaje: "Error al registrar", error });
+  }
+};
+
 
 // Listar todas las preinscripciones pendientes
-export const listarPreinscripciones = async (req, res) => {
+export const listarPreinscripcionesPendientes = async (req, res) => {
   try {
-    const result = await pool.query(
-      "SELECT * FROM estudiantes WHERE estado = 'pendiente'"
-    );
-    res.json(result.rows);
+    const lista = await obtenerPreinscripcionesPendientes();
+    res.json(lista);
   } catch (error) {
-    res.status(500).json({ message: "Error al obtener las preinscripciones", error });
+    res.status(500).json({ mensaje: "Error al listar", error });
   }
 };
 
-// Aceptar preinscripción (cambiar a activo)
-export const aceptarPreinscripcion = async (req, res) => {
+
+// Aprobar o rechazar preinscripción
+export const cambiarEstadoPreinscripcion = async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query(
-      "UPDATE estudiantes SET estado = 'activo' WHERE id_estudiante = $1",
-      [id]
-    );
-    res.json({ message: "✅ Preinscripción aceptada y estudiante activado" });
+    const { estado } = req.body; // 'aceptado' o 'rechazado'
+
+    if (!["aceptado", "rechazado"].includes(estado)) {
+      return res.status(400).json({ mensaje: "Estado no válido" });
+    }
+
+    const actualizado = await actualizarEstadoPreinscripcion(id, estado);
+    res.json({ mensaje: "Estado actualizado", data: actualizado });
+
   } catch (error) {
-    res.status(500).json({ message: "Error al aceptar la preinscripción", error });
-  }
-};
-
-// Rechazar preinscripción (eliminar registro o marcar rechazado)
-export const rechazarPreinscripcion = async (req, res) => {
-  try {
-    const { id } = req.params;
-    // Opción 1: marcar como rechazado
-    await pool.query(
-      "UPDATE estudiantes SET estado = 'rechazado' WHERE id_estudiante = $1",
-      [id]
-    );
-
-    // O si prefieres eliminarlo completamente, usa:
-    // await pool.query("DELETE FROM estudiantes WHERE id_estudiante = $1", [id]);
-
-    res.json({ message: "❌ Preinscripción rechazada" });
-  } catch (error) {
-    res.status(500).json({ message: "Error al rechazar la preinscripción", error });
+    res.status(500).json({ mensaje: "Error al actualizar estado", error });
   }
 };

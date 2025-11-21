@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
-import { getPool } from "./db/mssqlPool.js"; // SQL SERVER
+// import { getPool } from "./db/mssqlPool.js"; // SQL SERVER
 import pool from "./db/postgresPool.js";     // POSTGRESQL
 
 // Rutas
@@ -13,6 +13,7 @@ import colorRoutes from "./routes/colores.js";
 import authRoutes from "./routes/authRoutes.js";
 import matriculasRoutes from "./routes/matriculas.js";
 import preinscripcionesRoutes from "./routes/preinscripciones.js";
+import preinscripcionesRoutes from "./routes/preinscripcionesRoutes.js";
 import planesClasesRoutes from "./routes/planes.js";
 import nivelesClasesRoutes from "./routes/nivelesClases.js";
 import ventasRoutes from "./routes/ventas.js";
