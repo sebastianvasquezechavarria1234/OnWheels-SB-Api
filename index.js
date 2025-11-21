@@ -2,8 +2,11 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import pool from "./db/postgresPool.js"; 
 
+import { getPool } from "./db/mssqlPool.js"; // SQL SERVER
+import pool from "./db/postgresPool.js";     // POSTGRESQL
+
+// Rutas
 import variantesRoutes from "./routes/variantes.js";
 import tallaRoutes from "./routes/tallas.js";
 import colorRoutes from "./routes/colores.js";
@@ -28,20 +31,35 @@ import proveedoresRoutes from "./routes/proveedores.js";
 dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
+// Middlewares
 app.use(cors());
 app.use(express.json());
-app.use("/api/auth", authRoutes);
 
+// 🧪 Ruta de prueba de conexión SQL Server
+app.get("/test-db", async (req, res) => {
+  try {
+    const poolSQL = await getPool();
+    const result = await poolSQL.request().query("SELECT GETDATE() AS fecha");
+    res.json(result.recordset);
+  } catch (err) {
+    console.error("❌ Error consultando SQL Server:", err.message);
+    res.status(500).json({ error: "Error en SQL Server", detalle: err.message });
+  }
+});
+
+// 🧪 Probar conexión PostgreSQL
 (async () => {
   try {
-    const res = await pool.query("SELECT NOW() AS conectado");
-    console.log("✅ Conectado a PostgreSQL:", res.rows[0]);
+    const resPG = await pool.query("SELECT NOW() AS conectado");
+    console.log("✅ Conectado a PostgreSQL:", resPG.rows[0]);
   } catch (err) {
     console.error("❌ Error conectando a PostgreSQL:", err);
   }
 })();
 
+// 📌 Endpoint raíz
 app.get("/", (req, res) => {
   res.json({
     mensaje: "🛹 Bienvenido a OnWheels Skateboard API",
@@ -52,10 +70,10 @@ app.get("/", (req, res) => {
       eventos: "/api/eventos",
       clases: "/api/clases",
       roles: "/api/roles",
+      categoriaEventos: "/api/categoria-eventos",
+      categoriaProductos: "/api/categoria-productos",
       productos: "/api/productos",
       proveedores: "/api/proveedores",
-      categoriaEventos: "/api/categoriaEventos",
-      categoriaProductos: "/api/categoriaProductos",
       compras: "/api/compras",
       sedes: "/api/sedes",
       patrocinadores: "/api/patrocinadores",
@@ -71,6 +89,8 @@ app.get("/", (req, res) => {
   });
 });
 
+// Rutas API
+app.use("/api/auth", authRoutes);
 app.use("/api/productos", productosRoutes);
 app.use("/api/proveedores", proveedoresRoutes);
 app.use("/api/roles", rolesRoutes);
@@ -91,8 +111,9 @@ app.use("/api/tallas", tallaRoutes);
 app.use("/api/colores", colorRoutes);
 app.use("/api/variantes", variantesRoutes);
 
-const PORT = process.env.PORT || 3000;
+// 🚀 Iniciar servidor
 app.listen(PORT, () => {
+  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
   console.log(`🌐 OnWheels API corriendo en puerto ${PORT}`);
   console.log(`🗄️ Usando PostgreSQL`);
 });
