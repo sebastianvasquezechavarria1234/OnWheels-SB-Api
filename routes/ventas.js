@@ -1,18 +1,13 @@
-import express from "express";
-import {
-  getVentas,
-  getVentaById,
-  createVenta,
-  updateVenta,
-  deleteVenta
-} from "../controllers/ventasController.js";
+import express from "express"
+import { authenticateToken, authorizeModule } from "../middleware/authMiddleware.js"
+import { getVentas, getVentaById, createVenta, updateVenta, deleteVenta } from "../controllers/ventasController.js"
 
-const router = express.Router();
+const router = express.Router()
 
-router.get("/", getVentas);          // Obtener todas las ventas
-router.get("/:id", getVentaById);    // Obtener venta por ID
-router.post("/", createVenta);       // Crear venta
-router.put("/:id", updateVenta);     // Actualizar venta
-router.delete("/:id", deleteVenta);  // Eliminar venta
+router.get("/", authenticateToken, authorizeModule("ventas"), getVentas)
+router.get("/:id", authenticateToken, authorizeModule("ventas"), getVentaById)
+router.post("/", authenticateToken, authorizeModule("ventas"), createVenta)
+router.put("/:id", authenticateToken, authorizeModule("ventas"), updateVenta)
+router.delete("/:id", authenticateToken, authorizeModule("ventas"), deleteVenta)
 
-export default router;
+export default router

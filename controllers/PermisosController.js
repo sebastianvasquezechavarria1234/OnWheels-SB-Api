@@ -1,82 +1,71 @@
-import sql from "mssql"
+import pool from "../db/postgresPool.js"
 import Permiso from "../models/Permiso.js"
 
-// ✅ Obtener todos los permisos
+// Obtener todos los permisos
 export const getPermisos = async (req, res) => {
   try {
-    const pool = await sql.connect()
-    const result = await pool.request().query("SELECT * FROM PERMISOS ORDER BY nombre_permiso ASC")
-    res.json(result.recordset)
+    const result = await pool.query("SELECT * FROM permisos ORDER BY nombre_permiso ASC")
+    res.json(result.rows)
   } catch (err) {
     console.error(err)
     res.status(500).json({ mensaje: "Error al obtener permisos" })
   }
 }
 
-// ✅ Obtener permiso por ID
+// Obtener permiso por ID
 export const getPermisoById = async (req, res) => {
   try {
     const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("SELECT * FROM PERMISOS WHERE id_permiso = @id")
+    const result = await pool.query("SELECT * FROM permisos WHERE id_permiso = $1", [id])
 
-    if (result.recordset.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Permiso no encontrado" })
     }
 
-    res.json(result.recordset[0])
+    res.json(result.rows[0])
   } catch (err) {
     res.status(500).json({ mensaje: "Error al obtener permiso" })
   }
 }
 
-// ✅ Crear permiso
+// Crear permiso
 export const createPermiso = async (req, res) => {
   try {
     const { nombre_permiso, descripcion } = req.body
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("nombre_permiso", sql.VarChar, nombre_permiso)
-      .input("descripcion", sql.VarChar, descripcion)
-      .query(`
-        INSERT INTO PERMISOS (nombre_permiso, descripcion)
-        VALUES (@nombre_permiso, @descripcion);
-        SELECT SCOPE_IDENTITY() AS id;
-      `)
+    const result = await pool.query(
+      `
+      INSERT INTO permisos (nombre_permiso, descripcion)
+      VALUES ($1, $2)
+      RETURNING id_permiso, nombre_permiso, descripcion
+    `,
+      [nombre_permiso, descripcion],
+    )
 
-    const nuevoPermiso = new Permiso({
-      id_permiso: result.recordset[0].id,
-      nombre_permiso,
-      descripcion
-    })
-
+    const nuevoPermiso = new Permiso(result.rows[0])
     res.status(201).json(nuevoPermiso)
   } catch (err) {
     res.status(400).json({ mensaje: "Error al crear permiso", error: err.message })
   }
 }
 
-// ✅ Actualizar permiso
+// Actualizar permiso
 export const updatePermiso = async (req, res) => {
   try {
     const { id } = req.params
     const { nombre_permiso, descripcion } = req.body
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .input("nombre_permiso", sql.VarChar, nombre_permiso)
-      .input("descripcion", sql.VarChar, descripcion)
-      .query(`
-        UPDATE PERMISOS
-        SET nombre_permiso = @nombre_permiso,
-            descripcion = @descripcion
-        WHERE id_permiso = @id
-      `)
+    const result = await pool.query(
+      `
+      UPDATE permisos
+      SET nombre_permiso = $1,
+          descripcion = $2
+      WHERE id_permiso = $3
+      RETURNING *
+    `,
+      [nombre_permiso, descripcion, id],
+    )
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Permiso no encontrado" })
     }
 
@@ -86,16 +75,13 @@ export const updatePermiso = async (req, res) => {
   }
 }
 
-// ✅ Eliminar permiso
+// Eliminar permiso
 export const deletePermiso = async (req, res) => {
   try {
     const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("DELETE FROM PERMISOS WHERE id_permiso = @id")
+    const result = await pool.query("DELETE FROM permisos WHERE id_permiso = $1", [id])
 
-    if (result.rowsAffected[0] === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Permiso no encontrado" })
     }
 
