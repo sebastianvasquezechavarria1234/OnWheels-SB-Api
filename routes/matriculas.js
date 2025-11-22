@@ -1,18 +1,19 @@
-import express from "express";
+import express from "express"
+import { authenticateToken, authorizeModule } from "../middleware/authMiddleware.js"
 import {
   getMatriculas,
   getMatriculaById,
   createMatricula,
   updateMatricula,
-  deleteMatricula
-} from "../controllers/matriculasController.js";
+  deleteMatricula,
+} from "../controllers/matriculasController.js"
 
-const router = express.Router();
+const router = express.Router()
 
-router.get("/", getMatriculas);        // Obtener todas
-router.get("/:id", getMatriculaById);  // Obtener una
-router.post("/", createMatricula);     // Crear
-router.put("/:id", updateMatricula);   // Actualizar
-router.delete("/:id", deleteMatricula); // Eliminar
+router.get("/", authenticateToken, authorizeModule("clases"), getMatriculas)
+router.get("/:id", authenticateToken, authorizeModule("clases"), getMatriculaById)
+router.post("/", authenticateToken, authorizeModule("clases"), createMatricula)
+router.put("/:id", authenticateToken, authorizeModule("clases"), updateMatricula)
+router.delete("/:id", authenticateToken, authorizeModule("clases"), deleteMatricula)
 
-export default router;
+export default router
