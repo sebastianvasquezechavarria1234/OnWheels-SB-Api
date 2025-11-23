@@ -113,25 +113,21 @@ export async function login(req, res) {
 
     const user = userResult.rows[0];
 
-    // ✅ RESTAURAR LÓGICA DE MIGRACIÓN (IMPORTANTE)
+    // ✅ LÓGICA DE MIGRACIÓN
     let passwordMatch = false;
     let needsMigration = false;
 
-    // Verificar si la contraseña parece estar encriptada (longitud típica de bcrypt)
     if (user.contrasena.startsWith('$2a$') || user.contrasena.startsWith('$2b$') || user.contrasena.startsWith('$2y$')) {
-      // Es una contraseña bcrypt, comparar normalmente
       passwordMatch = await bcryptjs.compare(contrasena, user.contrasena);
     } else {
-      // Es una contraseña en texto plano (legado)
       passwordMatch = (user.contrasena === contrasena);
-      needsMigration = true; // Marcar para migrar después del login exitoso
+      needsMigration = true;
     }
 
     if (!passwordMatch) {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
-    // ✅ MIGRAR CONTRASEÑA A BCRYPT SI ESTÁ EN TEXTO PLANO
     if (needsMigration) {
       const salt = await bcryptjs.genSalt(saltRounds);
       const newHashedPassword = await bcryptjs.hash(contrasena, salt);
@@ -156,10 +152,8 @@ export async function login(req, res) {
       if (rolesResult.rows.length > 0) {
         roles = rolesResult.rows.map(r => r.nombre_rol.toLowerCase());
       } else {
-        // Si no tiene roles asignados, asignar "cliente" por defecto
         roles = ['cliente'];
         
-        // Asignar rol por defecto
         const defaultRol = await pool.query(
           `SELECT id_rol FROM roles WHERE LOWER(nombre_rol) = 'cliente' LIMIT 1`
         );
@@ -173,10 +167,9 @@ export async function login(req, res) {
       }
     } catch (roleError) {
       console.log('Error al obtener roles:', roleError.message);
-      roles = ['cliente']; // Rol por defecto
+      roles = ['cliente'];
     }
 
-    // ✅ GENERAR TOKEN JWT CON ROL
     const token = jwt.sign(
       {
         id_usuario: user.id_usuario,
@@ -212,13 +205,11 @@ export async function requestPasswordReset(req, res) {
       return res.status(400).json({ message: 'Correo electrónico requerido' });
     }
 
-    // Buscar usuario (no revelar si existe o no por seguridad)
     const userResult = await pool.query(
       'SELECT id_usuario, email FROM usuarios WHERE email = $1 LIMIT 1',
       [email.toLowerCase()]
     );
 
-    // Siempre responder igual (para no revelar usuarios existentes)
     if (userResult.rows.length === 0) {
       return res.json({ 
         message: 'Si el correo existe en nuestro sistema, recibirás un enlace para restablecer tu contraseña' 
@@ -227,11 +218,10 @@ export async function requestPasswordReset(req, res) {
 
     const user = userResult.rows[0];
     
-    // Generar token único y expirable (1 hora)
+    // Generar token único y expirable (24 horas para pruebas)
     const resetToken = uuidv4();
-    const expiresAt = new Date(Date.now() + 3600000); // 1 hora
+    const expiresAt = new Date(Date.now() + 86400000); // 24 horas
 
-    // Guardar token en la base de datos
     await pool.query(
       `INSERT INTO password_reset_tokens (user_id, token, expires_at) 
        VALUES ($1, $2, $3) 
@@ -240,7 +230,10 @@ export async function requestPasswordReset(req, res) {
       [user.id_usuario, resetToken, expiresAt]
     );
 
-    // Enviar email (en background)
+    console.log('📧 Enviando email de recuperación a:', user.email);
+    console.log('🔍 Token generado:', resetToken);
+    console.log('⏰ Expira en:', expiresAt.toString());
+
     sendPasswordResetEmail(user.email, resetToken)
       .catch(err => console.error('Error en background email:', err));
 
@@ -256,13 +249,21 @@ export async function requestPasswordReset(req, res) {
 // ==================== RESET PASSWORD ====================
 export async function resetPassword(req, res) {
   try {
-    const { token, newPassword } = req.body;
+    const { token, newPassword, email } = req.body;
     
-    if (!token || !newPassword) {
-      return res.status(400).json({ message: 'Token y nueva contraseña son requeridos' });
+    console.log('🔍 Debug reset password - Request body:', {
+      token,
+      email,
+      newPassword: newPassword ? '*'.repeat(newPassword.length) : 'no proporcionado'
+    });
+
+    if (!token || !newPassword || !email) {
+      console.log('❌ Error: Faltan parámetros requeridos');
+      return res.status(400).json({ message: 'Token, contraseña y email son requeridos' });
     }
 
     if (newPassword.length < 6) {
+      console.log('❌ Error: Contraseña demasiado corta');
       return res.status(400).json({ message: 'La contraseña debe tener al menos 6 caracteres' });
     }
 
@@ -274,11 +275,40 @@ export async function resetPassword(req, res) {
     );
 
     if (tokenResult.rows.length === 0) {
+      console.log('❌ Error: Token no válido o expirado');
+      console.log('🔍 Tokens existentes en DB:', await pool.query(
+        `SELECT token, expires_at FROM password_reset_tokens WHERE token = $1`,
+        [token]
+      ));
       return res.status(400).json({ message: 'Token inválido o expirado' });
     }
 
     const resetToken = tokenResult.rows[0];
     const userId = resetToken.user_id;
+
+    // Verificar que el email coincide con el usuario
+    const userResult = await pool.query(
+      'SELECT email FROM usuarios WHERE id_usuario = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      console.log('❌ Error: Usuario no encontrado');
+      return res.status(400).json({ message: 'Usuario no encontrado' });
+    }
+
+    const userEmail = userResult.rows[0].email.toLowerCase();
+    const providedEmail = email.toLowerCase();
+    
+    console.log('🔍 Comparando emails:');
+    console.log('📧 Email en DB:', userEmail);
+    console.log('📧 Email proporcionado:', providedEmail);
+    console.log('✅ ¿Coinciden?:', userEmail === providedEmail);
+
+    if (userEmail !== providedEmail) {
+      console.log('❌ Error: El email no coincide con el token');
+      return res.status(400).json({ message: 'El email no coincide con el token' });
+    }
 
     // Encriptar nueva contraseña
     const salt = await bcryptjs.genSalt(saltRounds);
@@ -296,9 +326,23 @@ export async function resetPassword(req, res) {
       [userId]
     );
 
+    console.log(`✅ Contraseña actualizada para usuario ${userId}`);
     res.json({ message: 'Contraseña actualizada correctamente' });
   } catch (err) {
-    console.error('Reset password error:', err);
-    res.status(500).json({ message: 'Error en el servidor', error: err.message });
+    console.error('❌ Reset password error detallado:', err);
+    console.error('❌ Stack trace:', err.stack);
+    
+    let errorMessage = 'Error en el servidor';
+    if (err.message) {
+      errorMessage = err.message.includes('connect') ? 
+        'No se pudo conectar a la base de datos' : err.message;
+    }
+    
+    res.status(500).json({ 
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+      token: req.body.token,
+      email: req.body.email
+    });
   }
 }
