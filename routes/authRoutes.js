@@ -7,7 +7,7 @@ import {
   requestPasswordReset, 
   resetPassword 
 } from '../controllers/authController.js';
-import { authenticateJWT } from '../middleware/authMiddleware.js';
+import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
