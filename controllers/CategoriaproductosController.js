@@ -1,4 +1,4 @@
-import sql from "mssql"
+import pool from "../db/postgresPool.js"; 
 import CategoriaProducto from "../models/CategoriaProductos.js"
 
 // Obtener todas las categorías

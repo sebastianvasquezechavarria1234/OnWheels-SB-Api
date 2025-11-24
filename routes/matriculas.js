@@ -1,19 +1,20 @@
-import express from "express"
-import { authenticateToken, authorizeModule } from "../middleware/authMiddleware.js"
+// src/routes/matriculasRoutes.js
+import express from "express";
 import {
+  createMatricula,
   getMatriculas,
   getMatriculaById,
-  createMatricula,
   updateMatricula,
-  deleteMatricula,
-} from "../controllers/matriculasController.js"
+  deleteMatricula
+} from "../controllers/matriculasController.js";
 
-const router = express.Router()
+const router = express.Router();
 
-router.get("/", authenticateToken, authorizeModule("clases"), getMatriculas)
-router.get("/:id", authenticateToken, authorizeModule("clases"), getMatriculaById)
-router.post("/", authenticateToken, authorizeModule("clases"), createMatricula)
-router.put("/:id", authenticateToken, authorizeModule("clases"), updateMatricula)
-router.delete("/:id", authenticateToken, authorizeModule("clases"), deleteMatricula)
+// CRUD completo de matrículas
+router.get("/", getMatriculas);
+router.get("/:id", getMatriculaById);
+router.post("/", createMatricula);
+router.put("/:id", updateMatricula);
+router.delete("/:id", deleteMatricula);
 
-export default router
+export default router;

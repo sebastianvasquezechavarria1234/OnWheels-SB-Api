@@ -1,19 +1,32 @@
-// controllers/estudiantesController.js
 import {
   crearEstudiante,
   obtenerEstudiantes,
   obtenerEstudiantePorId,
   actualizarEstudiante,
   eliminarEstudiante,
-} from "../models/EstudiantesModel.js";
+  obtenerPreinscripcionesPendientes,
+  actualizarEstadoPreinscripcion
+} from "../models/estudiantesModel.js";
 
 export const crear = async (req, res) => {
   try {
+    // Validaciones básicas
+    const { id_usuario } = req.body;
+    if (!id_usuario) {
+      return res.status(400).json({ mensaje: "id_usuario es obligatorio" });
+    }
+
     const nuevoEstudiante = await crearEstudiante(req.body);
-    res.status(201).json(nuevoEstudiante);
+    res.status(201).json({
+      mensaje: "Estudiante creado correctamente",
+      estudiante: nuevoEstudiante
+    });
   } catch (error) {
     console.error("Error al crear estudiante:", error);
-    res.status(500).json({ mensaje: "Error al crear estudiante" });
+    if (error.message.includes("Usuario no encontrado")) {
+      return res.status(404).json({ mensaje: error.message });
+    }
+    res.status(400).json({ mensaje: error.message || "Error al crear estudiante" });
   }
 };
 
@@ -34,6 +47,10 @@ export const obtenerPorId = async (req, res) => {
     if (!estudiante) {
       return res.status(404).json({ mensaje: "Estudiante no encontrado" });
     }
+    // Solo mostrar estudiantes activos en el CRUD normal
+    if (estudiante.estado !== 'Activo') {
+      return res.status(404).json({ mensaje: "Estudiante no encontrado" });
+    }
     res.status(200).json(estudiante);
   } catch (error) {
     console.error("Error al obtener estudiante:", error);
@@ -48,10 +65,16 @@ export const actualizar = async (req, res) => {
     if (!estudianteActualizado) {
       return res.status(404).json({ mensaje: "Estudiante no encontrado" });
     }
-    res.status(200).json(estudianteActualizado);
+    res.status(200).json({
+      mensaje: "Estudiante actualizado correctamente",
+      estudiante: estudianteActualizado
+    });
   } catch (error) {
     console.error("Error al actualizar estudiante:", error);
-    res.status(500).json({ mensaje: "Error al actualizar estudiante" });
+    if (error.message.includes("Acudiente no encontrado")) {
+      return res.status(404).json({ mensaje: error.message });
+    }
+    res.status(400).json({ mensaje: error.message || "Error al actualizar estudiante" });
   }
 };
 
@@ -68,3 +91,5 @@ export const eliminar = async (req, res) => {
     res.status(500).json({ mensaje: "Error al eliminar estudiante" });
   }
 };
+
+// Endpoint

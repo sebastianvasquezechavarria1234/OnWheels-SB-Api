@@ -1,4 +1,3 @@
-// index.js
 import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
@@ -27,6 +26,8 @@ import eventosRoutes from "./routes/eventos.js"
 import clasesRoutes from "./routes/clases.js"
 import proveedoresRoutes from "./routes/proveedores.js"
 import rolesPermisosRoutes from "./routes/rolesPermisos.js"
+import estudiantesRoutes from "./routes/estudiantes.js"
+import acudientesRoutes from "./routes/acudientes.js" // ✅ Corregido: nombre del archivo
 
 dotenv.config()
 
@@ -36,18 +37,6 @@ const PORT = process.env.PORT || 3000
 // Middlewares
 app.use(cors())
 app.use(express.json())
-
-// 🧪 Ruta de prueba de conexión SQL Server
-app.get("/test-db", async (req, res) => {
-  try {
-    const poolSQL = await getPool()
-    const result = await poolSQL.request().query("SELECT GETDATE() AS fecha")
-    res.json(result.recordset)
-  } catch (err) {
-    console.error("❌ Error consultando SQL Server:", err.message)
-    res.status(500).json({ error: "Error en SQL Server", detalle: err.message })
-  }
-})
 
 // 🧪 Probar conexión PostgreSQL
 ;(async () => {
@@ -81,11 +70,13 @@ app.get("/", (req, res) => {
       niveles: "/api/niveles",
       planes: "/api/planes",
       preinscripciones: "/api/preinscripciones",
+      estudiantes: "/api/estudiantes",
+      acudientes: "/api/acudientes",
       matriculas: "/api/matriculas",
       tallas: "/api/tallas",
       colores: "/api/colores",
       variantes: "/api/variantes",
-      rolesPermisos: "/api/roles-permisos",
+      rolesPermisos: "/api/roles-permisos"
     },
   })
 })
@@ -108,6 +99,8 @@ app.use("/api/ventas", ventasRoutes)
 app.use("/api/niveles", nivelesClasesRoutes)
 app.use("/api/planes", planesClasesRoutes)
 app.use("/api/preinscripciones", preinscripcionesRoutes)
+app.use("/api/estudiantes", estudiantesRoutes)
+app.use("/api/acudientes", acudientesRoutes) // ✅ Corregido: nombre consistente
 app.use("/api/matriculas", matriculasRoutes)
 app.use("/api/tallas", tallaRoutes)
 app.use("/api/colores", colorRoutes)
@@ -118,4 +111,3 @@ app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`)
   console.log(`🌐 OnWheels API corriendo en puerto ${PORT}`)
   console.log(`🗄️ Usando PostgreSQL`)
-})
