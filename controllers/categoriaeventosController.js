@@ -7,9 +7,9 @@ export const getCategorias = async (req, res) => {
     const result = await pool.query(
       "SELECT * FROM categorias_eventos ORDER BY id_categoria_evento ASC"
     );
-    return res.json(result.rows.map(row => new CategoriaEventos(row)));
+    return res.json(result.rows.map((row) => new CategoriaEventos(row)));
   } catch (err) {
-    console.error("getCategorias error:", err);
+    console.error("❌ getCategorias error:", err);
     return res.status(500).json({ mensaje: "Error al obtener categorías" });
   }
 };
@@ -30,7 +30,7 @@ export const getCategoriaById = async (req, res) => {
 
     return res.json(new CategoriaEventos(result.rows[0]));
   } catch (err) {
-    console.error("getCategoriaById error:", err);
+    console.error("❌ getCategoriaById error:", err);
     return res.status(500).json({ mensaje: "Error al obtener la categoría" });
   }
 };
@@ -42,7 +42,7 @@ export const createCategoria = async (req, res) => {
 
     if (!nombre_categoria || nombre_categoria.trim().length < 2) {
       return res.status(400).json({
-        mensaje: "El nombre es obligatorio y debe tener al menos 2 caracteres",
+        mensaje: "El nombre debe tener mínimo 2 caracteres",
       });
     }
 
@@ -50,15 +50,12 @@ export const createCategoria = async (req, res) => {
       `INSERT INTO categorias_eventos (nombre_categoria, descripcion)
        VALUES ($1, $2)
        RETURNING *`,
-      [
-        nombre_categoria.trim(),
-        descripcion?.trim() || null
-      ]
+      [nombre_categoria.trim(), descripcion?.trim() || null]
     );
 
     return res.status(201).json(new CategoriaEventos(result.rows[0]));
   } catch (err) {
-    console.error("createCategoria error:", err);
+    console.error("❌ createCategoria error:", err);
     return res.status(500).json({ mensaje: "Error al crear categoría" });
   }
 };
@@ -71,7 +68,7 @@ export const updateCategoria = async (req, res) => {
 
     if (!nombre_categoria || nombre_categoria.trim().length < 2) {
       return res.status(400).json({
-        mensaje: "El nombre es obligatorio y debe tener al menos 2 caracteres",
+        mensaje: "El nombre debe tener mínimo 2 caracteres",
       });
     }
 
@@ -81,11 +78,7 @@ export const updateCategoria = async (req, res) => {
            descripcion = $2
        WHERE id_categoria_evento = $3
        RETURNING *`,
-      [
-        nombre_categoria.trim(),
-        descripcion?.trim() || null,
-        id
-      ]
+      [nombre_categoria.trim(), descripcion?.trim() || null, id]
     );
 
     if (result.rows.length === 0) {
@@ -97,7 +90,7 @@ export const updateCategoria = async (req, res) => {
       categoria: new CategoriaEventos(result.rows[0]),
     });
   } catch (err) {
-    console.error("updateCategoria error:", err);
+    console.error("❌ updateCategoria error:", err);
     return res.status(500).json({ mensaje: "Error al actualizar categoría" });
   }
 };
@@ -107,12 +100,12 @@ export const deleteCategoria = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const relacionados = await pool.query(
+    const usados = await pool.query(
       "SELECT COUNT(*) AS total FROM eventos WHERE id_categoria_evento = $1",
       [id]
     );
 
-    if (Number(relacionados.rows[0].total) > 0) {
+    if (Number(usados.rows[0].total) > 0) {
       return res.status(409).json({
         mensaje: "No se puede eliminar la categoría porque tiene eventos asociados",
       });
@@ -132,7 +125,7 @@ export const deleteCategoria = async (req, res) => {
       categoria: new CategoriaEventos(result.rows[0]),
     });
   } catch (err) {
-    console.error("deleteCategoria error:", err);
+    console.error("❌ deleteCategoria error:", err);
     return res.status(500).json({ mensaje: "Error al eliminar categoría" });
   }
 };

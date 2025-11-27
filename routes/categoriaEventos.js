@@ -1,18 +1,19 @@
-import express from "express"
+// routes/categoriaEventos.js
+import express from "express";
 import {
   getCategorias,
   getCategoriaById,
   createCategoria,
   updateCategoria,
   deleteCategoria
-} from "../controllers/categoriaEventosController.js"
+} from "../controllers/categoriaEventosController.js";
 
-const router = express.Router()
+const router = express.Router();
 
-router.get("/", getCategorias)
-router.get("/:id", getCategoriaById)
-router.post("/", createCategoria)
-router.put("/:id", updateCategoria)
-router.delete("/:id", deleteCategoria)
+router.get("/", getCategorias);
+router.get("/:id", getCategoriaById);
+router.post("/", createCategoria);
+router.put("/:id", updateCategoria);
+router.delete("/:id", deleteCategoria);
 
-export default router
+export default router;

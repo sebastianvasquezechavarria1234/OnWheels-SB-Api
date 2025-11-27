@@ -4,13 +4,13 @@ import Evento from "../models/Eventos.js";
 // ✅ Obtener todos los eventos (con nombre de categoría)
 export const getEventos = async (req, res) => {
   try {
-    const pool = await getPool();
     const result = await pool.query(`
       SELECT 
         e.*, 
-        c.nombre_categoria_evento AS nombre_categoria
+        c.nombre_categoria AS nombre_categoria
       FROM EVENTOS e
-      LEFT JOIN CATEGORIA_EVENTO c ON e.id_categoria_evento = c.id_categoria_evento
+      LEFT JOIN CATEGORIAS_EVENTOS c 
+        ON e.id_categoria_evento = c.id_categoria_evento
       ORDER BY e.fecha_evento ASC
     `);
     res.json(result.rows);
@@ -24,14 +24,15 @@ export const getEventos = async (req, res) => {
 export const getEventoById = async (req, res) => {
   try {
     const { id } = req.params;
-    const pool = await getPool();
+
     const result = await pool.query(
       `
       SELECT 
         e.*, 
-        c.nombre_categoria_evento AS nombre_categoria
+        c.nombre_categoria AS nombre_categoria
       FROM EVENTOS e
-      LEFT JOIN CATEGORIA_EVENTO c ON e.id_categoria_evento = c.id_categoria_evento
+      LEFT JOIN CATEGORIAS_EVENTOS c 
+        ON e.id_categoria_evento = c.id_categoria_evento
       WHERE e.id_evento = $1
       `,
       [id]
@@ -63,7 +64,6 @@ export const createEvento = async (req, res) => {
       estado
     } = req.body;
 
-    const pool = await getPool();
     const result = await pool.query(
       `
       INSERT INTO EVENTOS 
@@ -84,8 +84,7 @@ export const createEvento = async (req, res) => {
       ]
     );
 
-    const nuevoEvento = new Evento(result.rows[0]);
-    res.status(201).json(nuevoEvento);
+    res.status(201).json(new Evento(result.rows[0]));
   } catch (err) {
     console.error(err);
     res.status(400).json({ mensaje: "Error al crear evento", error: err.message });
@@ -108,7 +107,6 @@ export const updateEvento = async (req, res) => {
       estado
     } = req.body;
 
-    const pool = await getPool();
     const result = await pool.query(
       `
       UPDATE EVENTOS
@@ -153,8 +151,11 @@ export const updateEvento = async (req, res) => {
 export const deleteEvento = async (req, res) => {
   try {
     const { id } = req.params;
-    const pool = await getPool();
-    const result = await pool.query("DELETE FROM EVENTOS WHERE id_evento = $1", [id]);
+
+    const result = await pool.query(
+      "DELETE FROM EVENTOS WHERE id_evento = $1",
+      [id]
+    );
 
     if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Evento no encontrado" });
