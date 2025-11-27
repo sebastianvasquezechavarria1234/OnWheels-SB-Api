@@ -27,10 +27,10 @@ import clasesRoutes from "./routes/clases.js"
 import proveedoresRoutes from "./routes/proveedores.js"
 import rolesPermisosRoutes from "./routes/rolesPermisos.js"
 import estudiantesRoutes from "./routes/estudiantes.js"
-import acudientesRoutes from "./routes/acudientes.js" // ✅ Corregido: nombre del archivo
+// import acudientesRoutes from "./routes/acudientes.js" // ✅ Corregido: nombre del archivo
 
 dotenv.config()
-
+e
 const app = express()
 const PORT = process.env.PORT || 3000
 
