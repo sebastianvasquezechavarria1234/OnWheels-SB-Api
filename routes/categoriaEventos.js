@@ -1,14 +1,14 @@
 // routes/categoriaEventos.js
-import express from "express";
+import { Router } from "express";
 import {
   getCategorias,
   getCategoriaById,
   createCategoria,
   updateCategoria,
-  deleteCategoria
-} from "../controllers/categoriaEventosController.js";
+  deleteCategoria,
+} from "../controllers/categoriasController.js";
 
-const router = express.Router();
+const router = Router();
 
 router.get("/", getCategorias);
 router.get("/:id", getCategoriaById);

@@ -1,49 +1,51 @@
+// controllers/categoriasController.js
 import pool from "../db/postgresPool.js";
-import CategoriaEventos from "../models/CategoriaEventos.js";
 
-// Obtener todas
+
+// ──── UTILIDADES ────────────────────────────────────────
+
+const handleError = (res, message, status = 500, error = null) => {
+  if (error) console.error(`❌ ${message}:`, error);
+  return res.status(status).json({ mensaje: message });
+};
+
+// ──── CONTROLADORES ─────────────────────────────────────
+
 export const getCategorias = async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT * FROM categorias_eventos ORDER BY id_categoria_evento ASC"
     );
-    return res.json(result.rows.map((row) => new CategoriaEventos(row)));
+    return res.json(result.rows); // ✅ Sin clase
   } catch (err) {
-    console.error("❌ getCategorias error:", err);
-    return res.status(500).json({ mensaje: "Error al obtener categorías" });
+    return handleError(res, "Error al obtener categorías", 500, err);
   }
 };
 
-// Obtener por ID
 export const getCategoriaById = async (req, res) => {
   try {
     const { id } = req.params;
-
     const result = await pool.query(
       "SELECT * FROM categorias_eventos WHERE id_categoria_evento = $1",
       [id]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ mensaje: "Categoría no encontrada" });
+      return handleError(res, "Categoría no encontrada", 404);
     }
 
-    return res.json(new CategoriaEventos(result.rows[0]));
+    return res.json(result.rows[0]); // ✅ Sin clase
   } catch (err) {
-    console.error("❌ getCategoriaById error:", err);
-    return res.status(500).json({ mensaje: "Error al obtener la categoría" });
+    return handleError(res, "Error al obtener la categoría", 500, err);
   }
 };
 
-// Crear
 export const createCategoria = async (req, res) => {
   try {
     const { nombre_categoria, descripcion } = req.body;
 
     if (!nombre_categoria || nombre_categoria.trim().length < 2) {
-      return res.status(400).json({
-        mensaje: "El nombre debe tener mínimo 2 caracteres",
-      });
+      return handleError(res, "El nombre debe tener mínimo 2 caracteres", 400);
     }
 
     const result = await pool.query(
@@ -53,23 +55,19 @@ export const createCategoria = async (req, res) => {
       [nombre_categoria.trim(), descripcion?.trim() || null]
     );
 
-    return res.status(201).json(new CategoriaEventos(result.rows[0]));
+    return res.status(201).json(result.rows[0]); // ✅ Sin clase
   } catch (err) {
-    console.error("❌ createCategoria error:", err);
-    return res.status(500).json({ mensaje: "Error al crear categoría" });
+    return handleError(res, "Error al crear categoría", 500, err);
   }
 };
 
-// Actualizar
 export const updateCategoria = async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre_categoria, descripcion } = req.body;
 
     if (!nombre_categoria || nombre_categoria.trim().length < 2) {
-      return res.status(400).json({
-        mensaje: "El nombre debe tener mínimo 2 caracteres",
-      });
+      return handleError(res, "El nombre debe tener mínimo 2 caracteres", 400);
     }
 
     const result = await pool.query(
@@ -82,20 +80,18 @@ export const updateCategoria = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ mensaje: "Categoría no encontrada" });
+      return handleError(res, "Categoría no encontrada", 404);
     }
 
     return res.json({
       mensaje: "Categoría actualizada correctamente",
-      categoria: new CategoriaEventos(result.rows[0]),
+      categoria: result.rows[0], // ✅ Sin clase
     });
   } catch (err) {
-    console.error("❌ updateCategoria error:", err);
-    return res.status(500).json({ mensaje: "Error al actualizar categoría" });
+    return handleError(res, "Error al actualizar categoría", 500, err);
   }
 };
 
-// Eliminar
 export const deleteCategoria = async (req, res) => {
   try {
     const { id } = req.params;
@@ -106,9 +102,11 @@ export const deleteCategoria = async (req, res) => {
     );
 
     if (Number(usados.rows[0].total) > 0) {
-      return res.status(409).json({
-        mensaje: "No se puede eliminar la categoría porque tiene eventos asociados",
-      });
+      return handleError(
+        res,
+        "No se puede eliminar la categoría porque tiene eventos asociados",
+        409
+      );
     }
 
     const result = await pool.query(
@@ -117,15 +115,14 @@ export const deleteCategoria = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ mensaje: "Categoría no encontrada" });
+      return handleError(res, "Categoría no encontrada", 404);
     }
 
     return res.json({
       mensaje: "Categoría eliminada correctamente",
-      categoria: new CategoriaEventos(result.rows[0]),
+      categoria: result.rows[0], // ✅ Sin clase
     });
   } catch (err) {
-    console.error("❌ deleteCategoria error:", err);
-    return res.status(500).json({ mensaje: "Error al eliminar categoría" });
+    return handleError(res, "Error al eliminar categoría", 500, err);
   }
 };

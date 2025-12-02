@@ -1,7 +1,13 @@
-// routes/authRoutes.js
+// backend/routes/authRoutes.js
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { register, login } from '../controllers/authController.js';
+import { 
+  register, 
+  login, 
+  requestPasswordReset, 
+  resetPassword 
+} from '../controllers/authController.js';
+import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
@@ -10,8 +16,8 @@ router.post(
   [
     body('nombre').notEmpty().withMessage('Nombre requerido'),
     body('email').isEmail().withMessage('Email inválido'),
-    body('telefono').notEmpty().withMessage('Teléfono requerido'),
-    body('password').isLength({ min: 6 }).withMessage('Password mínimo 6 caracteres'),
+    body('telefono').optional(),
+    body('contrasena').isLength({ min: 6 }).withMessage('Contraseña mínimo 6 caracteres'),
   ],
   register
 );
@@ -20,9 +26,25 @@ router.post(
   '/login',
   [
     body('email').isEmail().withMessage('Email inválido'),
-    body('password').notEmpty().withMessage('Password requerido'),
+    body('contrasena').notEmpty().withMessage('Contraseña requerida'),
   ],
   login
+);
+
+// NUEVAS RUTAS PARA RECUPERAR CONTRASEÑA
+router.post(
+  '/request-password-reset',
+  [body('email').isEmail().withMessage('Email inválido')],
+  requestPasswordReset
+);
+
+router.post(
+  '/reset-password',
+  [
+    body('token').notEmpty().withMessage('Token requerido'),
+    body('newPassword').isLength({ min: 6 }).withMessage('Contraseña mínimo 6 caracteres'),
+  ],
+  resetPassword
 );
 
 export default router;

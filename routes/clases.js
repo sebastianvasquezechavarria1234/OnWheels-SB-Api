@@ -1,8 +1,9 @@
+// routes/clases.js
 import express from "express"
 import {
   getClases,
   getClaseById,
-  createClase,
+  createClase,  
   updateClase,
   deleteClase
 } from "../controllers/clasesController.js"

@@ -16,7 +16,7 @@ export const getProveedores = async (req, res) => {
 export const getProveedorById = async (req, res) => {
   try {
     const { nit } = req.params;
-    const result = await pool.query("SELECT * FROM proveedores WHERE NIT_proveedor = $1", [nit]);
+    const result = await pool.query("SELECT * FROM proveedores WHERE nit = $1", [nit]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Proveedor no encontrado" });
@@ -32,16 +32,16 @@ export const getProveedorById = async (req, res) => {
 // ✅ Crear proveedor
 export const createProveedor = async (req, res) => {
   try {
-    const { NIT_proveedor, nombre_proveedor, email, telefono, direccion } = req.body;
+    const { nit, nombre_proveedor, email, telefono, direccion } = req.body;
 
     await pool.query(
-      `INSERT INTO proveedores (NIT_proveedor, nombre_proveedor, email, telefono, direccion)
+      `INSERT INTO proveedores (nit, nombre_proveedor, email, telefono, direccion)
        VALUES ($1, $2, $3, $4, $5)`,
-      [NIT_proveedor, nombre_proveedor, email, telefono, direccion]
+      [nit, nombre_proveedor, email, telefono, direccion]
     );
 
     const nuevoProveedor = new Proveedor({
-      NIT_proveedor,
+      nit,
       nombre_proveedor,
       email,
       telefono,
@@ -67,7 +67,7 @@ export const updateProveedor = async (req, res) => {
            email = $2,
            telefono = $3,
            direccion = $4
-       WHERE NIT_proveedor = $5`,
+       WHERE nit = $5`,
       [nombre_proveedor, email, telefono, direccion, nit]
     );
 
@@ -87,7 +87,7 @@ export const deleteProveedor = async (req, res) => {
   try {
     const { nit } = req.params;
 
-    const result = await pool.query("DELETE FROM proveedores WHERE NIT_proveedor = $1", [nit]);
+    const result = await pool.query("DELETE FROM proveedores WHERE nit = $1", [nit]);
 
     if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Proveedor no encontrado" });

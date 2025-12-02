@@ -1,18 +1,21 @@
 import express from "express"
+import { authenticateToken, authorizeModule } from "../middleware/authMiddleware.js"
 import {
   getCompras,
   getCompraById,
   createCompra,
   updateCompra,
-  deleteCompra
+  deleteCompra,
+  updateCompraEstado,
 } from "../controllers/comprasController.js"
 
 const router = express.Router()
 
-router.get("/", getCompras)         // Todas las compras
-router.get("/:id", getCompraById)   // Compra por ID
-router.post("/", createCompra)      // Crear compra
-router.put("/:id", updateCompra)    // Actualizar compra
-router.delete("/:id", deleteCompra) // Eliminar compra
+router.get("/", authenticateToken, authorizeModule("compras"), getCompras)
+router.get("/:id", authenticateToken, authorizeModule("compras"), getCompraById)
+router.post("/", authenticateToken, authorizeModule("compras"), createCompra)
+router.put("/:id", authenticateToken, authorizeModule("compras"), updateCompra)
+router.put("/:id/estado", authenticateToken, authorizeModule("compras"), updateCompraEstado)
+router.delete("/:id", authenticateToken, authorizeModule("compras"), deleteCompra)
 
 export default router

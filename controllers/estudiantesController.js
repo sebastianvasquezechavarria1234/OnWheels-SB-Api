@@ -5,7 +5,7 @@ import {
   obtenerEstudiantePorId,
   actualizarEstudiante,
   eliminarEstudiante,
-} from "./../models/Estudiante.js";
+} from "../models/EstudiantesModel.js";
 
 export const crear = async (req, res) => {
   try {

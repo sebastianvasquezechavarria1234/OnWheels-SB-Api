@@ -1,3 +1,5 @@
+
+// controllers/clasesController.js
 import pool from "../db/postgresPool.js"
 
 // Obtener todas las clases
@@ -34,20 +36,20 @@ export const getClaseById = async (req, res) => {
 // Crear clase
 export const createClase = async (req, res) => {
   try {
-    const { id_nivel, id_sede, id_usuario, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin } = req.body
+    const { id_nivel, id_sede, id_instructor, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin } = req.body
 
     const result = await pool.query(
-      `INSERT INTO clases (id_nivel, id_sede, id_usuario, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin)
+      `INSERT INTO clases (id_nivel, id_sede, id_instructor, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id_clase`,
-      [id_nivel, id_sede, id_usuario, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin]
+      [id_nivel, id_sede, id_instructor, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin]
     )
 
     res.status(201).json({
       id_clase: result.rows[0].id_clase,
       id_nivel,
       id_sede,
-      id_usuario,
+      id_instructor,
       cupo_maximo,
       dia_semana,
       descripcion,
@@ -65,13 +67,13 @@ export const createClase = async (req, res) => {
 export const updateClase = async (req, res) => {
   try {
     const { id } = req.params
-    const { id_nivel, id_sede, id_usuario, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin } = req.body
+    const { id_nivel, id_sede, id_instructor, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin } = req.body
 
     const result = await pool.query(
       `UPDATE clases
        SET id_nivel = $1,
            id_sede = $2,
-           id_usuario = $3,
+           id_instructor = $3,
            cupo_maximo = $4,
            dia_semana = $5,
            descripcion = $6,
@@ -79,7 +81,7 @@ export const updateClase = async (req, res) => {
            hora_inicio = $8,
            hora_fin = $9
        WHERE id_clase = $10`,
-      [id_nivel, id_sede, id_usuario, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin, id]
+      [id_nivel, id_sede, id_instructor, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin, id]
     )
 
     if (result.rowCount === 0) {
@@ -112,3 +114,10 @@ export const deleteClase = async (req, res) => {
     res.status(500).json({ mensaje: "Error al eliminar la clase" })
   }
 }
+
+
+
+
+
+
+
