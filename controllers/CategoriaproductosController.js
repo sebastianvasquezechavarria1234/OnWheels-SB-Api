@@ -1,11 +1,9 @@
-// controllers/categoriaProductosController.js
+
 import pool from "../db/postgresPool.js";
 import CategoriaProducto from "../models/CategoriaProductos.js";
 
-// Obtener todas las categorías
 export const getCategorias = async (req, res) => {
   try {
-    // Cambiado: CATEGORIAS_DE_PRODUCTOS por categorias_productos
     const result = await pool.query("SELECT * FROM categorias_productos ORDER BY id_categoria"); // Asegúrate también del nombre de la columna 'id_categoria'
     const categorias = result.rows.map(row => new CategoriaProducto(row));
     res.json(categorias);
@@ -15,11 +13,9 @@ export const getCategorias = async (req, res) => {
   }
 };
 
-// Obtener categoría por ID
 export const getCategoriaById = async (req, res) => {
   try {
     const { id } = req.params;
-    // Cambiado: CATEGORIAS_DE_PRODUCTOS por categorias_productos
     const result = await pool.query(
       "SELECT * FROM categorias_productos WHERE id_categoria = $1", // Asegúrate del nombre de la columna 'id_categoria'
       [id]
@@ -37,12 +33,10 @@ export const getCategoriaById = async (req, res) => {
   }
 };
 
-// Crear nueva categoría
 export const createCategoria = async (req, res) => {
   try {
     const { nombre_categoria, descripcion } = req.body;
 
-    // Cambiado: CATEGORIAS_DE_PRODUCTOS por categorias_productos
     const result = await pool.query(
       `INSERT INTO categorias_productos (nombre_categoria, descripcion) -- Asegúrate de los nombres de las columnas
        VALUES ($1, $2) RETURNING *`,

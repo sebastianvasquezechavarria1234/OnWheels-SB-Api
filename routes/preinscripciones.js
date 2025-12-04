@@ -1,14 +1,17 @@
 import express from "express";
 import {
-  listarPreinscripciones,
-  aceptarPreinscripcion,
-  rechazarPreinscripcion
-} from "../controllers/preinscripcionController.js";
+  crearPreinscripcionCtrl,
+  listarPreinscripcionesPendientes,
+  obtenerPreinscripcionPorId,
+  actualizarEstadoPreinscripcionCtrl
+} from "../controllers/preinscripcionesController.js";
 
 const router = express.Router();
 
-router.get("/", listarPreinscripciones); // Mostrar todas las preinscripciones pendientes
-router.put("/:id/aceptar", aceptarPreinscripcion); // Aceptar preinscripción
-router.put("/:id/rechazar", rechazarPreinscripcion); // Rechazar preinscripción
+// CRUD de preinscripciones
+router.post("/", crearPreinscripcionCtrl);          
+router.get("/", listarPreinscripcionesPendientes);           
+router.get("/:id", obtenerPreinscripcionPorId); 
+router.put("/:id/estado", actualizarEstadoPreinscripcionCtrl);    
 
 export default router;

@@ -1,18 +1,20 @@
+// src/routes/matriculasRoutes.js
 import express from "express";
 import {
+  createMatricula,
   getMatriculas,
   getMatriculaById,
-  createMatricula,
   updateMatricula,
   deleteMatricula
 } from "../controllers/matriculasController.js";
 
 const router = express.Router();
 
-router.get("/", getMatriculas);        // Obtener todas
-router.get("/:id", getMatriculaById);  // Obtener una
-router.post("/", createMatricula);     // Crear
-router.put("/:id", updateMatricula);   // Actualizar
-router.delete("/:id", deleteMatricula); // Eliminar
+// CRUD completo de matrículas
+router.get("/", getMatriculas);
+router.get("/:id", getMatriculaById);
+router.post("/", createMatricula);
+router.put("/:id", updateMatricula);
+router.delete("/:id", deleteMatricula);
 
 export default router;

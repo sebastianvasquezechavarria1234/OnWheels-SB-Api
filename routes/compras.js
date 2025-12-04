@@ -1,20 +1,24 @@
-import express from "express";
+
+import express from "express"
+import { authenticateToken, authorizeModule } from "../middleware/authMiddleware.js"
 import {
   getCompras,
   getCompraById,
   createCompra,
   updateCompra,
   deleteCompra,
-  updateCompraStatus
-} from "../controllers/comprasController.js";
+
+  updateCompraEstado,
+} from "../controllers/comprasController.js"
 
 const router = express.Router();
 
-router.get("/", getCompras);
-router.get("/:id", getCompraById);
-router.post("/", createCompra);
-router.put("/:id", updateCompra);
-router.delete("/:id", deleteCompra);
-router.patch("/:id/status", updateCompraStatus); // <--- nuevo
 
+router.get("/", authenticateToken, authorizeModule("compras"), getCompras)
+router.get("/:id", authenticateToken, authorizeModule("compras"), getCompraById)
+router.post("/", authenticateToken, authorizeModule("compras"), createCompra)
+router.put("/:id", authenticateToken, authorizeModule("compras"), updateCompra)
+router.put("/:id/estado", authenticateToken, authorizeModule("compras"), updateCompraEstado)
+router.delete("/:id", authenticateToken, authorizeModule("compras"), deleteCompra)
+>>>>>>> b9b1f16da32a942b02766311c2530a1f10b6113b
 export default router;

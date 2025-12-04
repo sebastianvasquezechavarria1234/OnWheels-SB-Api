@@ -1,4 +1,4 @@
-export default class Usuario {
+class Usuario {
   constructor({
     id_usuario,
     nombre_completo,
@@ -6,9 +6,13 @@ export default class Usuario {
     telefono,
     fecha_nacimiento,
     contrasena,
-    estado = true
+    estado,
+    documento,
+    tipo_documento
   }) {
     this.id_usuario = id_usuario;
+    this.documento = documento;
+    this.tipo_documento = tipo_documento;
     this.nombre_completo = nombre_completo;
     this.email = email;
     this.telefono = telefono;
@@ -17,3 +21,5 @@ export default class Usuario {
     this.estado = estado;
   }
 }
+
+export default Usuario;

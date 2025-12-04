@@ -1,9 +1,10 @@
+// models/Clase.js
 export default class Clase {
   constructor({
     id_clase,
     id_nivel,
     id_sede,
-    id_usuario,
+    id_instructor,
     cupo_maximo,
     dia_semana,
     descripcion,
@@ -14,7 +15,7 @@ export default class Clase {
     this.id_clase = id_clase
     this.id_nivel = id_nivel
     this.id_sede = id_sede
-    this.id_usuario = id_usuario
+    this.id_instructor = id_instructor
     this.cupo_maximo = cupo_maximo
     this.dia_semana = dia_semana
     this.descripcion = descripcion
