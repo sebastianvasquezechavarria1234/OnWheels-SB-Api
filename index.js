@@ -30,7 +30,7 @@ import estudiantesRoutes from "./routes/estudiantes.js"
 // import acudientesRoutes from "./routes/acudientes.js" // ✅ Corregido: nombre del archivo
 
 dotenv.config()
-e
+
 const app = express()
 const PORT = process.env.PORT || 3000
 
@@ -100,7 +100,7 @@ app.use("/api/niveles", nivelesClasesRoutes)
 app.use("/api/planes", planesClasesRoutes)
 app.use("/api/preinscripciones", preinscripcionesRoutes)
 app.use("/api/estudiantes", estudiantesRoutes)
-app.use("/api/acudientes", acudientesRoutes) // ✅ Corregido: nombre consistente
+// app.use("/api/acudientes", acudientesRoutes) // ✅ Corregido: nombre consistente
 app.use("/api/matriculas", matriculasRoutes)
 app.use("/api/tallas", tallaRoutes)
 app.use("/api/colores", colorRoutes)

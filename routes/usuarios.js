@@ -5,14 +5,20 @@ import {
   createUsuario,
   updateUsuario,
   deleteUsuario,
-  verificarEmail
+  verificarEmail,
+  verifyPassword
 } from "../controllers/usuariosController.js";
 
 const router = express.Router();
 
-// Nota: colocar rutas concretas /verificar-email antes de /:id para evitar conflictos
+// Rutas públicas/colección
 router.get("/", getUsuarios);
 router.get("/verificar-email/:email", verificarEmail);
+
+// Verificar contraseña actual (validación en tiempo real)
+router.post("/:id/verify-password", verifyPassword);
+
+// Rutas por id (colocar despues de rutas concretas para evitar conflictos)
 router.get("/:id", getUsuarioById);
 
 router.post("/", createUsuario);
