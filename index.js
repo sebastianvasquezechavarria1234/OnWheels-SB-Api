@@ -1,8 +1,9 @@
+// index.js
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import pool from "./db/postgresPool.js"; 
 
+// Importar rutas (una sola vez)
 import variantesRoutes from "./routes/variantes.js";
 import tallaRoutes from "./routes/tallas.js";
 import colorRoutes from "./routes/colores.js";
@@ -23,23 +24,34 @@ import rolesRoutes from "./routes/roles.js";
 import eventosRoutes from "./routes/eventos.js";
 import clasesRoutes from "./routes/clases.js";
 import proveedoresRoutes from "./routes/proveedores.js";
+import rolesPermisosRoutes from "./routes/rolesPermisos.js";
+import estudiantesRoutes from "./routes/estudiantes.js";
+import acudientesRoutes from "./routes/acudientesRoutes.js";
+import usuariosRoutes from "./routes/usuarios.js";
 
+// Importar controladores (si se usan directamente)
+import { enviarCorreosMasivos } from "./controllers/emailMasivoController.js";
+
+// Inicializar dotenv
 dotenv.config();
 
+// Inicializar app
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// ✅ CORRECCIÓN CRÍTICA: middlewares ANTES de cualquier ruta
+// Middlewares (¡antes de las rutas!)
 app.use(cors());
-app.use(express.json()); // ← ESTO DEBE IR AQUÍ
+app.use(express.json());
 
-// ✅ Ahora sí, todas las rutas
+// Rutas (una sola vez)
 app.use("/api/auth", authRoutes);
+app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/productos", productosRoutes);
 app.use("/api/proveedores", proveedoresRoutes);
 app.use("/api/roles", rolesRoutes);
+app.use("/api/roles-permisos", rolesPermisosRoutes);
 app.use("/api/eventos", eventosRoutes);
 app.use("/api/clases", clasesRoutes);
-app.use("/api/correos", enviarCorreosMasivos);
 app.use("/api/categorias-eventos", categoriaEventosRoutes);
 app.use("/api/categoria-productos", categoriaproductosRoutes);
 app.use("/api/compras", comprasRoutes);
@@ -49,14 +61,18 @@ app.use("/api/ventas", ventasRoutes);
 app.use("/api/niveles", nivelesClasesRoutes);
 app.use("/api/planes", planesClasesRoutes);
 app.use("/api/preinscripciones", preinscripcionesRoutes);
+app.use("/api/estudiantes", estudiantesRoutes);
+app.use("/api/acudientes", acudientesRoutes);
 app.use("/api/matriculas", matriculasRoutes);
 app.use("/api/tallas", tallaRoutes);
 app.use("/api/colores", colorRoutes);
 app.use("/api/variantes", variantesRoutes);
 app.use("/emails", emailRoutes);
+app.use("/api/correos", enviarCorreosMasivos); // Ahora sí está importado
 
+// Conexión a PostgreSQL
+import pool from "./db/postgresPool.js";
 
-// Conexión a la base de datos
 (async () => {
   try {
     const res = await pool.query("SELECT NOW() AS conectado");
@@ -80,7 +96,7 @@ app.get("/", (req, res) => {
       productos: "/api/productos",
       proveedores: "/api/proveedores",
       categoriaEventos: "/api/categorias-eventos",
-      categoriaProductos: "/api/categoriaProductos",
+      categoriaProductos: "/api/categoria-productos",
       compras: "/api/compras",
       sedes: "/api/sedes",
       patrocinadores: "/api/patrocinadores",
@@ -88,18 +104,23 @@ app.get("/", (req, res) => {
       niveles: "/api/niveles",
       planes: "/api/planes",
       preinscripciones: "/api/preinscripciones",
+      estudiantes: "/api/estudiantes",
+      acudientes: "/api/acudientes",
       matriculas: "/api/matriculas",
       tallas: "/api/tallas",
       colores: "/api/colores",
       variantes: "/api/variantes",
+      rolesPermisos: "/api/roles-permisos"
     },
   });
 });
 
-const PORT = process.env.PORT || 3000;
+// Iniciar worker de correos
+import "./workers/emailWorker.js";
+
+// Iniciar servidor (¡una sola vez!)
 app.listen(PORT, () => {
+  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
   console.log(`🌐 OnWheels API corriendo en puerto ${PORT}`);
   console.log(`🗄️ Usando PostgreSQL`);
 });
-import "./workers/emailWorker.js";import { enviarCorreosMasivos } from "./controllers/emailMasivoController.js";
-

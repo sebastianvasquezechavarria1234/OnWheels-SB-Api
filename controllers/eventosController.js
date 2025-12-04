@@ -1,171 +1,166 @@
-// src/controllers/eventosController.js
+// controllers/emailMasivoController.js
 import pool from "../db/postgresPool.js";
-import Evento from "../models/Eventos.js";
 
-// ✅ Obtener todos los eventos (con nombre de categoría)
-export const getEventos = async (req, res) => {
+// ✅ Obtener roles disponibles con conteo de usuarios
+export const getRolesConUsuarios = async (req, res) => {
   try {
-    const result = await pool.query(`
+    const sql = `
       SELECT 
-        e.*, 
-        c.nombre_categoria AS nombre_categoria
-      FROM eventos e
-      LEFT JOIN categorias_eventos c 
-        ON e.id_categoria_evento = c.id_categoria_evento
-      ORDER BY e.fecha_evento ASC
-    `);
-    res.json(result.rows);
+        r.id_rol,
+        r.nombre_rol,
+        COUNT(u.id_usuario) as cantidad_usuarios
+      FROM ROLES r
+      LEFT JOIN USUARIOS u ON r.id_rol = u.id_rol_actual
+      WHERE r.estado = 1 AND u.estado = 1
+      GROUP BY r.id_rol, r.nombre_rol
+      ORDER BY r.nombre_rol;
+    `;
+    const { rows } = await pool.query(sql);
+    res.json(rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ mensaje: "Error al obtener eventos" });
+    console.error("Error al obtener roles:", err);
+    res.status(500).json({ msg: "Error al obtener roles", error: err.message });
   }
 };
 
-// ✅ Obtener un evento por ID
-export const getEventoById = async (req, res) => {
+// ✅ Obtener usuarios por rol
+export const getUsuariosPorRol = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { rol } = req.query;
+    
+    const sql = `
+      SELECT u.id_usuario, u.email, u.nombre_completo, r.nombre_rol
+      FROM USUARIOS u
+      INNER JOIN ROLES r ON u.id_rol_actual = r.id_rol
+      WHERE r.id_rol = $1 AND u.estado = 1
+      ORDER BY u.nombre_completo;
+    `;
+    
+    const { rows } = await pool.query(sql, [rol]);
+    res.json(rows);
+  } catch (err) {
+    console.error("Error al obtener usuarios por rol:", err);
+    res.status(500).json({ msg: "Error al obtener usuarios", error: err.message });
+  }
+};
 
-    const result = await pool.query(
-      `
-      SELECT 
-        e.*, 
-        c.nombre_categoria AS nombre_categoria
-      FROM eventos e
-      LEFT JOIN categorias_eventos c 
-        ON e.id_categoria_evento = c.id_categoria_evento
-      WHERE e.id_evento = $1
-      `,
-      [id]
-    );
+// ✅ Enviar correo masivo por roles
+export const enviarCorreoPorRoles = async (req, res) => {
+  try {
+    const { asunto, mensaje, roles } = req.body;
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ mensaje: "Evento no encontrado" });
+    if (!roles || roles.length === 0) {
+      return res.status(400).json({ msg: "Selecciona al menos un rol" });
     }
 
-    res.json(result.rows[0]);
+    // 1. Obtener todos los usuarios de los roles seleccionados
+    const placeholders = roles.map((_, i) => `$${i + 1}`).join(',');
+    const usuariosSql = `
+      SELECT u.id_usuario, u.email, u.nombre_completo, r.nombre_rol
+      FROM USUARIOS u
+      INNER JOIN ROLES r ON u.id_rol_actual = r.id_rol
+      WHERE r.id_rol IN (${placeholders}) AND u.estado = 1
+      ORDER BY r.nombre_rol, u.nombre_completo;
+    `;
+    
+    const usuariosResult = await pool.query(usuariosSql, roles);
+    const usuarios = usuariosResult.rows;
+
+    if (usuarios.length === 0) {
+      return res.status(404).json({ msg: "No hay usuarios en los roles seleccionados" });
+    }
+
+    // 2. Crear registro principal del envío
+    const rolesNombresSql = `
+      SELECT nombre_rol FROM ROLES WHERE id_rol IN (${placeholders})
+    `;
+    const rolesNombresResult = await pool.query(rolesNombresSql, roles);
+    const rolesDestino = rolesNombresResult.rows.map(r => r.nombre_rol).join(',');
+
+    const envioSql = `
+      INSERT INTO ENVIOS_MASIVOS 
+        (asunto, mensaje, total_destinatarios, roles_destino)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id_envio;
+    `;
+    
+    const envioResult = await pool.query(envioSql, [
+      asunto,
+      mensaje,
+      usuarios.length,
+      rolesDestino
+    ]);
+    
+    const idEnvio = envioResult.rows[0].id_envio;
+
+    // 3. Crear detalles para cada usuario
+    const detallesValues = usuarios.map(u => 
+      `(${idEnvio}, ${u.id_usuario}, '${u.email}', '${u.nombre_completo}', '${u.nombre_rol}')`
+    ).join(',');
+    
+    const detallesSql = `
+      INSERT INTO ENVIO_DESTINATARIOS 
+        (id_envio, id_usuario, correo, nombre_usuario, rol_usuario)
+      VALUES ${detallesValues};
+    `;
+    
+    await pool.query(detallesSql);
+
+    res.json({
+      msg: "Envío programado correctamente",
+      id_envio: idEnvio,
+      totalDestinatarios: usuarios.length,
+      roles: rolesDestino,
+      estado: "pendiente"
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ mensaje: "Error al obtener el evento" });
+    console.error("Error al registrar envío masivo:", err);
+    res.status(500).json({ msg: "Error procesando envío", error: err.message });
   }
 };
 
-// ✅ Crear un nuevo evento
-export const createEvento = async (req, res) => {
+// ✅ Obtener historial de envíos
+export const getHistorialEnvios = async (req, res) => {
   try {
-    const {
-      id_categoria_evento,
-      id_sede,
-      nombre_evento,
-      fecha_evento,
-      hora_inicio,
-      hora_aproximada_fin,
-      descripcion,
-      imagen, // ✅ Nombre corregido: "imagen" (no "imagen_evento")
-      estado
-    } = req.body;
-
-    const result = await pool.query(
-      `
-      INSERT INTO eventos 
-      (id_categoria_evento, id_sede, nombre_evento, fecha_evento, hora_inicio, hora_aproximada_fin, descripcion, imagen, estado)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 'activo'))
-      RETURNING *
-      `,
-      [
-        id_categoria_evento,
-        id_sede,
-        nombre_evento,
-        fecha_evento,
-        hora_inicio || null,
-        hora_aproximada_fin || null,
-        descripcion || null,
-        imagen || null, // ✅ Usa "imagen"
-        estado || "activo"
-      ]
-    );
-
-    res.status(201).json(new Evento(result.rows[0]));
-  } catch (err) {
-    console.error("Error en createEvento:", err); // 👈 Mensaje más claro para depuración
-    res.status(400).json({ mensaje: "Error al crear evento", error: err.message });
-  }
-};
-
-// ✅ Actualizar evento
-export const updateEvento = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      id_categoria_evento,
-      id_sede,
-      nombre_evento,
-      fecha_evento,
-      hora_inicio,
-      hora_aproximada_fin,
-      descripcion,
-      imagen, // ✅ Nombre corregido: "imagen"
-      estado
-    } = req.body;
-
-    const result = await pool.query(
-      `
-      UPDATE eventos
-      SET 
-        id_categoria_evento = $1,
-        id_sede = $2,
-        nombre_evento = $3,
-        fecha_evento = $4,
-        hora_inicio = $5,
-        hora_aproximada_fin = $6,
-        descripcion = $7,
-        imagen = $8, -- ✅ Usa "imagen"
-        estado = $9
-      WHERE id_evento = $10
-      RETURNING *
-      `,
-      [
-        id_categoria_evento,
-        id_sede,
-        nombre_evento,
-        fecha_evento,
-        hora_inicio || null,
-        hora_aproximada_fin || null,
-        descripcion || null,
-        imagen || null, // ✅ Usa "imagen"
+    const sql = `
+      SELECT 
+        id_envio,
+        asunto,
+        mensaje,
+        roles_destino,
+        total_destinatarios,
         estado,
-        id
-      ]
-    );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ mensaje: "Evento no encontrado" });
-    }
-
-    res.json({ mensaje: "Evento actualizado correctamente" });
+        CONVERT(VARCHAR, fecha_envio, 120) as fecha_envio
+      FROM ENVIOS_MASIVOS
+      ORDER BY fecha_envio DESC;
+    `;
+    const { rows } = await pool.query(sql);
+    res.json(rows);
   } catch (err) {
-    console.error("Error en updateEvento:", err);
-    res.status(400).json({ mensaje: "Error al actualizar evento", error: err.message });
+    console.error("Error al obtener historial:", err);
+    res.status(500).json({ msg: "Error al obtener historial", error: err.message });
   }
 };
 
-// ✅ Eliminar evento
-export const deleteEvento = async (req, res) => {
+// ✅ Obtener detalles de un envío específico
+export const getDetalleEnvio = async (req, res) => {
   try {
     const { id } = req.params;
-
-    const result = await pool.query(
-      "DELETE FROM eventos WHERE id_evento = $1",
-      [id]
-    );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ mensaje: "Evento no encontrado" });
-    }
-
-    res.json({ mensaje: "Evento eliminado correctamente" });
+    
+    const sql = `
+      SELECT 
+        d.*,
+        CONVERT(VARCHAR, d.fecha_envio, 120) as fecha_envio_detalle
+      FROM ENVIO_DESTINATARIOS d
+      WHERE d.id_envio = $1
+      ORDER BY d.estado, d.nombre_usuario;
+    `;
+    
+    const { rows } = await pool.query(sql, [id]);
+    res.json(rows);
   } catch (err) {
-    console.error("Error en deleteEvento:", err);
-    res.status(500).json({ mensaje: "Error al eliminar evento", error: err.message });
+    console.error("Error al obtener detalles:", err);
+    res.status(500).json({ msg: "Error al obtener detalles", error: err.message });
   }
 };

@@ -4,11 +4,12 @@ import {
   listar,
   obtenerPorId,
   actualizar,
-  eliminar,
+  eliminar
 } from "../controllers/estudiantesController.js";
 
 const router = express.Router();
 
+// CRUD básico de estudiantes
 router.post("/", crear);          
 router.get("/", listar);           
 router.get("/:id", obtenerPorId); 

@@ -1,6 +1,5 @@
-// controllers/categoriaProductosController.js
-import pool from "../db/postgresPool.js";
-import CategoriaProducto from "../models/CategoriaProductos.js";
+import pool from "../db/postgresPool.js"; 
+import CategoriaProducto from "../models/CategoriaProductos.js"
 
 // Obtener todas las categorías
 export const getCategorias = async (req, res) => {

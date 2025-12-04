@@ -1,44 +1,41 @@
-// backend/services/emailService.js
-import * as nodemailer from 'nodemailer';
+// services/emailMasivoServices.js
+const API_URL = "http://localhost:3000/api/correos-masivos";
 
-export const sendPasswordResetEmail = async (email, resetToken) => {
-  try {
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      },
-      tls: {
-        rejectUnauthorized: false
-      }
-    });
+// ✅ Obtener usuarios por rol
+export const getUsuariosPorRol = async (rol) => {
+  const res = await fetch(`${API_URL}/usuarios-por-rol?rol=${rol}`);
+  if (!res.ok) throw new Error("Error al obtener usuarios");
+  return await res.json();
+};
 
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+// ✅ Obtener todos los roles disponibles
+export const getRolesDisponibles = async () => {
+  const res = await fetch(`${API_URL}/roles`);
+  if (!res.ok) throw new Error("Error al obtener roles");
+  return await res.json();
+};
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: email,
-      subject: 'Recupera tu contraseña - Performance-SB',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2>¿Olvidaste tu contraseña?</h2>
-          <p>Hemos recibido una solicitud para restablecer tu contraseña.</p>
-          <p>Si no solicitaste este cambio, ignora este mensaje.</p>
-          <a href="${resetLink}" style="background: #0a56a5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-            Restablecer Contraseña
-          </a>
-          <p>Este enlace expira en 1 hora.</p>
-        </div>
-      `
-    });
+// ✅ Enviar correo masivo por roles
+export const enviarCorreoMasivoPorRoles = async (data) => {
+  const res = await fetch(`${API_URL}/enviar-por-roles`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Error al enviar correos");
+  return await res.json();
+};
 
-    console.log('✅ Correo enviado a:', email);
-    return true;
-  } catch (error) {
-    console.error('❌ Error al enviar correo:', error);
-    throw new Error('No se pudo enviar el correo de recuperación');
-  }
+// ✅ Obtener historial de envíos
+export const getHistorialEnvios = async () => {
+  const res = await fetch(`${API_URL}/historial`);
+  if (!res.ok) throw new Error("Error al obtener historial");
+  return await res.json();
+};
+
+// ✅ Obtener detalles de un envío
+export const getDetalleEnvio = async (id) => {
+  const res = await fetch(`${API_URL}/historial/${id}`);
+  if (!res.ok) throw new Error("Error al obtener detalles");
+  return await res.json();
 };
