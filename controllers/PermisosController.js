@@ -1,4 +1,5 @@
-import sql from "mssql"
+
+import pool from "../db/postgresPool.js"
 import Permiso from "../models/Permiso.js"
 
 // ✅ Obtener todos los permisos

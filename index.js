@@ -3,7 +3,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import pool from "./db/postgresPool.js"; 
-
+import ventasRoutes from "./routes/ventas.js";
+import clientesRoutes from "./routes/clientes.js";
 import variantesRoutes from "./routes/variantes.js";
 import tallaRoutes from "./routes/tallas.js";
 import colorRoutes from "./routes/colores.js";
@@ -12,7 +13,6 @@ import matriculasRoutes from "./routes/matriculas.js";
 import preinscripcionesRoutes from "./routes/preinscripciones.js";
 import planesClasesRoutes from "./routes/planes.js";
 import nivelesClasesRoutes from "./routes/nivelesClases.js";
-import ventasRoutes from "./routes/ventas.js";
 import patrocinadoresRoutes from "./routes/patrocinadores.js";
 import sedesRoutes from "./routes/sedes.js";
 import comprasRoutes from "./routes/compras.js";
@@ -90,7 +90,8 @@ app.use("/api/matriculas", matriculasRoutes);
 app.use("/api/tallas", tallaRoutes);
 app.use("/api/colores", colorRoutes);
 app.use("/api/variantes", variantesRoutes);
-
+app.use("/api/clientes", clientesRoutes);
+app.use("/api/ventas", ventasRoutes);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🌐 OnWheels API corriendo en puerto ${PORT}`);

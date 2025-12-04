@@ -1,115 +1,105 @@
-import sql from "mssql"
-import Rol from "../models/Roles.js"
+// controllers/rolesController.js
+import pool from "../db/postgresPool.js";
+import Rol from "../models/Roles.js"; // Asegúrate de que este modelo esté adaptado para recibir datos de PostgreSQL
 
 // ✅ Obtener todos los roles
 export const getRoles = async (req, res) => {
   try {
-    const pool = await sql.connect()
-    const result = await pool.request().query("SELECT * FROM ROLES ORDER BY nombre_rol ASC")
-    res.json(result.recordset)
+    // Usamos pool.query directamente, no necesitamos await sql.connect()
+    const result = await pool.query("SELECT * FROM ROLES ORDER BY nombre_rol ASC");
+    res.json(result.rows); // En pg, los resultados están en .rows, no .recordset
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener roles" })
+    console.error("Error en getRoles:", err);
+    res.status(500).json({ mensaje: "Error al obtener roles" });
   }
-}
+};
 
 // ✅ Obtener rol por ID
 export const getRolById = async (req, res) => {
   try {
-    const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("SELECT * FROM ROLES WHERE id_rol = @id")
+    const { id } = req.params;
+    // Usamos placeholders ($1) en lugar de @id para pg
+    const result = await pool.query(
+      "SELECT * FROM ROLES WHERE id_rol = $1",
+      [id]
+    );
 
-    if (result.recordset.length === 0) {
-      return res.status(404).json({ mensaje: "Rol no encontrado" })
+    if (result.rows.length === 0) {
+      return res.status(404).json({ mensaje: "Rol no encontrado" });
     }
 
-    res.json(result.recordset[0])
+    res.json(result.rows[0]); // .rows[0] en pg
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener rol" })
+    console.error("Error en getRolById:", err);
+    res.status(500).json({ mensaje: "Error al obtener rol" });
   }
-}
+};
 
 // ✅ Crear rol
 export const createRol = async (req, res) => {
   try {
-    const { nombre_rol, descripcion, estado } = req.body
+    const { nombre_rol, descripcion, estado } = req.body;
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("nombre_rol", sql.VarChar, nombre_rol)
-      .input("descripcion", sql.VarChar, descripcion)
-      .input("estado", sql.Bit, estado)
-      .query(`
-        INSERT INTO ROLES (nombre_rol, descripcion, estado)
-        VALUES (@nombre_rol, @descripcion, @estado);
-        SELECT SCOPE_IDENTITY() AS id;
-      `)
+    // Usamos placeholders ($1, $2, $3) y pasamos los valores en un array
+    const result = await pool.query(
+      `INSERT INTO ROLES (nombre_rol, descripcion, estado)
+       VALUES ($1, $2, $3) RETURNING *`, // RETURNING * devuelve el registro insertado
+      [nombre_rol, descripcion, estado]
+    );
 
-    const nuevoRol = new Rol({
-      id_rol: result.recordset[0].id,
-      nombre_rol,
-      descripcion,
-      estado
-    })
+    // Creamos una nueva instancia del modelo con los datos devueltos por PostgreSQL
+    const nuevoRol = new Rol(result.rows[0]); // Ajusta según cómo funcione tu modelo Rol
 
-    res.status(201).json(nuevoRol)
+    res.status(201).json(nuevoRol);
   } catch (err) {
-    console.error(err)
-    res.status(400).json({ mensaje: "Error al crear rol", error: err.message })
+    console.error("Error en createRol:", err);
+    // Podría ser un error de base de datos (clave duplicada, campo nulo, etc.)
+    res.status(400).json({ mensaje: "Error al crear rol", error: err.message });
   }
-}
+};
 
 // ✅ Actualizar rol
 export const updateRol = async (req, res) => {
   try {
-    const { id } = req.params
-    const { nombre_rol, descripcion, estado } = req.body
+    const { id } = req.params;
+    const { nombre_rol, descripcion, estado } = req.body;
 
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .input("nombre_rol", sql.VarChar, nombre_rol)
-      .input("descripcion", sql.VarChar, descripcion)
-      .input("estado", sql.Bit, estado)
-      .query(`
-        UPDATE ROLES
-        SET nombre_rol = @nombre_rol,
-            descripcion = @descripcion,
-            estado = @estado
-        WHERE id_rol = @id
-      `)
+    const result = await pool.query(
+      `UPDATE ROLES
+       SET nombre_rol = $1,
+           descripcion = $2,
+           estado = $3
+       WHERE id_rol = $4`, // El id va en $4
+      [nombre_rol, descripcion, estado, id]
+    );
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ mensaje: "Rol no encontrado" })
+    if (result.rowCount === 0) { // En pg, el número de filas afectadas es .rowCount, no .rowsAffected[0]
+      return res.status(404).json({ mensaje: "Rol no encontrado" });
     }
 
-    res.json({ mensaje: "Rol actualizado correctamente" })
+    res.json({ mensaje: "Rol actualizado correctamente" });
   } catch (err) {
-    console.error(err)
-    res.status(400).json({ mensaje: "Error al actualizar rol", error: err.message })
+    console.error("Error en updateRol:", err);
+    res.status(400).json({ mensaje: "Error al actualizar rol", error: err.message });
   }
-}
+};
 
 // ✅ Eliminar rol
 export const deleteRol = async (req, res) => {
   try {
-    const { id } = req.params
-    const pool = await sql.connect()
-    const result = await pool.request()
-      .input("id", sql.Int, id)
-      .query("DELETE FROM ROLES WHERE id_rol = @id")
+    const { id } = req.params;
+    const result = await pool.query(
+      "DELETE FROM ROLES WHERE id_rol = $1",
+      [id]
+    );
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ mensaje: "Rol no encontrado" })
+    if (result.rowCount === 0) { // Igual, usamos .rowCount
+      return res.status(404).json({ mensaje: "Rol no encontrado" });
     }
 
-    res.json({ mensaje: "Rol eliminado correctamente" })
+    res.json({ mensaje: "Rol eliminado correctamente" });
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al eliminar rol" })
+    console.error("Error en deleteRol:", err);
+    res.status(500).json({ mensaje: "Error al eliminar rol" });
   }
-}
+};
