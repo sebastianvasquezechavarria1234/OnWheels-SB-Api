@@ -1,23 +1,11 @@
 // controllers/rolesController.js
-<<<<<<< HEAD
 import pool from "../db/postgresPool.js";
-import Rol from "../models/Roles.js"; // Asegúrate de que este modelo esté adaptado para recibir datos de PostgreSQL
-=======
-import pool from "../db/postgresPool.js"
-import Rol from "../models/Roles.js"
->>>>>>> b9b1f16da32a942b02766311c2530a1f10b6113b
 
 // ✅ Obtener todos los roles
 export const getRoles = async (req, res) => {
   try {
-<<<<<<< HEAD
-    // Usamos pool.query directamente, no necesitamos await sql.connect()
-    const result = await pool.query("SELECT * FROM ROLES ORDER BY nombre_rol ASC");
-    res.json(result.rows); // En pg, los resultados están en .rows, no .recordset
-=======
-    const result = await pool.query("SELECT * FROM roles ORDER BY nombre_rol ASC")
-    res.json(result.rows)
->>>>>>> b9b1f16da32a942b02766311c2530a1f10b6113b
+    const result = await pool.query("SELECT * FROM roles ORDER BY nombre_rol ASC");
+    res.json(result.rows);
   } catch (err) {
     console.error("Error en getRoles:", err);
     res.status(500).json({ mensaje: "Error al obtener roles" });
@@ -27,29 +15,12 @@ export const getRoles = async (req, res) => {
 // ✅ Obtener rol por ID
 export const getRolById = async (req, res) => {
   try {
-<<<<<<< HEAD
     const { id } = req.params;
-    // Usamos placeholders ($1) en lugar de @id para pg
-    const result = await pool.query(
-      "SELECT * FROM ROLES WHERE id_rol = $1",
-      [id]
-    );
-
+    const result = await pool.query("SELECT * FROM roles WHERE id_rol = $1", [id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Rol no encontrado" });
     }
-
-    res.json(result.rows[0]); // .rows[0] en pg
-=======
-    const { id } = req.params
-    const result = await pool.query("SELECT * FROM roles WHERE id_rol = $1", [id])
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ mensaje: "Rol no encontrado" })
-    }
-
-    res.json(result.rows[0])
->>>>>>> b9b1f16da32a942b02766311c2530a1f10b6113b
+    res.json(result.rows[0]);
   } catch (err) {
     console.error("Error en getRolById:", err);
     res.status(500).json({ mensaje: "Error al obtener rol" });
@@ -60,37 +31,21 @@ export const getRolById = async (req, res) => {
 export const createRol = async (req, res) => {
   try {
     const { nombre_rol, descripcion, estado } = req.body;
-
-<<<<<<< HEAD
-    // Usamos placeholders ($1, $2, $3) y pasamos los valores en un array
-    const result = await pool.query(
-      `INSERT INTO ROLES (nombre_rol, descripcion, estado)
-       VALUES ($1, $2, $3) RETURNING *`, // RETURNING * devuelve el registro insertado
-      [nombre_rol, descripcion, estado]
-    );
-
-    // Creamos una nueva instancia del modelo con los datos devueltos por PostgreSQL
-    const nuevoRol = new Rol(result.rows[0]); // Ajusta según cómo funcione tu modelo Rol
-=======
+    if (!nombre_rol?.trim()) {
+      return res.status(400).json({ mensaje: "El nombre del rol es obligatorio" });
+    }
     const result = await pool.query(
       `INSERT INTO roles (nombre_rol, descripcion, estado)
        VALUES ($1, $2, $3)
-       RETURNING id_rol`,
-      [nombre_rol, descripcion, estado]
-    )
-
-    const nuevoRol = new Rol({
-      id_rol: result.rows[0].id_rol,
-      nombre_rol,
-      descripcion,
-      estado
-    })
->>>>>>> b9b1f16da32a942b02766311c2530a1f10b6113b
-
-    res.status(201).json(nuevoRol);
+       RETURNING *`,
+      [nombre_rol.trim(), descripcion || null, estado ?? true]
+    );
+    res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("Error en createRol:", err);
-    // Podría ser un error de base de datos (clave duplicada, campo nulo, etc.)
+    if (err.code === '23505') {
+      return res.status(400).json({ mensaje: "Ya existe un rol con ese nombre" });
+    }
     res.status(400).json({ mensaje: "Error al crear rol", error: err.message });
   }
 };
@@ -100,23 +55,22 @@ export const updateRol = async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre_rol, descripcion, estado } = req.body;
-
+    if (!nombre_rol?.trim()) {
+      return res.status(400).json({ mensaje: "El nombre del rol es obligatorio" });
+    }
     const result = await pool.query(
-       HEAD
-      `UPDATE ROLES
+      `UPDATE roles
        SET nombre_rol = $1,
            descripcion = $2,
            estado = $3
-       WHERE id_rol = $4`, 
-      [nombre_rol, descripcion, estado, id]
+       WHERE id_rol = $4
+       RETURNING *`,
+      [nombre_rol.trim(), descripcion || null, estado ?? true, id]
     );
-
-    if (result.rowCount === 0) { 
+    if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Rol no encontrado" });
-
     }
-
-    res.json({ mensaje: "Rol actualizado correctamente" });
+    res.json({ mensaje: "Rol actualizado correctamente", rol: result.rows[0] });
   } catch (err) {
     console.error("Error en updateRol:", err);
     res.status(400).json({ mensaje: "Error al actualizar rol", error: err.message });
@@ -127,19 +81,91 @@ export const updateRol = async (req, res) => {
 export const deleteRol = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
-      "DELETE FROM ROLES WHERE id_rol = $1",
-      [id]
-    );
-
-    if (result.rowCount === 0) { // Igual, usamos .rowCount
-      return res.status(404).json({ mensaje: "Rol no encontrado" });
-
+    const officialRoles = [3, 9, 10, 12, 13];
+    if (officialRoles.includes(parseInt(id))) {
+      return res.status(400).json({ mensaje: "No se pueden eliminar roles oficiales" });
     }
-
+    const result = await pool.query("DELETE FROM roles WHERE id_rol = $1", [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Rol no encontrado" });
+    }
     res.json({ mensaje: "Rol eliminado correctamente" });
   } catch (err) {
     console.error("Error en deleteRol:", err);
+    if (err.code === '23503') {
+      return res.status(400).json({ mensaje: "No se puede eliminar el rol porque tiene permisos o usuarios asignados" });
+    }
     res.status(500).json({ mensaje: "Error al eliminar rol" });
+  }
+};
+
+// ✅ Obtener permisos de un rol (para el modal)
+export const getPermisosByRol = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT p.id_permiso, p.nombre_permiso, p.descripcion
+       FROM roles_permisos rp
+       JOIN permisos p ON rp.id_permiso = p.id_permiso
+       WHERE rp.id_rol = $1`,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error en getPermisosByRol:", err);
+    res.status(500).json({ mensaje: "Error al obtener permisos del rol" });
+  }
+};
+
+// ✅ Asignar permiso a un rol (ruta: POST /roles/:id/permisos)
+export const asignarPermisoARol = async (req, res) => {
+  try {
+    const idRol = req.params.id;
+    const { id_permiso } = req.body;
+    if (!id_permiso) {
+      return res.status(400).json({ mensaje: "id_permiso es requerido" });
+    }
+    const rolExists = await pool.query("SELECT 1 FROM roles WHERE id_rol = $1", [idRol]);
+    if (rolExists.rows.length === 0) {
+      return res.status(404).json({ mensaje: "Rol no encontrado" });
+    }
+    const permisoExists = await pool.query("SELECT 1 FROM permisos WHERE id_permiso = $1", [id_permiso]);
+    if (permisoExists.rows.length === 0) {
+      return res.status(404).json({ mensaje: "Permiso no encontrado" });
+    }
+    const duplicate = await pool.query(
+      "SELECT 1 FROM roles_permisos WHERE id_rol = $1 AND id_permiso = $2",
+      [idRol, id_permiso]
+    );
+    if (duplicate.rows.length > 0) {
+      return res.status(409).json({ mensaje: "Permiso ya asignado al rol" });
+    }
+    await pool.query(
+      "INSERT INTO roles_permisos (id_rol, id_permiso) VALUES ($1, $2)",
+      [idRol, id_permiso]
+    );
+    res.status(201).json({ mensaje: "Permiso asignado correctamente" });
+  } catch (err) {
+    console.error("Error en asignarPermisoARol:", err);
+    res.status(400).json({ mensaje: "Error al asignar permiso", error: err.message });
+  }
+};
+
+// ✅ Eliminar permiso de un rol (ruta: DELETE /roles/:id/permisos/:idPermiso)
+export const eliminarPermisoDeRol = async (req, res) => {
+  try {
+    const idRol = req.params.id;
+    const idPermiso = req.params.idPermiso;
+    const result = await pool.query(
+      "DELETE FROM roles_permisos WHERE id_rol = $1 AND id_permiso = $2",
+      [idRol, idPermiso]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Asignación no encontrada" });
+    }
+    res.json({ mensaje: "Permiso eliminado correctamente" });
+  } catch (err) {
+    console.error("Error en eliminarPermisoDeRol:", err);
+    res.status(500).json({ mensaje: "Error al eliminar permiso", error: err.message });
   }
 };

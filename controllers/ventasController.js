@@ -9,7 +9,7 @@ export const getVentas = async (req, res) => {
         v.id_venta,
         v.id_cliente,
         v.metodo_pago,
-        v.estado_venta AS estado,
+        v.estado AS estado,
         v.fecha_venta,
         v.total,
         c.id_usuario,
@@ -63,7 +63,7 @@ export const getVentaById = async (req, res) => {
         v.id_venta,
         v.id_cliente,
         v.metodo_pago,
-        v.estado_venta AS estado,
+        v.estado AS estado,
         v.fecha_venta,
         v.total
       FROM ventas v
@@ -145,7 +145,7 @@ export const createVenta = async (req, res) => {
 
     // Crear venta
     const ventaResult = await client.query(
-      `INSERT INTO ventas (id_cliente, metodo_pago, estado_venta, fecha_venta, total)
+      `INSERT INTO ventas (id_cliente, metodo_pago, estado, fecha_venta, total)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id_venta`,
       [id_cliente, metodo_pago, "Pendiente", fecha_venta, total]
@@ -190,7 +190,7 @@ const getVentaFull = async (id_venta, client) => {
       v.id_venta,
       v.id_cliente,
       v.metodo_pago,
-      v.estado_venta AS estado,
+      v.estado AS estado,
       v.fecha_venta,
       v.total
     FROM ventas v
@@ -223,16 +223,16 @@ export const updateVenta = async (req, res) => {
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { id_cliente, metodo_pago, estado_venta, fecha_venta, items } = req.body;
+    const { id_cliente, metodo_pago, estado, fecha_venta, items } = req.body;
 
     await client.query("BEGIN");
 
     // Verificar estado actual
-    const current = await client.query("SELECT estado_venta FROM ventas WHERE id_venta = $1", [id]);
+    const current = await client.query("SELECT estado FROM ventas WHERE id_venta = $1", [id]);
     if (current.rowCount === 0) {
       return res.status(404).json({ mensaje: "Venta no encontrada" });
     }
-    if (current.rows[0].estado_venta !== "Pendiente") {
+    if (current.rows[0].estado !== "Pendiente") {
       return res.status(400).json({ mensaje: "Solo se pueden editar ventas en estado 'Pendiente'" });
     }
 
@@ -305,11 +305,11 @@ export const deleteVenta = async (req, res) => {
     await client.query("BEGIN");
 
     // Verificar estado
-    const current = await client.query("SELECT estado_venta FROM ventas WHERE id_venta = $1", [id]);
+    const current = await client.query("SELECT estado FROM ventas WHERE id_venta = $1", [id]);
     if (current.rowCount === 0) {
       return res.status(404).json({ mensaje: "Venta no encontrada" });
     }
-    if (current.rows[0].estado_venta !== "Pendiente") {
+    if (current.rows[0].estado !== "Pendiente") {
       return res.status(400).json({ mensaje: "Solo se pueden eliminar ventas en estado 'Pendiente'" });
     }
 

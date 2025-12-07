@@ -1,14 +1,14 @@
 class Usuario {
   constructor({
     id_usuario,
+    documento,
+    tipo_documento,
     nombre_completo,
     email,
     telefono,
     fecha_nacimiento,
     contrasena,
-    estado,
-    documento,
-    tipo_documento
+    estado
   }) {
     this.id_usuario = id_usuario;
     this.documento = documento;

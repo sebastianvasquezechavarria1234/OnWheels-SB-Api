@@ -1,18 +1,21 @@
-import express from "express"
+// routes/permisos.js
+import express from "express";
+import { authenticateToken } from "../middleware/authMiddleware.js";
+import { adminOrPermission } from "../middleware/adminOrPermission.js";
 import {
   getPermisos,
   getPermisoById,
   createPermiso,
   updatePermiso,
   deletePermiso
-} from "../controllers/PermisosController.js"
+} from "../controllers/PermisosController.js";
 
-const router = express.Router()
+const router = express.Router();
 
-router.get("/", getPermisos)
-router.get("/:id", getPermisoById)
-router.post("/", createPermiso)
-router.put("/:id", updatePermiso)
-router.delete("/:id", deletePermiso)
+router.get("/", authenticateToken, adminOrPermission("ver_permisos"), getPermisos);
+router.get("/:id", authenticateToken, adminOrPermission("ver_permisos"), getPermisoById);
+router.post("/", authenticateToken, adminOrPermission("gestionar_permisos"), createPermiso);
+router.put("/:id", authenticateToken, adminOrPermission("gestionar_permisos"), updatePermiso);
+router.delete("/:id", authenticateToken, adminOrPermission("gestionar_permisos"), deletePermiso);
 
-export default router
+export default router;

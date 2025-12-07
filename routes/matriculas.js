@@ -1,5 +1,6 @@
-// src/routes/matriculasRoutes.js
 import express from "express";
+import { authenticateToken } from "../middleware/authMiddleware.js";
+import { adminOrPermission } from "../middleware/adminOrPermission.js";
 import {
   createMatricula,
   getMatriculas,
@@ -10,11 +11,10 @@ import {
 
 const router = express.Router();
 
-// CRUD completo de matrículas
-router.get("/", getMatriculas);
-router.get("/:id", getMatriculaById);
-router.post("/", createMatricula);
-router.put("/:id", updateMatricula);
-router.delete("/:id", deleteMatricula);
+router.get("/", authenticateToken, adminOrPermission("ver_matriculas"), getMatriculas);
+router.get("/:id", authenticateToken, adminOrPermission("ver_matriculas"), getMatriculaById);
+router.post("/", authenticateToken, adminOrPermission("gestionar_matriculas"), createMatricula);
+router.put("/:id", authenticateToken, adminOrPermission("gestionar_matriculas"), updateMatricula);
+router.delete("/:id", authenticateToken, adminOrPermission("gestionar_matriculas"), deleteMatricula);
 
 export default router;

@@ -1,5 +1,6 @@
-
 import express from "express";
+import { authenticateToken } from "../middleware/authMiddleware.js";
+import { adminOrPermission } from "../middleware/adminOrPermission.js";
 import {
   getUsuarios,
   getUsuarioById,
@@ -12,18 +13,34 @@ import {
 
 const router = express.Router();
 
-// Rutas públicas/colección
-router.get("/", getUsuarios);
+// Verificar email (público)
 router.get("/verificar-email/:email", verificarEmail);
 
-// Verificar contraseña actual (validación en tiempo real)
-router.post("/:id/verify-password", verifyPassword);
-
-// Rutas por id (colocar despues de rutas concretas para evitar conflictos)
-router.get("/:id", getUsuarioById);
-
+// Registrar usuario (public) -> si usas register en authRoutes entonces puedes eliminar este POST
 router.post("/", createUsuario);
-router.put("/:id", updateUsuario);
-router.delete("/:id", deleteUsuario);
+
+// Lista usuarios -> admin o permiso ver_usuarios
+router.get("/", authenticateToken, adminOrPermission("ver_usuarios"), getUsuarios);
+
+// Ver usuario: propietario o admin
+router.get("/:id", authenticateToken, async (req, res, next) => {
+  if (String(req.params.id) === String(req.user.id_usuario)) return next();
+  return adminOrPermission("ver_usuarios")(req, res, next);
+}, getUsuarioById);
+
+// Actualizar: propietario o admin
+router.put("/:id", authenticateToken, async (req, res, next) => {
+  if (String(req.params.id) === String(req.user.id_usuario)) return next();
+  return adminOrPermission("gestionar_usuarios")(req, res, next);
+}, updateUsuario);
+
+// Eliminar: admin o permiso gestionar_usuarios
+router.delete("/:id", authenticateToken, adminOrPermission("gestionar_usuarios"), deleteUsuario);
+
+// Verificar contraseña actual (propio)
+router.post("/:id/verify-password", authenticateToken, async (req, res, next) => {
+  if (String(req.params.id) === String(req.user.id_usuario)) return next();
+  return adminOrPermission("gestionar_usuarios")(req, res, next);
+}, verifyPassword);
 
 export default router;
