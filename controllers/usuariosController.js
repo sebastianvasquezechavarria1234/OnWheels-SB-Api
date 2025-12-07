@@ -227,6 +227,11 @@ export const createUsuario = async (req, res) => {
  * Actualizar usuario.
  * - Si se envía contrasena, se hashea y actualiza; si no, se conserva.
  * - Se usan COALESCE para preservar valores si no se envían.
+ *
+ * Añadido: si se intenta cambiar contraseña, ahora requiere:
+ *   - currentPassword en body (contraseña actual)
+ *   - confirmPassword en body (confirmación de new password)
+ * Verifica la contraseña actual con bcrypt.compare, verifica confirmación y luego hashea la nueva contraseña.
  */
 export const updateUsuario = async (req, res) => {
   try {
@@ -238,11 +243,40 @@ export const updateUsuario = async (req, res) => {
       email = null,
       telefono = null,
       fecha_nacimiento = null,
-      contrasena = null
+      contrasena = null,
+      currentPassword = null,
+      confirmPassword = null
     } = req.body;
 
     let hashed = null;
+
+    // Si se intenta cambiar la contraseña: validar currentPassword y confirmPassword
     if (contrasena) {
+      // comprobar que exista el usuario y obtener su hash actual
+      const userQ = `SELECT contrasena FROM usuarios WHERE id_usuario = $1`;
+      const rUser = await pool.query(userQ, [id]);
+      if (rUser.rowCount === 0) {
+        return res.status(404).json({ mensaje: "Usuario no encontrado" });
+      }
+
+      const storedHash = rUser.rows[0].contrasena;
+      if (!currentPassword) {
+        return res.status(400).json({ mensaje: "Debe enviar la contraseña actual (currentPassword) para cambiar la contraseña" });
+      }
+
+      const isMatch = await bcrypt.compare(currentPassword, storedHash);
+      if (!isMatch) {
+        return res.status(401).json({ mensaje: "Contraseña actual incorrecta" });
+      }
+
+      if (!confirmPassword) {
+        return res.status(400).json({ mensaje: "Debe enviar confirmPassword" });
+      }
+
+      if (contrasena !== confirmPassword) {
+        return res.status(400).json({ mensaje: "La nueva contraseña y la confirmación no coinciden" });
+      }
+
       const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || "10", 10);
       hashed = await bcrypt.hash(contrasena, saltRounds);
     }
@@ -286,6 +320,37 @@ export const updateUsuario = async (req, res) => {
 };
 
 /**
+ * Verificar contraseña actual (para validación en tiempo real).
+ * Ruta: POST /api/usuarios/:id/verify-password
+ * Body: { currentPassword: string }
+ * Respuesta: { valid: true } o { valid: false }
+ */
+export const verifyPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { currentPassword } = req.body;
+
+    if (!currentPassword) {
+      return res.status(400).json({ mensaje: "Debe enviar currentPassword", valid: false });
+    }
+
+    const q = `SELECT contrasena FROM usuarios WHERE id_usuario = $1`;
+    const r = await pool.query(q, [id]);
+
+    if (r.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Usuario no encontrado", valid: false });
+    }
+
+    const storedHash = r.rows[0].contrasena || "";
+    const isMatch = await bcrypt.compare(currentPassword, storedHash);
+    return res.json({ valid: !!isMatch });
+  } catch (err) {
+    console.error("Error verifyPassword:", err);
+    return res.status(500).json({ mensaje: "Error al verificar contraseña", valid: false });
+  }
+};
+
+/**
  * Eliminar usuario y sus roles asignados
  */
 export const deleteUsuario = async (req, res) => {
@@ -296,7 +361,6 @@ export const deleteUsuario = async (req, res) => {
     await client.query("BEGIN");
     // eliminar asignaciones de rol
     await client.query("DELETE FROM usuario_roles WHERE id_usuario = $1", [id]);
-    // (Si hay tablas específicas que dependen de usuarios, eliminarlas aquí si quieres)
     const result = await client.query("DELETE FROM usuarios WHERE id_usuario = $1 RETURNING *", [id]);
 
     if (result.rowCount === 0) {
