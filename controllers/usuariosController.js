@@ -314,3 +314,88 @@ export const deleteUsuario = async (req, res) => {
     client.release();
   }
 };
+
+
+/**
+ * Obtiene usuarios que:
+ * - NO tienen NINGÚN registro en estudiantes (cualquier estado)
+ * - Tienen SOLO roles permitidos: 'cliente', 'usuario' o ninguno
+ */
+export const getUsuariosElegiblesParaEstudiante = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        u.id_usuario,
+        u.documento,
+        u.tipo_documento,
+        u.nombre_completo,
+        u.email,
+        u.telefono,
+        u.fecha_nacimiento,
+        u.estado,
+        COALESCE(
+          json_agg(
+            json_build_object('id_rol', r.id_rol, 'nombre_rol', r.nombre_rol)
+          ) FILTER (WHERE r.id_rol IS NOT NULL),
+        '[]') AS roles
+      FROM usuarios u
+      LEFT JOIN estudiantes e ON u.id_usuario = e.id_usuario
+      LEFT JOIN usuario_roles ur ON u.id_usuario = ur.id_usuario
+      LEFT JOIN roles r ON ur.id_rol = r.id_rol
+      WHERE e.id_usuario IS NULL
+      GROUP BY 
+        u.id_usuario,
+        u.documento,
+        u.tipo_documento,
+        u.nombre_completo,
+        u.email,
+        u.telefono,
+        u.fecha_nacimiento,
+        u.estado
+      HAVING bool_and(
+        r.nombre_rol IS NULL OR LOWER(TRIM(r.nombre_rol)) IN ('cliente', 'usuario')
+      )
+      ORDER BY u.nombre_completo ASC;
+    `;
+
+    const result = await pool.query(query);
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("Error al obtener usuarios elegibles para estudiante:", err);
+    return res.status(500).json({ mensaje: "Error al obtener usuarios elegibles" });
+  }
+};
+
+// controllers/usuariosController.js
+export const getUsuariosSinCliente = async (req, res) => {
+  try {
+    // Log para depurar
+    console.log("✅ Iniciando getUsuariosSinCliente");
+
+    const query = `
+      SELECT 
+        u.id_usuario, 
+        u.nombre_completo, 
+        u.email, 
+        u.documento,
+        CASE WHEN c.id_cliente IS NOT NULL THEN true ELSE false END AS es_cliente
+      FROM usuarios u
+      LEFT JOIN clientes c ON u.id_usuario = c.id_usuario
+      WHERE u.estado = true
+      ORDER BY u.nombre_completo;
+    `;
+
+    const result = await pool.query(query);
+
+    console.log("✅ Query ejecutada. Filas:", result.rows.length);
+
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Error en getUsuariosSinCliente:", err);
+    // Devuelve un error estructurado
+    return res.status(500).json({
+      mensaje: "Error interno del servidor",
+      error: err.message || "Error desconocido"
+    });
+  }
+};

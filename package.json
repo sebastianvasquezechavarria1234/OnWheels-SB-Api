@@ -19,9 +19,9 @@
     "express-validator": "^7.2.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.2",
-
-    "pg": "^8.16.3"
-
+    "nodemailer": "^7.0.10",
+    "pg": "^8.16.3",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

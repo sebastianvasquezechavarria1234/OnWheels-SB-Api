@@ -1,20 +1,26 @@
+// usuarioRoutes.js
 import express from "express";
 import {
   getUsuarios,
   getUsuarioById,
+  verificarEmail,
   createUsuario,
   updateUsuario,
   deleteUsuario,
-  verificarEmail
+  getUsuariosElegiblesParaEstudiante, // ← Asegúrate de importarla
+  getUsuariosSinCliente  // ← Asegúrate de importarla
 } from "../controllers/usuariosController.js";
 
 const router = express.Router();
 
-// Nota: colocar rutas concretas /verificar-email antes de /:id para evitar conflictos
+// Rutas sin parámetros → van primero
 router.get("/", getUsuarios);
+router.get("/elegibles-para-estudiante", getUsuariosElegiblesParaEstudiante);
 router.get("/verificar-email/:email", verificarEmail);
-router.get("/:id", getUsuarioById);
+router.get("/sin-cliente", getUsuariosSinCliente);
 
+// Rutas con parámetros → van al final
+router.get("/:id", getUsuarioById);
 router.post("/", createUsuario);
 router.put("/:id", updateUsuario);
 router.delete("/:id", deleteUsuario);
