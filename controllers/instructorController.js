@@ -1,4 +1,3 @@
-import Instructor from '../models/Instructor.js';
 import db from '../db/postgresPool.js';
 
 const instructorController = {

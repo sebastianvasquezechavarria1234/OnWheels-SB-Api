@@ -4,12 +4,11 @@ import { adminOrPermission } from "../middleware/adminOrPermission.js";
 import {
   crear,
   listar,
-  obtenerPorId,
-  actualizar,
-  eliminar
-} from "../controllers/estudiantesController.js";
+   obtenerPorId,
+    actualizar,
+     eliminar } from "../controllers/estudiantesController.js"
 
-const router = express.Router();
+const router = express.Router()
 
 // crear preinscripción / estudiante: admin o permiso (si registro por admin)
 router.post("/", authenticateToken, adminOrPermission("gestionar_estudiantes"), crear);

@@ -81,6 +81,7 @@ export async function register(req, res) {
 }
 
 // ==================== LOGIN ====================
+// ==================== LOGIN ====================
 export async function login(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -121,7 +122,27 @@ export async function login(req, res) {
       );
     }
 
-    // ✅ Token LIMPIO: sin roles ni permisos
+    // ✅ Obtener roles y permisos del usuario
+    const rolesResult = await pool.query(
+      `SELECT r.nombre_rol
+       FROM usuario_roles ur
+       JOIN roles r ON ur.id_rol = r.id_rol
+       WHERE ur.id_usuario = $1`,
+      [user.id_usuario]
+    );
+    const roles = rolesResult.rows.map(r => r.nombre_rol.toLowerCase());
+
+    const permisosResult = await pool.query(
+      `SELECT DISTINCT p.nombre_permiso
+       FROM usuario_roles ur
+       JOIN roles_permisos rp ON ur.id_rol = rp.id_rol
+       JOIN permisos p ON rp.id_permiso = p.id_permiso
+       WHERE ur.id_usuario = $1`,
+      [user.id_usuario]
+    );
+    const permisos = permisosResult.rows.map(p => p.nombre_permiso.toLowerCase());
+
+    // ✅ Token LIMPIO: solo id_usuario y email
     const token = jwt.sign(
       {
         id_usuario: user.id_usuario,
@@ -131,13 +152,16 @@ export async function login(req, res) {
       { expiresIn: '7d' }
     );
 
+    // ✅ Responder con token, usuario, roles y permisos
     res.json({
       message: 'Login exitoso',
       token,
       user: {
         id_usuario: user.id_usuario,
         nombre: user.nombre_completo,
-        email: user.email
+        email: user.email,
+        roles,
+        permisos
       }
     });
   } catch (err) {
@@ -145,6 +169,21 @@ export async function login(req, res) {
     res.status(500).json({ message: 'Error en servidor', error: err.message });
   }
 }
+// ==================== GET USER DATA (for frontend) ====================
+// export async function getAuthUser(req, res) {
+//   try {
+
+//     res.json({
+//       id_usuario: req.user.id_usuario,
+//       email: req.user.email,
+//       roles: req.user.roles,
+//       permisos: req.user.permisos
+//     });
+//   } catch (err) {
+//     console.error("Error en getAuthUser:", err);
+//     res.status(500).json({ message: "Error al obtener datos de usuario" });
+//   }
+// }
 
 // ==================== REQUEST PASSWORD RESET ====================
 export async function requestPasswordReset(req, res) {

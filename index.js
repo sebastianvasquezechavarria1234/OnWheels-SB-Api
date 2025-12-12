@@ -12,7 +12,7 @@ import authRoutes from "./routes/authRoutes.js"
 import matriculasRoutes from "./routes/matriculas.js"
 import preinscripcionesRoutes from "./routes/preinscripciones.js"
 import planesClasesRoutes from "./routes/planes.js"
-import nivelesClasesRoutes from "./routes/nivelesClases.js"
+import nivelesClasesRoutes from "./routes/niveles.js"
 import ventasRoutes from "./routes/ventas.js"
 import patrocinadoresRoutes from "./routes/patrocinadores.js"
 import sedesRoutes from "./routes/sedes.js"
@@ -27,27 +27,30 @@ import clasesRoutes from "./routes/clases.js"
 import proveedoresRoutes from "./routes/proveedores.js"
 import rolesPermisosRoutes from "./routes/rolesPermisos.js"
 import estudiantesRoutes from "./routes/estudiantes.js"
-import clientesRoutes from "./routes/clientes.js";
-// import acudientesRoutes from "./routes/acudientes.js" 
+import clientesRoutes from "./routes/clientes.js"
+import acudientesRoutes from "./routes/acudientesRoutes.js"
+import instructoresRoutes from "./routes/instructores.js"
+import matriculasManualesRoutes from "./routes/matriculasManualesRoutes.js"
 
-dotenv.config()
 
-const app = express()
-const PORT = process.env.PORT || 3000
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Middlewares
-app.use(cors())
-app.use(express.json())
+app.use(cors());
+app.use(express.json());
 
 // 🧪 Probar conexión PostgreSQL
-;(async () => {
+(async () => {
   try {
-    const resPG = await pool.query("SELECT NOW() AS conectado")
-    console.log("✅ Conectado a PostgreSQL:", resPG.rows[0])
+    const resPG = await pool.query("SELECT NOW() AS conectado");
+    console.log("✅ Conectado a PostgreSQL:", resPG.rows[0]);
   } catch (err) {
-    console.error("❌ Error conectando a PostgreSQL:", err)
+    console.error("❌ Error conectando a PostgreSQL:", err);
   }
-})()
+})();
 
 // 📌 Endpoint raíz
 app.get("/", (req, res) => {
@@ -78,10 +81,12 @@ app.get("/", (req, res) => {
       colores: "/api/colores",
       variantes: "/api/variantes",
       rolesPermisos: "/api/roles-permisos",
-      permisos:"api/permisos"
+      permisos:"api/permisos",
+      instructores: "/api/instructores",
+      clientes: "/api/clientes-data",
     },
-  })
-})
+  });
+});
 
 // Rutas API
 
@@ -104,11 +109,14 @@ app.use("/api/niveles", nivelesClasesRoutes)
 app.use("/api/planes", planesClasesRoutes)
 app.use("/api/preinscripciones", preinscripcionesRoutes)
 app.use("/api/estudiantes", estudiantesRoutes)
-// app.use("/api/acudientes", acudientesRoutes) // ✅ Corregido: nombre consistente
+app.use("/api/acudientes", acudientesRoutes) 
 app.use("/api/matriculas", matriculasRoutes)
+app.use("/api/matriculas-manuales", matriculasManualesRoutes)
 app.use("/api/tallas", tallaRoutes)
 app.use("/api/colores", colorRoutes)
 app.use("/api/variantes", variantesRoutes)
+app.use("/api/clientes-data", clientesRoutes)
+app.use("/api/instructores", instructoresRoutes)
 // 🚀 Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`)

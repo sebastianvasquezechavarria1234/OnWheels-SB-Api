@@ -1,118 +1,84 @@
-// src/controllers/matriculasController.js
+// controllers/matriculasController.js
 import {
   crearMatricula,
   obtenerMatriculas,
   obtenerMatriculaPorId,
   actualizarMatricula,
-  eliminarMatricula
+  eliminarMatricula,
 } from "../models/matriculasModel.js";
 
-// Crear matrícula
-export const createMatricula = async (req, res) => {
+// Crear matrícula (solo si el estudiante ya existe)
+export const crear = async (req, res) => {
   try {
-    const {
-      id_estudiante,
-      id_clase,
-      id_plan,
-      fecha_matricula,
-      metodo_pago
-    } = req.body;
-
+    const { id_estudiante, id_clase, id_plan } = req.body;
     if (!id_estudiante || !id_clase || !id_plan) {
-      return res.status(400).json({ 
-        mensaje: "id_estudiante, id_clase y id_plan son obligatorios" 
+      return res.status(400).json({
+        mensaje: "id_estudiante, id_clase e id_plan son obligatorios",
       });
     }
-
-    const matriculaData = {
-      id_estudiante: parseInt(id_estudiante),
-      id_clase: parseInt(id_clase),
-      id_plan: parseInt(id_plan),
-      fecha_matricula: fecha_matricula || new Date().toISOString().split('T')[0]
-    };
-
-    const nuevaMatricula = await crearMatricula(matriculaData);
-    res.status(201).json({
-      mensaje: "Matrícula creada correctamente",
-      matricula: nuevaMatricula
-    });
+    const nuevaMatricula = await crearMatricula(req.body);
+    res.status(201).json({ mensaje: "Matrícula creada", matricula: nuevaMatricula });
   } catch (error) {
-    console.error("Error creando matrícula:", error);
-    if (error.message.includes("Estudiante no encontrado") || 
-        error.message.includes("Clase no encontrada") || 
-        error.message.includes("Plan no encontrado")) {
-      return res.status(404).json({ mensaje: error.message });
+    console.error("Error al crear matrícula:", error);
+    if (error.message.includes("no encontrado") || error.message.includes("activa")) {
+      return res.status(400).json({ mensaje: error.message });
     }
-    res.status(500).json({ mensaje: "Error creando matrícula" });
+    res.status(500).json({ mensaje: "Error al crear matrícula" });
   }
 };
 
-// Obtener todas las matrículas
-export const getMatriculas = async (req, res) => {
+// Listar matrículas
+export const listar = async (req, res) => {
   try {
     const matriculas = await obtenerMatriculas();
     res.json(matriculas);
   } catch (error) {
-    console.error("Error obteniendo matrículas:", error);
-    res.status(500).json({ mensaje: "Error obteniendo matrículas" });
+    console.error("Error al listar matrículas:", error);
+    res.status(500).json({ mensaje: "Error al listar matrículas" });
   }
 };
 
-// Obtener matrícula por ID
-export const getMatriculaById = async (req, res) => {
+// Obtener por ID
+export const obtenerPorId = async (req, res) => {
   try {
     const { id } = req.params;
     const matricula = await obtenerMatriculaPorId(id);
-    
     if (!matricula) {
       return res.status(404).json({ mensaje: "Matrícula no encontrada" });
     }
-    
     res.json(matricula);
   } catch (error) {
-    console.error("Error obteniendo matrícula:", error);
-    res.status(500).json({ mensaje: "Error obteniendo matrícula" });
+    console.error("Error al obtener matrícula:", error);
+    res.status(500).json({ mensaje: "Error al obtener matrícula" });
   }
 };
 
-// Actualizar matrícula
-export const updateMatricula = async (req, res) => {
+// Actualizar
+export const actualizar = async (req, res) => {
   try {
     const { id } = req.params;
     const matriculaActualizada = await actualizarMatricula(id, req.body);
-    
     if (!matriculaActualizada) {
       return res.status(404).json({ mensaje: "Matrícula no encontrada" });
     }
-    
-    res.json({
-      mensaje: "Matrícula actualizada correctamente",
-      matricula: matriculaActualizada
-    });
+    res.json({ mensaje: "Matrícula actualizada", matricula: matriculaActualizada });
   } catch (error) {
-    console.error("Error actualizando matrícula:", error);
-    if (error.message.includes("Estudiante no encontrado") || 
-        error.message.includes("Clase no encontrada") || 
-        error.message.includes("Plan no encontrado")) {
-      return res.status(404).json({ mensaje: error.message });
-    }
-    res.status(500).json({ mensaje: "Error actualizando matrícula" });
+    console.error("Error al actualizar matrícula:", error);
+    res.status(400).json({ mensaje: error.message || "Error al actualizar matrícula" });
   }
 };
 
-// Eliminar matrícula
-export const deleteMatricula = async (req, res) => {
+// Eliminar
+export const eliminar = async (req, res) => {
   try {
     const { id } = req.params;
     const matriculaEliminada = await eliminarMatricula(id);
-    
     if (!matriculaEliminada) {
       return res.status(404).json({ mensaje: "Matrícula no encontrada" });
     }
-    
-    res.json({ mensaje: "Matrícula eliminada correctamente" });
+    res.json({ mensaje: "Matrícula eliminada" });
   } catch (error) {
-    console.error("Error eliminando matrícula:", error);
-    res.status(500).json({ mensaje: "Error eliminando matrícula" });
+    console.error("Error al eliminar matrícula:", error);
+    res.status(500).json({ mensaje: "Error al eliminar matrícula" });
   }
 };

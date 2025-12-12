@@ -5,12 +5,14 @@ import {
   register, 
   login, 
   requestPasswordReset, 
-  resetPassword 
+  resetPassword,
+  // getAuthUser  // ← Asegúrate de importar la función
 } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
+// Registro
 router.post(
   '/register',
   [
@@ -22,8 +24,7 @@ router.post(
   register
 );
 
-
-
+// Login
 router.post(
   '/login',
   [
@@ -33,7 +34,10 @@ router.post(
   login
 );
 
-// NUEVAS RUTAS PARA RECUPERAR CONTRASEÑA
+// Perfil del usuario autenticado
+// router.get("/me", authenticateToken, getAuthUser);  // ← ¡ESTA ES LA RUTA QUE FALTABA!
+
+// Recuperar contraseña
 router.post(
   '/request-password-reset',
   [body('email').isEmail().withMessage('Email inválido')],
