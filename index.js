@@ -31,6 +31,7 @@ import acudientesRoutes from "./routes/acudientesRoutes.js";
 import instructoresRoutes from "./routes/instructores.js";
 import matriculasManualesRoutes from "./routes/matriculasManualesRoutes.js";
 import clientesRoutes from "./routes/clientes.js";
+import administradoresRouter from "./routes/administradores.js";
 
 dotenv.config();
 
@@ -81,7 +82,8 @@ app.get("/", (req, res) => {
       variantes: "/api/variantes",
       rolesPermisos: "/api/roles-permisos",
       instructores: "/api/instructores",
-      clientes: "/api/clientes-data" // ✅ Nombre actualizado
+      clientes: "/api/clientes-data", // ✅ Nombre actualizado
+      administradores: "/api/administradores"
     },
   });
 });
@@ -112,7 +114,8 @@ app.use("/api/tallas", tallaRoutes);
 app.use("/api/colores", colorRoutes);
 app.use("/api/variantes", variantesRoutes);
 app.use("/api/instructores", instructoresRoutes);
-app.use("/api/clientes-data", clientesRoutes); // ✅ ¡Ruta corregida aquí!
+app.use("/api/clientes-data", clientesRoutes);
+app.use("/api/administradores", administradoresRouter); // ✅ ¡Ruta corregida aquí!
 
 // 🚀 Iniciar servidor
 app.listen(PORT, () => {

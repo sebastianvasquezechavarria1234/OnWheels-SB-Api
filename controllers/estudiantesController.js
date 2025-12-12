@@ -5,7 +5,7 @@ import {
   obtenerEstudiantePorId,
   actualizarEstudiante,
   eliminarEstudiante,
-  esEstudianteActivo
+  esEstudianteActivo  
 } from "../models/EstudiantesModel.js";
 
 export const crear = async (req, res) => {

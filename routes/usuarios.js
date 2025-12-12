@@ -8,7 +8,8 @@ import {
   updateUsuario,
   deleteUsuario,
   getUsuariosElegiblesParaEstudiante, // ← Asegúrate de importarla
-  getUsuariosSinCliente  // ← Asegúrate de importarla
+  getUsuariosSinCliente,  // ← Asegúrate de importarla
+  getUsuariosSoloConRolCliente
 } from "../controllers/usuariosController.js";
 
 const router = express.Router();
@@ -18,6 +19,7 @@ router.get("/", getUsuarios);
 router.get("/elegibles-para-estudiante", getUsuariosElegiblesParaEstudiante);
 router.get("/verificar-email/:email", verificarEmail);
 router.get("/sin-cliente", getUsuariosSinCliente);
+router.get("/rol/solo-cliente", getUsuariosSoloConRolCliente);
 
 // Rutas con parámetros → van al final
 router.get("/:id", getUsuarioById);
