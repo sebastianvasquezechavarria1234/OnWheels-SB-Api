@@ -380,7 +380,6 @@ export const deleteUsuario = async (req, res) => {
   }
 };
 
-
 /**
  * Obtiene usuarios que:
  * - NO tienen NINGÚN registro en estudiantes (cualquier estado)
@@ -431,7 +430,41 @@ export const getUsuariosElegiblesParaEstudiante = async (req, res) => {
   }
 };
 
-// controllers/usuariosController.js
+/**
+ * Obtiene usuarios que tienen EXACTAMENTE un rol: 'Cliente' (y ningún otro rol).
+ * Útil para promover exclusivamente a clientes puros como administradores.
+ */
+export const getUsuariosSoloConRolCliente = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        u.id_usuario,
+        u.nombre_completo,
+        u.email,
+        u.documento
+      FROM usuarios u
+      INNER JOIN usuario_roles ur ON u.id_usuario = ur.id_usuario
+      INNER JOIN roles r ON ur.id_rol = r.id_rol
+      WHERE u.estado = TRUE
+      GROUP BY u.id_usuario, u.nombre_completo, u.email, u.documento
+      HAVING 
+        COUNT(*) = 1
+        AND BOOL_AND(LOWER(TRIM(r.nombre_rol)) = 'cliente')
+      ORDER BY u.nombre_completo ASC;
+    `;
+
+    const result = await pool.query(query);
+    return res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Error en getUsuariosSoloConRolCliente:", err);
+    return res.status(500).json({ mensaje: "Error al obtener clientes elegibles para administrador" });
+  }
+};
+
+/**
+ * Obtiene lista de usuarios con indicador de si están en tabla clientes (para otros usos).
+ * Esta es la versión original que ya usas en tus rutas.
+ */
 export const getUsuariosSinCliente = async (req, res) => {
   try {
     // Log para depurar

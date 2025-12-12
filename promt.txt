@@ -1,0 +1,874 @@
+ OBJETIVO PRINCIPAL
+
+Crear una aplicación móvil COMPLETA y FUNCIONAL en React Native + Expo que:
+- Consuma correctamente la API REST existente en Node.js + PostgreSQL
+- Tenga un diseño profesional, moderno y atractivo (NO genérico ni feo)
+- TODAS las pantallas, botones, enlaces y navegación funcionen al 100%
+- NO tenga errores de dependencias, imports rotos ni archivos faltantes
+- Siga fielmente los mockups de diseño proporcionados
+
+
+**Instrucción general**:  
+Ayúdame a construir una aplicación móvil **completa, funcional y lista para producción** en **React Native con Expo (JavaScript, no TypeScript)**, basada exclusivamente en una **API REST existente en Node.js/Express/PostgreSQL** que ya está desarrollada y desplegada localmente. **No inventes lógica de negocio, endpoints, roles ni flujos que no estén explícitamente definidos aquí. Todo debe basarse en los endpoints reales que ya existen en mi backend.**
+
+contexto proyecto:
+Performance SB (escuela y tienda de skateboarding).
+Proyecto: Aplicación móvil para la empresa Performance SB, una escuela y tienda de skateboarding.
+Descripción de la empresa
+Performance SB es una empresa dedicada al skateboarding. Maneja tres líneas principales:
+1. Venta de productos (camisas, gorras, tablas, accesorios).
+2. Clases de skateboarding para estudiantes.
+3. Eventos (información pública).
+Roles del sistema
+El backend maneja un sistema de roles amplio, y un usuario puede tener varios roles al mismo tiempo.
+El sistema web ya tiene CRUDs completos para:
+Usuarios
+Roles
+Permisos
+Clientes
+Estudiantes
+Instructores
+Administradores
+Categoría de eventos
+Eventos
+Productos
+Categoría de productos
+Compras
+Ventas
+Clases
+Matrículas
+Preinscripciones
+Niveles de clases
+Planes
+Y otros módulos adicionales del sistema web
+Pero la app móvil NO usará todos estos módulos.
+
+ **Contexto del negocio**
+- **Empresa**: Performance SB – escuela y tienda de skateboarding.  
+- **Líneas de negocio**:  
+  1. Venta de productos (tablas, camisetas, gorras, accesorios).  
+  2. Clases de skateboarding (con niveles, instructores, matrículas).  
+  3. Eventos públicos (competencias, talleres, demos – información visible para todos).  
+
+### 👥 **Roles soportados (solo 4)**
+El backend permite múltiples roles por usuario, pero la app móvil solo considera estos cuatro, con **permisos estrictamente limitados**:
+
+| Rol | Permisos en la app móvil |
+|-----|--------------------------|
+| **Cliente** | Ver productos, realizar compras, ver su perfil y su historial de compras, ver eventos públicos y calendario. |
+| **Estudiante** | Ver sus clases asignadas, ver productos, comprar, ver su perfil, historial de compras, eventos y calendario. |
+| **Instructor** | Ver sus clases asignadas (como instructor), ver productos, comprar, ver su perfil, historial de compras, eventos y calendario. |
+| **Administrador** | **Solo lectura y edición básica** (sin crear ni eliminar registros). Puede ver/editar usuarios, clases, Eventos y productos. Puede comprar.  |
+
+> ⚠️ **Reglas estrictas**:  
+> - **Nunca crear ni eliminar registros desde la app móvil** (solo lectura y actualización simple para admin).  
+> - **No duplicar el sistema web**: la app móvil es una interfaz ligera.  
+> - **No agregar roles, endpoints ni funcionalidades no definidas aquí**.
+
+---
+
+### 🔐 **Autenticación y flujo inicial**
+- **Primera pantalla obligatoria**: `LoginScreen`.  
+- **Sin autenticación, ninguna otra pantalla es accesible**.  
+- **Endpoint de login**: `POST /api/auth/login`  
+  - **Campos esperados**: `{ email: string, contrasena: string }` (nota: campo con **ñ**).  
+  - **Respuesta exitosa**:
+    ```json
+    {
+      "token": "JWT string",
+      "user": {
+        "id_usuario": 123,
+        "nombre": "Nombre completo",
+        "email": "email@example.com",
+        "roles": ["estudiante", "cliente"]
+      }
+    }
+    ```
+- **Manejo de sesión**:  
+  - Guardar `token` y `user` en `AsyncStorage`.  
+  - Al iniciar la app, verificar sesión: si existe y es válida → redirigir a Home según rol; si no → mostrar `LoginScreen`.  
+  - Cerrar sesión → borrar datos de `AsyncStorage` → volver a `LoginScreen`.
+
+
+> ✅ **Tecnologías obligatorias**:  
+> - `axios` para peticiones HTTP.  
+> - `@react-native-async-storage/async-storage` para gestión de sesión.  
+> - **No usar** Redux, Zustand, Context API ni estado global complejo si no es absolutamente necesario.  
+> - **No usar TypeScript**.
+
+
+### 📱 **Lista completa y obligatoria de pantallas a generar**
+
+La app debe tener estas organizadas por fases y roles: (OJO, SI FALTA ALGUNA PANTALLA PARA COMPLETAR ALGUN PROCESO Y NO ES MENCIONADA AQUI, TU DEBES CREARLA)
+
+#### 🔐 **Fase 0: Autenticación (obligatoria)**
+1. **`LoginScreen`** – Única entrada. Campos: email, contraseña. Botón: "Iniciar sesión". Validaciones de error. Redirección por rol tras login exitoso.
+
+#### 🛍️ **Fase 1: Flujo de compra (compartido por todos los roles)**
+2. **`ProductListScreen`** – Lista de productos (imagen, nombre, precio, categoría). Acción: ver detalle.
+3. **`ProductDetailScreen`** – Detalle completo. Botones: "Agregar al carrito" / "Comprar ahora".
+4. **`CartScreen`** *(opcional si el flujo lo requiere)* – Resumen de carrito.
+5. **`CheckoutScreen`** – Confirmación final. Validación de datos. Botón: "Confirmar compra".
+6. **`PurchaseConfirmationScreen`** – Mensaje de éxito + detalles. Botones: "Ver mis compras" / "Seguir comprando".
+
+#### 👤 **Fase 2: Pantallas por rol**
+
+##### 👛 **Cliente**
+7. **`ClientHomeScreen`** – Menú: Productos, Eventos, Calendario, Mis compras, Mi perfil.  
+8. **`ClientProfileScreen`** – Datos personales + roles. Botón: "Cerrar sesión".  
+9. **`PurchaseHistoryScreen`** – Lista de compras. Acción: ver detalle.  
+10. **`PurchaseDetailScreen`** – Detalle de una compra.
+
+##### 🧑‍🎓 **Estudiante**
+11. **`StudentHomeScreen`** – Menú: Mis clases, Productos, Eventos, Calendario, Mis compras, Mi perfil.  
+12. **`StudentProfileScreen`** – Datos + roles.  
+13. **`StudentClassListScreen`** – Solo sus clases asignadas (nivel, horario, instructor, sede).  
+14. **`ClassDetailScreen`** – Detalle de clase (con lista de compañeros si aplica).
+
+##### 👨‍🏫 **Instructor**
+15. **`InstructorHomeScreen`** – Menú: Mis clases, Productos, Eventos, Calendario, Mis compras, Mi perfil.  
+16. **`InstructorProfileScreen`** – Datos + roles.  
+17. **`InstructorClassListScreen`** – Clases donde es instructor.  
+18. **`ClassDetailScreen`** – Detalle con lista de estudiantes.
+
+##### 👔 **Administrador** *(solo lectura/edición básica)*
+19. **`AdminHomeScreen`** – Menú: Usuarios, Clases, Productos, Compras, Mi perfil.  
+20. **`AdminProfileScreen`** – Datos + roles + opción de comprar.  
+21. **`UserListScreen`** – Lista de todos los usuarios.  
+22. **`UserDetailScreen`** – Editar nombre, email, teléfono (sin crear/eliminar).  
+23. **`AdminClassListScreen`** – Lista de todas las clases.  
+24. **`AdminClassDetailScreen`** – Editar horario, instructor, sede, estado (sin crear/eliminar).  
+25. **`ProductListScreen` / `ProductDetailScreen`** – Con opción de editar campos básicos (sin eliminar).
+
+#### 🔁 **Pantallas compartidas**
+26. **`PurchaseHistoryScreen`** y **`PurchaseDetailScreen`** – Accesibles por todos.  
+27. **Perfiles por rol** – Ya listados arriba (7, 12, 16, 20).
+
+#### 📅 **Fase 3: Eventos públicos (solo para cliente, estudiante, instructor)**
+28. **`EventListScreen`** – Lista de eventos públicos (nombre, fecha, descripción corta). Acción: ver detalle.  
+29. **`EventDetailScreen`** – Nombre, fecha/hora, lugar, descripción completa, categoría, imagen.  
+30. **`EventCalendarScreen`** – Calendario interactivo (`react-native-calendars`). Días con eventos marcados. Acción: ver eventos del día.
+
+---
+
+> 📎 **Nota crítica**: **Ya adjuntaré todos los archivos de mi API** (controllers, routes, models, index.js, etc.). **Analiza esos archivos para entender la estructura exacta de cada endpoint, los campos esperados y las respuestas. NO asumas nada.**
+
+---
+
+### 🎯 **Requisitos de comportamiento**
+- **Prioridad de roles**: `administrador > instructor > estudiante > cliente`.  
+- **Protección de rutas**: ninguna pantalla accesible sin sesión válida.  
+- **Manejo de errores**: mostrar alertas amigables para red, credenciales inválidas, campos vacíos, etc.  
+- **Diseño visual**: seguiré un mockup existente, por lo que el foco debe estar en **lógica, conexión con API y flujo de usuario**, no en estilos.  
+- **Rendimiento**: cargar estados de carga, evitar renders innecesarios.
+
+---
+
+### ✅ **Entregable esperado**
+Genera **todos los archivos `.js` necesarios**, perfectamente organizados en la estructura de carpetas indicada, incluyendo:
+- `src/services/api.js`  
+- `src/utils/auth.js`    
+- Lógica de navegación condicional por rol  
+- Manejo completo de autenticación y cierre de sesión  
+- Consumo real de endpoints (usa los nombres exactos que encontrarás en mis archivos de API)
+
+> 🚫 **No generes código ficticio, placeholders ni "TODO"**. Todo debe ser funcional y listo para copiar en mi proyecto 
+
+estas serian masomenos las pantallas a realizar si falta alguna la haces y explicas el por que:
+
+🔐 Fase 0: Autenticación (obligatoria para todos)
+1. LoginScreen
+Acción principal: autenticar usuario
+Campos: email, contraseña
+Botones:
+"Iniciar sesión"
+(opcional) "¿Olvidaste tu contraseña?" → lleva a PasswordResetRequestScreen
+Validaciones:
+✅ Ambos campos requeridos
+❌ Mensaje si credenciales inválidas
+❌ Mensaje si error de red
+Resultado:
+Si éxito → guarda token + user → redirige a Home según rol
+Si ya hay sesión → salta a Home (pero nunca se ve si no hay sesión)
+⚠️ Ninguna otra pantalla es accesible sin pasar por esta.
+
+🛍️ Fase 1: Flujo de compra (compartido por todos los roles)
+2. ProductListScreen
+Contenido: lista de todos los productos
+Imagen, nombre, precio, categoría
+Acción: tocar un producto → ProductDetailScreen
+3. ProductDetailScreen
+Contenido:
+Imagen grande
+Nombre, descripción, precio, stock
+Botones:
+"Agregar al carrito"
+"Comprar ahora" → salta directo a CheckoutScreen
+4. CartScreen (opcional si usas carrito)
+Contenido:
+Lista de productos seleccionados
+Subtotal, impuestos, total
+Botones:
+"Seguir comprando" → ProductListScreen
+"Ir a pagar" → CheckoutScreen
+5. CheckoutScreen
+Contenido:
+Resumen de compra
+Campos de confirmación: dirección, método de pago (si aplica)
+Botón: "Confirmar compra"
+Validación:
+❌ "Selecciona al menos un producto"
+❌ "Error al procesar la compra"
+6. PurchaseConfirmationScreen
+Contenido:
+✅ "¡Compra realizada con éxito!"
+Número de compra, fecha, total, productos
+Botones:
+"Ver mis compras" → PurchaseHistoryScreen
+"Seguir comprando" → ProductListScreen
+👤 Fase 2: Pantallas por rol
+👛 Cliente
+7. ClientHomeScreen
+Menú:
+"Productos" → ProductListScreen
+"Mis compras" → PurchaseHistoryScreen
+"Mi perfil" → ClientProfileScreen
+8. ClientProfileScreen
+Contenido:
+Nombre, email, teléfono
+Roles: ["cliente"]
+Botones:
+"Cerrar sesión" → borra sesión → LoginScreen
+9. PurchaseHistoryScreen
+Contenido: lista de compras pasadas
+Fecha, total, estado
+Acción: tocar una → PurchaseDetailScreen
+10. PurchaseDetailScreen
+Contenido:
+Detalle completo: productos, cantidades, total, fecha, estado
+❌ No ve clases, instructores, eventos ni estudiantes.
+
+🧑‍🎓 Estudiante
+11. StudentHomeScreen
+Menú:
+"Mis clases" → StudentClassListScreen
+"Productos" → ProductListScreen
+"Mis compras" → PurchaseHistoryScreen
+"Mi perfil" → StudentProfileScreen
+12. StudentProfileScreen
+Contenido:
+Nombre, email, teléfono
+Roles: ["estudiante", "cliente"]
+Botones:
+"Cerrar sesión" → LoginScreen
+13. StudentClassListScreen
+Contenido: lista de sus clases asignadas
+Nivel, día/hora, instructor, sede, estado
+Acción: tocar una → ClassDetailScreen
+14. ClassDetailScreen (compartida con instructor)
+Contenido:
+Nombre del nivel
+Horario completo
+Instructor
+Sede
+Lista de compañeros (solo nombres, si aplica)
+✅ Solo ve sus propias clases (filtradas por id_usuario).
+❌ No ve clases de otros ni puede gestionar instructores.
+
+👨‍🏫 Instructor
+15. InstructorHomeScreen
+Menú:
+"Mis clases" → InstructorClassListScreen
+"Productos" → ProductListScreen
+"Mis compras" → PurchaseHistoryScreen
+"Mi perfil" → InstructorProfileScreen
+16. InstructorProfileScreen
+Contenido:
+Nombre, email, teléfono
+Roles: ["instructor", "cliente"]
+Botones:
+"Cerrar sesión" → LoginScreen
+17. InstructorClassListScreen
+Contenido: lista de clases donde es instructor
+Nivel, horario, sede
+Acción: tocar una → ClassDetailScreen (con lista de estudiantes)
+18. ClassDetailScreen (misma que estudiante, pero con lista de estudiantes)
+Contenido:
+Nivel, horario, sede
+Lista de estudiantes inscritos (nombres)
+✅ Solo ve clases que dicta.
+❌ No puede crear/editar clases desde la app.
+
+👔 Administrador
+⚠️ Solo lectura y edición básica. Sin crear ni eliminar.
+
+19. AdminHomeScreen
+Menú:
+"Usuarios" → UserListScreen
+"Clases" → AdminClassListScreen
+"Productos" → ProductListScreen
+"Compras" → PurchaseHistoryScreen
+"Mi perfil" → AdminProfileScreen
+20. AdminProfileScreen
+Contenido:
+Nombre, email, teléfono
+Roles: ["administrador"]
+Botones:
+"Cerrar sesión" → LoginScreen
+"Comprar" → ProductListScreen
+21. UserListScreen
+Contenido: lista de todos los usuarios
+Nombre, email, roles
+Acción: tocar uno → UserDetailScreen
+22. UserDetailScreen
+Contenido:
+Nombre, email, teléfono, roles
+Acción:
+✅ Editar nombre, email, teléfono
+❌ No hay botón de "Eliminar" ni "Crear"
+Alertas:
+✅ "Datos actualizados correctamente"
+❌ "Error al guardar"
+23. AdminClassListScreen
+Contenido: lista de todas las clases
+Nivel, horario, instructor, sede
+Acción: tocar una → AdminClassDetailScreen
+24. AdminClassDetailScreen
+Contenido:
+Todos los datos de la clase
+Acción:
+✅ Editar horario, instructor, sede, estado
+❌ No puede eliminar ni crear
+25. ProductListScreen → ProductDetailScreen
+Acción adicional para admin:
+✅ Editar nombre, precio, stock, descripción
+❌ No hay botón de "Eliminar producto"
+🔁 Pantallas de utilidad (compartidas)
+26. PurchaseHistoryScreen → PurchaseDetailScreen
+Accesible por todos los roles
+Muestra historial de compras del usuario autenticado
+27. PerfilScreen (ya detallado por rol)
+Siempre incluye:
+Datos personales
+Roles
+Botón "Cerrar sesión"
+
+pantallas relacionadas con eventos
+27. EventListScreen
+Contenido: lista de todos los eventos públicos
+Nombre, fecha, descripción corta, imagen (si aplica)
+Acción: tocar un evento → EventDetailScreen
+28. EventDetailScreen
+Contenido:
+Nombre completo
+Fecha y hora
+Lugar / sede
+Descripción completa
+Imagen
+Categoría (ej: "Competencia", "Taller", etc.)
+29. EventCalendarScreen
+Contenido:
+Calendario interactivo (día/mes)
+Los días con eventos están marcados (con un punto, color, etc.)
+Al tocar un día con evento → muestra los eventos de ese día
+Opción: abrir EventDetailScreen directamente si hay uno
+Funcionalidad:
+Navegación entre meses
+Visualización clara de fechas con eventos
+🔹 Estas 3 pantallas son accesibles para cliente, estudiante e instructor.
+🔸 No aparecen en el menú del administrador.
+
+📱 Actualización del menú por rol
+👛 Cliente
+Menú en ClientHomeScreen ahora incluye:
+"Productos"
+"Eventos" → 
+"Calendario" →
+"Mis compras"
+"Mi perfil"
+🧑‍🎓 Estudiante
+Menú en StudentHomeScreen ahora incluye:
+"Mis clases"
+"Productos"
+"Eventos" → 
+"Calendario" 
+"Mis compras"
+"Mi perfil"
+👨‍🏫 Instructor
+Menú en InstructorHomeScreen ahora incluye:
+"Mis clases"
+"Productos"
+"Eventos" 
+"Calendario" → 
+"Mis compras"
+"Mi perfil"
+👔 Administrador
+
+
+Me falto especificar que el administrador va a gestionar los siguientes procesos:
+Usuarios, eventos, productos, clases, lo demas esta super bien
+
+Preguntas y respuestas:
+**CartScreen**: ¿Usamos carrito persistente (puede agregar múltiples productos) o flujo directo "Comprar ahora"? O, ¿ambos?
+
+R/ambos
+**Validaciones de campo**: ¿Hay requisitos específicos (email regex, contraseña mínima, teléfono formato)?
+R/no hay especificos, puedes usar estandar
+**Imágenes**: ¿Los productos y eventos tienen URLs de imágenes en la API o son locales?
+R/ De la api
+**Estados de pedidos**: ¿Qué estados posibles tiene una compra? (ej: "pendiente", "completado", "cancelado")
+R/lo entenderas cuando veas la api
+**Edición de admin**: ¿Hay restricciones sobre qué campos puede editar según el rol del usuario?
+no se puede cambiar gmail
+
+especificaciones adicionales:
+
+### 1. CREACIÓN DEL PROYECTO
+usé esto para crear mi proyecto, o sea voy a pegar mis archivos en este proyecto que cree:
+npx create-expo-app@latest PerformanceSBM --template blank
+
+ten en cuenta que mi expo go es version 54
+
+## 🎨 ESPECIFICACIONES DE DISEÑO
+
+### PRINCIPIOS DE DISEÑO OBLIGATORIOS
+
+1. **NO usar diseños genéricos ni repetitivos**
+2. **Paleta de colores moderna y atractiva**
+3. **Tipografía legible y jerárquica**
+4. **Espaciado generoso y respiración visual**
+5. **Iconos consistentes y significativos**
+6. **Feedback visual en todas las interacciones**
+7. **Estados de carga claros**
+8. **Manejo de errores amigable**
+
+**Flujo completo:**
+
+1. Usuario ingresa email y contraseña o crea cuenta
+2. Validación local de formato
+3. Si válido, enviar POST /api/auth/login
+4. Mostrar loading
+5. Si éxito:
+   - Guardar token en AsyncStorage
+   - Guardar user completo en AsyncStorage
+   - Determinar rol principal
+   - Redirigir a vista correspondiente
+6. Si error:
+   - Mostrar mensaje de error
+   - Limpiar loading
+   - Permitir reintentar
+
+a continuacion te dejo especificadas ALGUNAS de las pantallas y sus funcionalidades
+
+### PANTALLA: PRODUCTOS
+1. Cargar lista de productos desde GET /api/productos
+3. Barra de búsqueda funcional (filtro local)
+4. Mostrar imagen, nombre, precio
+5. Badge de stock bajo (< 5 unidades)
+6. Botón "Agregar al carrito" con feedback
+7. Navegación a detalle al tocar tarjeta
+8. Pull to refresh
+9. Contador de carrito en header
+
+### PANTALLA: DETALLE DE PRODUCTOs
+1. Obtener id del producto
+2. Cargar detalle desde GET /api/productos/:id
+3. Mostrar imagen grande, nombre, precio, descripción, stock
+4. Selector de cantidad (+/-)
+5. Validar cantidad máxima según stock
+6. Botón "Agregar al carrito"
+7. Botón "Comprar ahora" (va directo a checkout)
+8. Animación al agregar al carrito
+9. Toast/Alert de confirmación
+
+
+### PANTALLA: CHECKOUT 
+1. Mostrar resumen del pedido
+2. Seleccionar método de pago (efectivo, tarjeta, transferencia)
+3. Campo de dirección de envío
+4. Confirmar datos de cliente si es primer compra
+5. Validar todos los campos
+6. Botón "Confirmar compra" con loading
+7. Crear venta en backend POST /api/ventas
+8. Navegar a confirmación si éxito
+9. Mostrar errores si falla
+
+
+
+### PANTALLA: CLIENTE
+
+1. Mostrar nombre del usuario
+2. acceso rápido a:
+   - Tienda de productos
+   - Eventos
+   - Mis compras
+   - Mi perfil
+3. Sección "Próximos eventos" (máximo 3)
+4. Sección "Últimas compras" (máximo 3)
+5. Botón de cerrar sesión
+
+
+### PANTALLA: ESTUDIANTE 
+Todo lo de cliente +
+1. opcion destacada "Mis clases"
+2. Mostrar número de clases inscritas
+3. Acceso rápido a lista de clases
+
+### PANTALLA: INSTRUCTOR 
+Todo lo de cliente +
+1. opcion destacada "Clases que imparto"
+2. Mostrar número de clases asignadas
+3. Número total de estudiantes
+4. Acceso rápido a lista de clases
+
+### PANTALLA:  ADMIN 
+
+1. Dashboard con estadísticas:
+   - Total de usuarios
+   - Total de ventas del mes
+   - Total de productos
+   - Total de clases
+2. opciones de acceso rápido a:
+   - Gestión de usuarios
+   - Gestión de clases
+   - Gestión de productos
+3. Gestion de eventos
+4. Botón de cerrar sesión
+
+### PANTALLA: MIS CLASES (ESTUDIANTE) 
+1. Cargar todas las matrículas del estudiante
+2. Filtrar solo las clases donde el estudiante está inscrito
+3. Mostrar lista de clases con:
+   - Nombre de la clase
+   - Horario
+   - Instructor
+   - Estado de matrícula
+4. Al tocar, ir a detalle de clase
+5. Empty state si no tiene clases
+
+### PANTALLA: MIS CLASES (INSTRUCTOR) 
+1. Cargar todas las clases
+2. Filtrar solo las clases del instructor actual
+3. Mostrar lista de clases con:
+   - Nombre de la clase
+   - Horario
+   - Número de estudiantes inscritos
+4. Al tocar, ir a detalle de clase
+5. Empty state si no tiene clases asignadas
+
+
+
+### PANTALLA: EVENTOS
+1. Cargar eventos desde GET /api/eventos
+2. Mostrar lista con tarjetas:
+   - Imagen del evento
+   - Nombre
+   - Fecha y hora
+   - Lugar
+   - Categoría
+3. Al tocar, ir a detalle
+4. Botón para ver calendario
+5. Pull to refresh
+
+### PANTALLA: DETALLE DE EVENTO 
+
+
+1. Cargar detalle desde GET /api/eventos/:id
+2. Mostrar información completa:
+   - Imagen grande
+   - Nombre
+   - Descripción completa
+   - Fecha y hora
+   - Lugar
+   - Categoría
+   - Lista de patrocinadores (si existen)
+3. Botón volver
+
+### PANTALLA: CALENDARIO DE EVENTOS
+1. Cargar todos los eventos
+2. Mostrar calendario con react-native-calendars
+3. Marcar días que tienen eventos
+4. Al seleccionar un día:
+   - Mostrar eventos de ese día debajo
+   - Permitir tocar cada evento para ver detalle
+5. Navegación entre meses
+
+
+PANTALLA: ADMIN - USUARIOS 
+1. Cargar usuarios desde GET /api/usuarios (solo admin)
+2. Barra de búsqueda funcional
+3. Mostrar lista con:
+   - Avatar generado
+   - Nombre completo
+   - Email
+   - Badges de roles
+   - Botón editar
+4. Al tocar, ir a edición
+5. Empty state
+6. Pull to refresh
+
+### PANTALLA: ADMIN - EDITAR USUARIO
+1. Cargar datos del usuario desde GET /api/usuarios/:id
+2. Formulario con campos:
+   - Nombre (editable)
+   - Apellido (editable)
+   - Email (NO editable, mostrar deshabilitado)
+   - Teléfono (editable)
+   - Dirección (editable)
+   - Roles (solo mostrar, no editar)
+3. Validar campos requeridos
+4. Botón "Guardar cambios"
+5. PUT /api/usuarios/:id con datos actualizados
+6. Mensaje de éxito
+7. Volver a lista
+
+
+### PANTALLA: ADMIN - CLASES 
+1. Cargar clases desde GET /api/clases
+2. Barra de búsqueda
+3. Mostrar lista con:
+   - Nombre de clase
+   - Horario
+   - Instructor
+   - Cupo (ocupados/máximo)
+   - Botón editar
+4. Al tocar, ir a edición
+
+### PANTALLA: ADMIN - EDITAR CLASE 
+1. Cargar datos de clase desde GET /api/clases/:id
+2. Formulario con campos:
+   - Nombre (editable)
+   - Descripción (editable)
+   - Horario (editable)
+   - Cupo máximo (editable)
+   - Instructor (solo mostrar, no editar)
+3. Validar campos
+4. Botón "Guardar cambios"
+5. PUT /api/clases/:id
+6. Mensaje de éxito
+7. Volver a lista
+
+### PANTALLA: ADMIN - PRODUCTOS 
+1. Cargar productos desde GET /api/productos
+2. Barra de búsqueda
+3. Grid de productos con:
+   - Imagen
+   - Nombre
+   - Precio
+   - Stock
+   - Badge de stock bajo
+   - Botón editar
+4. Al tocar, ir a edición
+
+### PANTALLA: ADMIN - EDITAR PRODUCTO
+1. Cargar producto desde GET /api/productos/:id
+2. Formulario con campos:
+   - Nombre (editable)
+   - Descripción (editable)
+   - Precio de venta (editable, numérico)
+   - Imagen URL (mostrar preview)
+3. Validar campos
+4. Botón "Guardar cambios"
+5. PUT /api/productos/:id
+6. Mensaje de éxito
+7. Volver a lista
+
+##pantalla: ADMIN - GESTION DE EVENTOS
+//////
+
+### PANTALLA: HISTORIAL DE COMPRAS
+1. Cargar ventas del usuario actual
+2. Mostrar lista con:
+   - Número de orden
+   - Fecha
+   - Total
+   - Estado (con badge de color)
+   - Botón ver detalles
+3. Al tocar, ir a detalle
+4. Empty state si no hay compras
+5. Pull to refresh
+
+### PANTALLA: DETALLE DE COMPRA 
+1. Cargar detalle de venta desde GET /api/ventas/:id
+2. Mostrar información completa:
+   - Número de orden
+   - Fecha
+   - Estado
+   - Método de pago
+   - Lista de productos:
+     - Imagen
+     - Nombre
+     - Cantidad
+     - Precio unitario
+     - Subtotal
+   - Total
+3. Botón volver
+4. Botón "Comprar de nuevo" (opcional)
+
+### PANTALLA: PERFIL 
+1. Mostrar información del usuario:
+   - Avatar generado grande
+   - Nombre completo
+   - Email
+   - Teléfono
+   - Dirección
+   - Roles (badges)
+2. Botón "Editar perfil" (va a edición similar a admin)
+3. Botón "Cerrar sesión" (con confirmación)
+4. Estadísticas según rol:
+   - **Cliente**: Total de compras, monto gastado
+   - **Estudiante**: + Clases inscritas, total compras
+   - **Instructor**: + Clases impartidas, estudiantes totales
+   - **Admin**: Sin estadísticas personales
+
+
+
+### CHECKLIST DE FUNCIONALIDADES
+
+Antes de considerar la app completa, verificar:
+
+**Autenticación:**
+- [ ] Login funciona con credenciales correctas
+- [ ] Login muestra error con credenciales incorrectas
+- [ ] Redirección correcta según rol
+- [ ] Token se guarda correctamente
+- [ ] Cerrar sesión limpia datos y vuelve a login
+
+**Navegación:**
+- [ ] Todos los botones redirigen correctamente
+- [ ] No hay enlaces rotos
+- [ ] Botón "volver" funciona en todas las pantallas
+- [ ] Navegación entre tabs funciona (si aplica)
+
+**Productos:**
+- [ ] Lista carga correctamente
+- [ ] Búsqueda filtra productos
+- [ ] Detalle muestra información completa
+- [ ] Agregar al carrito funciona
+- [ ] Carrito se actualiza
+- [ ] Cantidad se puede modificar
+- [ ] Eliminar del carrito funciona
+- [ ] Checkout procesa la compra
+- [ ] Confirmación muestra datos correctos
+
+**Eventos:**
+- [ ] Lista carga correctamente
+- [ ] Detalle muestra información completa
+- [ ] Calendario marca días con eventos
+- [ ] Seleccionar día filtra eventos
+- [ ] NO aparecen eventos para admin
+
+**Clases:**
+- [ ] Estudiante solo ve sus clases
+- [ ] Instructor solo ve sus clases
+- [ ] Detalle muestra estudiantes
+- [ ] Admin puede editar clases
+
+**Administración:**
+- [ ] Solo admin accede a gestión
+- [ ] Lista de usuarios carga
+- [ ] Edición de usuario funciona
+- [ ] Email NO se puede editar
+- [ ] Lista de productos carga
+- [ ] Edición de producto funciona
+- [ ] Lista de clases carga
+- [ ] Edición de clase funciona
+
+**Compras:**
+- [ ] Historial muestra compras del usuario
+- [ ] Detalle muestra productos correctos
+- [ ] Estados tienen colores correctos
+
+**Perfil:**
+- [ ] Muestra información correcta
+- [ ] Edición funciona
+- [ ] Cerrar sesión funciona
+
+**UI/UX:**
+- [ ] Loading aparece mientras carga
+- [ ] Errores se muestran claramente
+- [ ] Empty states son informativos
+- [ ] Pull to refresh funciona
+- [ ] Diseño es consistente
+- [ ] Colores siguen la paleta
+- [ ] Tipografía es legible
+- [ ] Espaciado es adecuado
+- [ ] Feedback visual en interacciones
+
+POR FAVOR DAME AL FINALIZAR LOS PASOS DE INSTALACIÓN y las dependencias a Instalar
+
+## 🎨 REFERENCIAS DE DISEÑO
+
+**IMPORTANTE: debeS analizar y replicar fielmente los mockups proporcionados por el usuario**
+
+Cuando el usuario proporcione imágenes de mockup:
+
+1. Analizar cada pantalla del mockup
+2. Extraer paleta de colores exacta
+3. Replicar estructura de layout
+4. Mantener jerarquía visual
+5. Respetar espaciados y tamaños
+6. Usar tipografía similar
+7. Replicar estilos de botones, cards, inputs
+8. Mantener el mismo feeling y estética
+
+ ✅ CRITERIOS DE ÉXITO
+
+La aplicación se considera COMPLETA y FUNCIONAL cuando:
+
+1. ✅ Todas las pantallas están implementadas
+2. ✅ Todos los botones y enlaces funcionan
+3. ✅ Toda la navegación es correcta
+4. ✅ Toda la comunicación con API funciona
+5. ✅ Manejo de errores está implementado
+6. ✅ Estados de carga están presentes
+7. ✅ Empty states están presentes
+8. ✅ Validaciones de formularios funcionan
+9. ✅ Autenticación funciona correctamente
+10. ✅ Sesión persiste al cerrar app
+11. ✅ Carrito funciona completamente
+12. ✅ Proceso de compra es fluido
+13. ✅ Roles determinan acceso correcto
+14. ✅ Admin solo edita, no crea/elimina
+15. ✅ Diseño es atractivo y profesional
+16. ✅ No hay errores de dependencias
+17. ✅ No hay imports rotos
+18. ✅ No hay archivos de Next.js mezclados
+19. ✅ Pull to refresh funciona en listas
+20. ✅ Calendario de eventos funciona
+21. ✅ Filtros de clases por rol funcionan
+22. ✅ Email de usuario NO es editable
+23. ✅ Eventos NO aparecen para admin
+24. ✅ Mockups son replicados fielmente
+
+**OBLIGATORIO:**
+
+7. SIEMPRE manejar errores con try/catch
+8. SIEMPRE mostrar loading states
+9. SIEMPRE validar inputs de usuario
+10. SIEMPRE usar versiones exactas de dependencias
+11. SIEMPRE probar que navegación funcione
+12. SIEMPRE respetar restricciones de roles
+15. SIEMPRE seguir los mockups proporcionados
+
+**RECORDAR:**
+
+- El campo de contraseña en la API es `contrasena` (con ñ)
+- La URL base es `http://192.168.18.16:3000/api`
+- Los roles son: administrador, instructor, estudiante, cliente
+- Admin NO ve eventos
+- Email NO se puede editar
+- Estudiantes solo ven SUS clases
+- Instructores solo ven LAS QUE IMPARTEN
+
+## 📄 ENTREGABLES
+
+Al finalizar, proporcionar:
+
+1. ✅ Carpeta `app/` completa con todas las pantallas
+2. ✅ Carpeta `src/` con services y utils
+3. ✅ `package.json` con dependencias correctas
+4. ✅ `app.json` configurado
+5. ✅ Instrucciones de instalación
+
+CUANDO TERMINES DE ANALIZAR TODO POR FAVOR DAME UNA RETROALIMENTACION CLARA DE LO QUE DEBES HACER Y DESPUES DE VERIFICAR QUE ESTEMOS EN LA MISMA PAGINA, TE confirmare si todo esta bien PARA QUE COMIENCES EL DESARROLLO, GRACIASSS

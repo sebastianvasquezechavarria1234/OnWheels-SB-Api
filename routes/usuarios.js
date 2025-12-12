@@ -9,20 +9,22 @@ import {
   createUsuario,
   updateUsuario,
   deleteUsuario,
-  verifyPassword, // ← ¡IMPORTANTE! Asegúrate de exportarla en el controller
+  verifyPassword,
   getUsuariosElegiblesParaEstudiante,
-  getUsuariosSinCliente
+  getUsuariosSinCliente,
+  getUsuariosSoloConRolCliente
 } from "../controllers/usuariosController.js";
 
 const router = express.Router();
 
-// === RUTAS PÚBLICAS (sin autenticación) ===
+// === 🟢 RUTAS PÚBLICAS (sin autenticación) ===
 router.get("/verificar-email/:email", verificarEmail);
 router.get("/elegibles-para-estudiante", getUsuariosElegiblesParaEstudiante);
 router.get("/sin-cliente", getUsuariosSinCliente);
+router.get("/rol/solo-cliente", getUsuariosSoloConRolCliente); // ← Nueva ruta pública
 router.post("/", createUsuario); // Registro público
 
-// === RUTAS PROTEGIDAS ===
+// === 🔒 RUTAS PROTEGIDAS (con auth y permisos) ===
 
 // Listar usuarios → solo admin o con "ver_usuarios"
 router.get(

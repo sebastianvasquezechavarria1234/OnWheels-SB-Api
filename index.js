@@ -1,37 +1,37 @@
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
 
-import express from "express"
-import cors from "cors"
-import dotenv from "dotenv"
-import pool from "./db/postgresPool.js" 
+import pool from "./db/postgresPool.js"; // POSTGRESQL
 
-import permisosRoutes from "./routes/permisos.js"
-import variantesRoutes from "./routes/variantes.js"
-import tallaRoutes from "./routes/tallas.js"
-import colorRoutes from "./routes/colores.js"
-import authRoutes from "./routes/authRoutes.js"
-import matriculasRoutes from "./routes/matriculas.js"
-import preinscripcionesRoutes from "./routes/preinscripciones.js"
-import planesClasesRoutes from "./routes/planes.js"
-import nivelesClasesRoutes from "./routes/niveles.js"
-import ventasRoutes from "./routes/ventas.js"
-import patrocinadoresRoutes from "./routes/patrocinadores.js"
-import sedesRoutes from "./routes/sedes.js"
-import comprasRoutes from "./routes/compras.js"
-import categoriaproductosRoutes from "./routes/categoriaProductos.js"
-import categoriaEventosRoutes from "./routes/categoriaEventos.js"
-import productosRoutes from "./routes/productos.js"
-import rolesRoutes from "./routes/roles.js"
-import usuariosRoutes from "./routes/usuarios.js"
-import eventosRoutes from "./routes/eventos.js"
-import clasesRoutes from "./routes/clases.js"
-import proveedoresRoutes from "./routes/proveedores.js"
-import rolesPermisosRoutes from "./routes/rolesPermisos.js"
-import estudiantesRoutes from "./routes/estudiantes.js"
-import clientesRoutes from "./routes/clientes.js"
-import acudientesRoutes from "./routes/acudientesRoutes.js"
-import instructoresRoutes from "./routes/instructores.js"
-import matriculasManualesRoutes from "./routes/matriculasManualesRoutes.js"
-
+// Rutas
+import variantesRoutes from "./routes/variantes.js";
+import tallaRoutes from "./routes/tallas.js";
+import colorRoutes from "./routes/colores.js";
+import authRoutes from "./routes/authRoutes.js";
+import matriculasRoutes from "./routes/matriculas.js";
+import preinscripcionesRoutes from "./routes/preinscripciones.js";
+import planesClasesRoutes from "./routes/planes.js";
+import nivelesClasesRoutes from "./routes/niveles.js";
+ import ventasRoutes from "./routes/ventas.js";
+import patrocinadoresRoutes from "./routes/patrocinadores.js";
+import sedesRoutes from "./routes/sedes.js";
+import comprasRoutes from "./routes/compras.js";
+import categoriaproductosRoutes from "./routes/categoriaProductos.js";
+import categoriaEventosRoutes from "./routes/categoriaEventos.js";
+import productosRoutes from "./routes/productos.js";
+import rolesRoutes from "./routes/roles.js";
+import usuariosRoutes from "./routes/usuarios.js";
+import eventosRoutes from "./routes/eventos.js";
+import clasesRoutes from "./routes/clases.js";
+import proveedoresRoutes from "./routes/proveedores.js";
+import rolesPermisosRoutes from "./routes/rolesPermisos.js";
+import estudiantesRoutes from "./routes/estudiantes.js";
+import acudientesRoutes from "./routes/acudientesRoutes.js";
+import instructoresRoutes from "./routes/instructores.js";
+import matriculasManualesRoutes from "./routes/matriculasManualesRoutes.js";
+import clientesRoutes from "./routes/clientes.js";
+import administradoresRouter from "./routes/administradores.js";
 
 dotenv.config();
 
@@ -83,40 +83,41 @@ app.get("/", (req, res) => {
       rolesPermisos: "/api/roles-permisos",
       permisos:"api/permisos",
       instructores: "/api/instructores",
-      clientes: "/api/clientes-data",
+      clientes: "/api/clientes-data", // ✅ Nombre actualizado
+      administradores: "/api/administradores"
     },
   });
 });
 
 // Rutas API
-
-app.use("/api/auth", authRoutes)
-app.use("/api/roles-permisos", rolesPermisosRoutes)
-app.use("/api/permisos", permisosRoutes)
+app.use("/api/auth", authRoutes);
+app.use("/api/roles-permisos", rolesPermisosRoutes);
+app.use("/api/productos", productosRoutes);
+app.use("/api/proveedores", proveedoresRoutes);
 app.use("/api/roles", rolesRoutes);
-app.use("/api/productos", productosRoutes)
-app.use("/api/proveedores", proveedoresRoutes)
-app.use("/api/usuarios", usuariosRoutes)
-app.use("/api/eventos", eventosRoutes)
-app.use("/api/clases", clasesRoutes)
-app.use("/api/categoria-eventos", categoriaEventosRoutes)
-app.use("/api/categoria-productos", categoriaproductosRoutes)
-app.use("/api/compras", comprasRoutes)
-app.use("/api/sedes", sedesRoutes)
-app.use("/api/patrocinadores", patrocinadoresRoutes)
-app.use("/api/ventas", ventasRoutes)
-app.use("/api/niveles", nivelesClasesRoutes)
-app.use("/api/planes", planesClasesRoutes)
-app.use("/api/preinscripciones", preinscripcionesRoutes)
-app.use("/api/estudiantes", estudiantesRoutes)
-app.use("/api/acudientes", acudientesRoutes) 
-app.use("/api/matriculas", matriculasRoutes)
-app.use("/api/matriculas-manuales", matriculasManualesRoutes)
-app.use("/api/tallas", tallaRoutes)
-app.use("/api/colores", colorRoutes)
-app.use("/api/variantes", variantesRoutes)
-app.use("/api/clientes-data", clientesRoutes)
-app.use("/api/instructores", instructoresRoutes)
+app.use("/api/usuarios", usuariosRoutes);
+app.use("/api/eventos", eventosRoutes);
+app.use("/api/clases", clasesRoutes);
+app.use("/api/categoria-eventos", categoriaEventosRoutes);
+app.use("/api/categoria-productos", categoriaproductosRoutes);
+app.use("/api/compras", comprasRoutes);
+app.use("/api/sedes", sedesRoutes);
+app.use("/api/patrocinadores", patrocinadoresRoutes);
+app.use("/api/ventas", ventasRoutes);
+app.use("/api/niveles", nivelesClasesRoutes);
+app.use("/api/planes", planesClasesRoutes);
+app.use("/api/preinscripciones", preinscripcionesRoutes);
+app.use("/api/estudiantes", estudiantesRoutes);
+app.use("/api/acudientes", acudientesRoutes);
+app.use("/api/matriculas", matriculasRoutes);
+app.use("/api/matriculas-manuales", matriculasManualesRoutes);
+app.use("/api/tallas", tallaRoutes);
+app.use("/api/colores", colorRoutes);
+app.use("/api/variantes", variantesRoutes);
+app.use("/api/instructores", instructoresRoutes);
+app.use("/api/clientes-data", clientesRoutes);
+app.use("/api/administradores", administradoresRouter); // ✅ ¡Ruta corregida aquí!
+
 // 🚀 Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`)
