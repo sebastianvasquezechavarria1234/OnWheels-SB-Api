@@ -1,26 +1,18 @@
-// routes/emailMasivoRoutes.js
-import express from "express";
+import { Router } from "express";
 import {
-  getRolesConUsuarios,
-  getUsuariosPorRol,
-  enviarCorreoPorRoles,
-  getHistorialEnvios,
-  getDetalleEnvio
-} from "../controllers/emailMasivoControllerjs";
+  obtenerRolesDisponibles,
+  obtenerVistaPreviaDestinatarios,
+  enviarCorreosMasivos,
+  obtenerHistorialEnviosController,
+  eliminarEnvioController
+} from "../controllers/emailMasivoController.js";
 
-const router = express.Router();
+const router = Router();
 
-// Obtener roles con cantidad de usuarios
-router.get("/roles", getRolesConUsuarios);
-
-// Obtener usuarios específicos por rol
-router.get("/usuarios-por-rol", getUsuariosPorRol);
-
-// Enviar correo masivo por roles
-router.post("/enviar-por-roles", enviarCorreoPorRoles);
-
-// Historial y detalles
-router.get("/historial", getHistorialEnvios);
-router.get("/historial/:id", getDetalleEnvio);
+router.get("/roles-disponibles", obtenerRolesDisponibles);
+router.post("/vista-previa", obtenerVistaPreviaDestinatarios);
+router.post("/enviar", enviarCorreosMasivos);
+router.get("/historial", obtenerHistorialEnviosController);
+router.delete("/:id", eliminarEnvioController);
 
 export default router;
