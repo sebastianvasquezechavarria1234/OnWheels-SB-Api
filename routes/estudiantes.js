@@ -1,19 +1,19 @@
-import express from "express";
-import {
+// routes/estudiantesRoutes.js
+import express from "express"
+import { 
   crear,
   listar,
-  obtenerPorId,
-  actualizar,
-  eliminar
-} from "../controllers/estudiantesController.js";
+   obtenerPorId,
+    actualizar,
+     eliminar } from "../controllers/estudiantesController.js"
 
-const router = express.Router();
+const router = express.Router()
 
-// CRUD básico de estudiantes
-router.post("/", crear);          
-router.get("/", listar);           
-router.get("/:id", obtenerPorId); 
-router.put("/:id", actualizar);    
-router.delete("/:id", eliminar); 
+// CRUD básico de estudiantes (solo Activos)
+router.post("/", crear)
+router.get("/", listar)
+router.get("/:id", obtenerPorId)
+router.put("/:id", actualizar)
+router.delete("/:id", eliminar)
 
-export default router;
+export default router

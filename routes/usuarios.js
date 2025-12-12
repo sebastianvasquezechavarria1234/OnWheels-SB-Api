@@ -1,26 +1,28 @@
+// usuarioRoutes.js
 import express from "express";
 import {
   getUsuarios,
   getUsuarioById,
+  verificarEmail,
   createUsuario,
   updateUsuario,
   deleteUsuario,
-  verificarEmail,
-  verifyPassword
+  getUsuariosElegiblesParaEstudiante, // ← Asegúrate de importarla
+  getUsuariosSinCliente,  // ← Asegúrate de importarla
+  getUsuariosSoloConRolCliente
 } from "../controllers/usuariosController.js";
 
 const router = express.Router();
 
-// Rutas públicas/colección
+// Rutas sin parámetros → van primero
 router.get("/", getUsuarios);
+router.get("/elegibles-para-estudiante", getUsuariosElegiblesParaEstudiante);
 router.get("/verificar-email/:email", verificarEmail);
+router.get("/sin-cliente", getUsuariosSinCliente);
+router.get("/rol/solo-cliente", getUsuariosSoloConRolCliente);
 
-// Verificar contraseña actual (validación en tiempo real)
-router.post("/:id/verify-password", verifyPassword);
-
-// Rutas por id (colocar despues de rutas concretas para evitar conflictos)
+// Rutas con parámetros → van al final
 router.get("/:id", getUsuarioById);
-
 router.post("/", createUsuario);
 router.put("/:id", updateUsuario);
 router.delete("/:id", deleteUsuario);

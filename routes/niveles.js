@@ -1,3 +1,4 @@
+// routes/niveles.js
 import express from "express";
 import {
   obtenerNiveles,
@@ -5,7 +6,7 @@ import {
   crearNivel,
   actualizarNivel,
   eliminarNivel,
-} from "../controllers/nivelesClasesController.js";
+} from "../controllers/nivelesController.js"; // ✅ nombre correcto
 
 const router = express.Router();
 

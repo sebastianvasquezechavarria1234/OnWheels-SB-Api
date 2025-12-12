@@ -1,123 +1,237 @@
-
 // controllers/clasesController.js
-import pool from "../db/postgresPool.js"
+import pool from "../db/postgresPool.js";
 
-// Obtener todas las clases
+// Obtener todas las clases con instructores
 export const getClases = async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM clases")
-    res.json(result.rows)
+    const result = await pool.query(`
+      SELECT 
+        c.*,
+        n.nombre_nivel,
+        s.nombre_sede,
+        json_agg(
+          json_build_object(
+            'id_instructor', i.id_instructor,
+            'nombre_instructor', u.nombre_completo,
+            'rol_instructor', ci.rol_instructor
+          )
+        ) FILTER (WHERE i.id_instructor IS NOT NULL) AS instructores
+      FROM clases c
+      LEFT JOIN niveles_clases n ON c.id_nivel = n.id_nivel
+      LEFT JOIN sedes s ON c.id_sede = s.id_sede
+      LEFT JOIN clases_instructores ci ON c.id_clase = ci.id_clase
+      LEFT JOIN instructores i ON ci.id_instructor = i.id_instructor
+      LEFT JOIN usuarios u ON i.id_usuario = u.id_usuario
+      GROUP BY c.id_clase, n.nombre_nivel, s.nombre_sede
+      ORDER BY c.id_clase DESC
+    `);
+    res.json(result.rows);
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener clases" })
+    console.error("Error al obtener clases:", err);
+    res.status(500).json({ mensaje: "Error al obtener clases" });
   }
-}
+};
 
-// Obtener una clase por ID
+// Obtener clase por ID
 export const getClaseById = async (req, res) => {
   try {
-    const { id } = req.params
-    const result = await pool.query(
-      "SELECT * FROM clases WHERE id_clase = $1",
-      [id]
-    )
+    const { id } = req.params;
+    const result = await pool.query(`
+      SELECT 
+        c.*,
+        n.nombre_nivel,
+        s.nombre_sede,
+        json_agg(
+          json_build_object(
+            'id_instructor', i.id_instructor,
+            'nombre_instructor', u.nombre_completo,
+            'rol_instructor', ci.rol_instructor
+          )
+        ) FILTER (WHERE i.id_instructor IS NOT NULL) AS instructores
+      FROM clases c
+      LEFT JOIN niveles_clases n ON c.id_nivel = n.id_nivel
+      LEFT JOIN sedes s ON c.id_sede = s.id_sede
+      LEFT JOIN clases_instructores ci ON c.id_clase = ci.id_clase
+      LEFT JOIN instructores i ON ci.id_instructor = i.id_instructor
+      LEFT JOIN usuarios u ON i.id_usuario = u.id_usuario
+      WHERE c.id_clase = $1
+      GROUP BY c.id_clase, n.nombre_nivel, s.nombre_sede
+    `, [id]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ mensaje: "Clase no encontrada" })
+      return res.status(404).json({ mensaje: "Clase no encontrada" });
     }
-
-    res.json(result.rows[0])
+    res.json(result.rows[0]);
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al obtener la clase" })
+    console.error("Error al obtener clase:", err);
+    res.status(500).json({ mensaje: "Error al obtener clase" });
   }
-}
+};
 
 // Crear clase
 export const createClase = async (req, res) => {
+  const client = await pool.connect();
   try {
-    const { id_nivel, id_sede, id_instructor, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin } = req.body
+    const { id_nivel, id_sede, instructores, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin } = req.body;
 
-    const result = await pool.query(
-      `INSERT INTO clases (id_nivel, id_sede, id_instructor, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    // Validaciones básicas
+    if (!id_nivel || !id_sede) {
+      return res.status(400).json({ mensaje: "Nivel y sede son obligatorios" });
+    }
+
+    await client.query('BEGIN');
+
+    // Insertar la clase
+    const claseResult = await client.query(
+      `INSERT INTO clases (id_nivel, id_sede, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id_clase`,
-      [id_nivel, id_sede, id_instructor, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin]
-    )
+      [id_nivel, id_sede, cupo_maximo || null, dia_semana || null, descripcion || null, estado || 'Disponible', hora_inicio || null, hora_fin || null]
+    );
+    const id_clase = claseResult.rows[0].id_clase;
 
-    res.status(201).json({
-      id_clase: result.rows[0].id_clase,
-      id_nivel,
-      id_sede,
-      id_instructor,
-      cupo_maximo,
-      dia_semana,
-      descripcion,
-      estado,
-      hora_inicio,
-      hora_fin
-    })
+    // Insertar los instructores
+    if (instructores && instructores.length > 0) {
+      for (const inst of instructores) {
+        if (!inst.id_instructor) continue;
+        await client.query(
+          `INSERT INTO clases_instructores (id_clase, id_instructor, rol_instructor)
+           VALUES ($1, $2, $3)`,
+          [id_clase, inst.id_instructor, inst.rol_instructor || 'Principal']
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+
+    // Devolver la clase completa
+    const result = await pool.query(`
+      SELECT 
+        c.*,
+        n.nombre_nivel,
+        s.nombre_sede,
+        json_agg(
+          json_build_object(
+            'id_instructor', i.id_instructor,
+            'nombre_instructor', u.nombre_completo,
+            'rol_instructor', ci.rol_instructor
+          )
+        ) FILTER (WHERE i.id_instructor IS NOT NULL) AS instructores
+      FROM clases c
+      LEFT JOIN niveles_clases n ON c.id_nivel = n.id_nivel
+      LEFT JOIN sedes s ON c.id_sede = s.id_sede
+      LEFT JOIN clases_instructores ci ON c.id_clase = ci.id_clase
+      LEFT JOIN instructores i ON ci.id_instructor = i.id_instructor
+      LEFT JOIN usuarios u ON i.id_usuario = u.id_usuario
+      WHERE c.id_clase = $1
+      GROUP BY c.id_clase, n.nombre_nivel, s.nombre_sede
+    `, [id_clase]);
+
+    res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error(err)
-    res.status(400).json({ mensaje: "Error al crear la clase", error: err.message })
+    await client.query('ROLLBACK');
+    console.error("Error al crear clase:", err);
+    if (err.code === "23503") {
+      res.status(400).json({ mensaje: "Uno de los IDs relacionados no es válido" });
+    } else {
+      res.status(400).json({ mensaje: "Error al crear la clase", error: err.message });
+    }
+  } finally {
+    client.release();
   }
-}
+};
 
 // Actualizar clase
 export const updateClase = async (req, res) => {
+  const client = await pool.connect();
   try {
-    const { id } = req.params
-    const { id_nivel, id_sede, id_instructor, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin } = req.body
+    const { id } = req.params;
+    const { id_nivel, id_sede, instructores, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin } = req.body;
 
-    const result = await pool.query(
+    await client.query('BEGIN');
+
+    // Actualizar la clase
+    await client.query(
       `UPDATE clases
-       SET id_nivel = $1,
-           id_sede = $2,
-           id_instructor = $3,
-           cupo_maximo = $4,
-           dia_semana = $5,
-           descripcion = $6,
-           estado = $7,
-           hora_inicio = $8,
-           hora_fin = $9
-       WHERE id_clase = $10`,
-      [id_nivel, id_sede, id_instructor, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin, id]
-    )
+       SET 
+         id_nivel = $1,
+         id_sede = $2,
+         cupo_maximo = $3,
+         dia_semana = $4,
+         descripcion = $5,
+         estado = $6,
+         hora_inicio = $7,
+         hora_fin = $8
+       WHERE id_clase = $9`,
+      [id_nivel, id_sede, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin, id]
+    );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ mensaje: "Clase no encontrada" })
+    // Eliminar instructores actuales
+    await client.query("DELETE FROM clases_instructores WHERE id_clase = $1", [id]);
+
+    // Insertar nuevos instructores
+    if (instructores && instructores.length > 0) {
+      for (const inst of instructores) {
+        if (!inst.id_instructor) continue;
+        await client.query(
+          `INSERT INTO clases_instructores (id_clase, id_instructor, rol_instructor)
+           VALUES ($1, $2, $3)`,
+          [id, inst.id_instructor, inst.rol_instructor || 'Principal']
+        );
+      }
     }
 
-    res.json({ mensaje: "Clase actualizada correctamente" })
+    await client.query('COMMIT');
+
+    // Devolver la clase actualizada
+    const result = await pool.query(`
+      SELECT 
+        c.*,
+        n.nombre_nivel,
+        s.nombre_sede,
+        json_agg(
+          json_build_object(
+            'id_instructor', i.id_instructor,
+            'nombre_instructor', u.nombre_completo,
+            'rol_instructor', ci.rol_instructor
+          )
+        ) FILTER (WHERE i.id_instructor IS NOT NULL) AS instructores
+      FROM clases c
+      LEFT JOIN niveles_clases n ON c.id_nivel = n.id_nivel
+      LEFT JOIN sedes s ON c.id_sede = s.id_sede
+      LEFT JOIN clases_instructores ci ON c.id_clase = ci.id_clase
+      LEFT JOIN instructores i ON ci.id_instructor = i.id_instructor
+      LEFT JOIN usuarios u ON i.id_usuario = u.id_usuario
+      WHERE c.id_clase = $1
+      GROUP BY c.id_clase, n.nombre_nivel, s.nombre_sede
+    `, [id]);
+
+    res.json(result.rows[0]);
   } catch (err) {
-    console.error(err)
-    res.status(400).json({ mensaje: "Error al actualizar la clase", error: err.message })
+    await client.query('ROLLBACK');
+    console.error("Error al actualizar clase:", err);
+    res.status(400).json({ mensaje: "Error al actualizar la clase", error: err.message });
+  } finally {
+    client.release();
   }
-}
+};
 
 // Eliminar clase
 export const deleteClase = async (req, res) => {
   try {
-    const { id } = req.params
+    const { id } = req.params;
     const result = await pool.query(
-      "DELETE FROM clases WHERE id_clase = $1",
+      "DELETE FROM clases WHERE id_clase = $1 RETURNING *",
       [id]
-    )
+    );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ mensaje: "Clase no encontrada" })
+    if (result.rows.length === 0) {
+      return res.status(404).json({ mensaje: "Clase no encontrada" });
     }
 
-    res.json({ mensaje: "Clase eliminada correctamente" })
+    res.json({ mensaje: "Clase eliminada correctamente" });
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ mensaje: "Error al eliminar la clase" })
+    console.error("Error al eliminar clase:", err);
+    res.status(500).json({ mensaje: "Error al eliminar la clase" });
   }
-}
-
-
-
-
-
-
-
+};
