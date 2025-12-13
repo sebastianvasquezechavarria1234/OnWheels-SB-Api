@@ -2,56 +2,98 @@ import pool from "../db/postgresPool.js";
 import Producto from "../models/Productos.js";
 
 // Listar productos
+// Listar productos con variantes
 export const getProductos = async (req, res) => {
   try {
-    const result = await pool.query(`
+    const sql = `
       SELECT 
         p.id_producto,
         p.nombre_producto,
         p.descripcion,
         p.precio_compra,
-        p.precio,
-        p.imagen_producto,
+        p.precio_venta, -- Normalizamos nombre si es necesario
+        p.imagen AS imagen,
         p.estado,
-        p.porcentaje_ganancia,
-        p.descuento_producto,
-        p.id_categoria,
-        c.nombre_categoria AS categoria_nombre
+        p.descuento,
+        c.nombre_categoria,
+        -- Agregamos variantes en un array JSON
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id_variante', v.id_variante,
+              'id_color', v.id_color,
+              'nombre_color', co.nombre_color,
+              'color_hex', co.codigo_hex,
+              'id_talla', v.id_talla,
+              'nombre_talla', t.nombre_talla,
+              'stock', v.stock
+            ) 
+          ) FILTER (WHERE v.id_variante IS NOT NULL), 
+          '[]'
+        ) AS variantes
       FROM productos p
-      INNER JOIN categorias_de_productos c 
-        ON p.id_categoria = c.id_categoria
+      LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
+      LEFT JOIN variantes_producto v ON p.id_producto = v.id_producto
+      LEFT JOIN colores co ON v.id_color = co.id_color
+      LEFT JOIN tallas t ON v.id_talla = t.id_talla
+      WHERE p.estado = true
+      GROUP BY p.id_producto, c.nombre_categoria
       ORDER BY p.nombre_producto ASC
-    `);
+    `;
 
+    const result = await pool.query(sql);
+
+    // Procesamos para limpiar datos duplicados si fuera necesario, 
+    // pero json_agg ya nos da la estructura agrupada por producto.
     res.json(result.rows);
   } catch (err) {
     console.error("❌ Error al obtener productos:", err);
-    res.status(500).json({ mensaje: "Error al obtener productos" });
+    res.status(500).json({ mensaje: "Error al obtener productos", error: err.message });
   }
 };
 
 // ✅ Obtener producto por ID
+// ✅ Obtener producto por ID (con variantes)
 export const getProductoById = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(`
+    const sql = `
       SELECT 
         p.id_producto,
         p.nombre_producto,
         p.descripcion,
         p.precio_compra,
-        p.precio,
-        p.imagen_producto,
+        p.precio_venta AS precio,
+        p.imagen AS imagen_producto,
         p.estado,
-        p.porcentaje_ganancia,
-        p.descuento_producto,
+        p.descuento,
         p.id_categoria,
-        c.nombre_categoria AS categoria_nombre
+        c.nombre_categoria AS categoria_nombre,
+        -- Agregamos variantes en un array JSON
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id_variante', v.id_variante,
+              'id_color', v.id_color,
+              'nombre_color', co.nombre_color,
+              'color_hex', co.codigo_hex,
+              'id_talla', v.id_talla,
+              'nombre_talla', t.nombre_talla,
+              'stock', v.stock
+            ) 
+          ) FILTER (WHERE v.id_variante IS NOT NULL), 
+          '[]'
+        ) AS variantes
       FROM productos p
-      INNER JOIN categorias_de_productos c 
-        ON p.id_categoria = c.id_categoria
+      INNER JOIN categorias_productos c ON p.id_categoria = c.id_categoria
+      LEFT JOIN variantes_producto v ON p.id_producto = v.id_producto
+      LEFT JOIN colores co ON v.id_color = co.id_color
+      LEFT JOIN tallas t ON v.id_talla = t.id_talla
       WHERE p.id_producto = $1
-    `, [id]);
+      GROUP BY p.id_producto, c.nombre_categoria
+    `;
+
+    const result = await pool.query(sql, [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Producto no encontrado" });
@@ -74,26 +116,25 @@ export const createProducto = async (req, res) => {
       precio_compra,
       precio,
       imagen_producto,
+      imagen,
       estado,
-      porcentaje_ganancia,
-      descuento_producto
+      descuento
     } = req.body;
 
     const result = await pool.query(
       `INSERT INTO productos 
-      (id_categoria, nombre_producto, descripcion, precio_compra, precio, imagen_producto, estado, porcentaje_ganancia, descuento_producto)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      (id_categoria, nombre_producto, descripcion, precio_compra, precio_venta, imagen, estado, descuento)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id_producto`,
       [
         id_categoria,
         nombre_producto,
         descripcion,
         precio_compra,
-        precio,
-        imagen_producto,
+        precio_venta,
+        imagen,
         estado,
-        porcentaje_ganancia,
-        descuento_producto
+        descuento
       ]
     );
 
@@ -103,11 +144,10 @@ export const createProducto = async (req, res) => {
       nombre_producto,
       descripcion,
       precio_compra,
-      precio,
-      imagen_producto,
+      precio: precio_venta,
+      imagen,
       estado,
-      porcentaje_ganancia,
-      descuento_producto
+      descuento
     });
 
     res.status(201).json(nuevoProducto);
@@ -139,22 +179,20 @@ export const updateProducto = async (req, res) => {
            nombre_producto = $2,
            descripcion = $3,
            precio_compra = $4,
-           precio = $5,
-           imagen_producto = $6,
+           precio_venta = $5,
+           imagen = $6,
            estado = $7,
-           porcentaje_ganancia = $8,
-           descuento_producto = $9
-       WHERE id_producto = $10`,
+           descuento = $8
+       WHERE id_producto = $9`,
       [
         id_categoria,
         nombre_producto,
         descripcion,
         precio_compra,
-        precio,
-        imagen_producto,
+        precio_venta,
+        imagen,
         estado,
-        porcentaje_ganancia,
-        descuento_producto,
+        descuento,
         id
       ]
     );
