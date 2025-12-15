@@ -82,12 +82,42 @@ export const createEvento = async (req, res) => {
       estado = "activo"
     } = req.body;
 
-    // Validación básica (id_patrocinador es opcional en DB pero si viene lo guardamos)
-    if (!id_categoria_evento || !id_sede || !nombre_evento || !fecha_evento) {
+    // === VALIDACIONES DE DATOS ===
+    // 1. Campos requeridos
+    if (!id_categoria_evento || !id_sede || !nombre_evento || !fecha_evento || !hora_inicio || !hora_aproximada_fin) {
       return res.status(400).json({
-        msg: "Faltan campos requeridos: id_categoria_evento, id_sede, nombre_evento, fecha_evento"
+        msg: "Faltan campos requeridos: categoría, sede, nombre, fecha, hora inicio/fin"
       });
     }
+
+    // 2. Validar nombre (longitud y formato básico)
+    if (nombre_evento.length < 5 || nombre_evento.length > 150) {
+      return res.status(400).json({ msg: "El nombre debe tener entre 5 y 150 caracteres" });
+    }
+
+    // 3. Validar fecha (no puede ser anterior a hoy)
+    const eventDate = new Date(fecha_evento);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Resetear hora para comparar solo fechas
+    // Ajuste de zona horaria si fuera necesario (asumimos UTC o local coherente)
+    // Comparar timestamps
+    const eventTimestamp = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate()).getTime();
+    const todayTimestamp = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    
+    if (eventTimestamp < todayTimestamp) {
+       return res.status(400).json({ msg: "La fecha del evento no puede ser en el pasado" });
+    }
+
+    // 4. Validar horas (inicio < fin)
+    // Asumimos formato time 'HH:MM:SS' o similar comparable lexicográficamente
+    if (hora_aproximada_fin <= hora_inicio) {
+      return res.status(400).json({ msg: "La hora de fin debe ser posterior a la de inicio" });
+    }
+
+    // 5. Validar existencia de foraneas (opcional pero recomendado si no queremos confiar solo en error SQL)
+    // Se puede confiar en el catch del error 23503, pero una validación explícita da mejor feedback
+    // Por ahora dejaremos que el catch '23503' maneje la no existencia para evitar 3 queries extra.
+
 
     const sql = `
       INSERT INTO eventos 

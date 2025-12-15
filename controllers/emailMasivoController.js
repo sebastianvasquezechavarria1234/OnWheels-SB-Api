@@ -63,6 +63,14 @@ export const enviarCorreosMasivos = async (req, res) => {
       return res.status(400).json({ msg: "Faltan datos requeridos" });
     }
 
+    if (asunto.length < 3 || asunto.length > 255) {
+        return res.status(400).json({ msg: "El asunto debe tener entre 3 y 255 caracteres" });
+    }
+
+    if (mensaje.length < 10 || mensaje.length > 10000) {
+        return res.status(400).json({ msg: "El mensaje debe tener entre 10 y 10000 caracteres" });
+    }
+
     // Obtener destinatarios desde el modelo
     const destinatarios = await getCorreosPorRoles(idsRoles);
     

@@ -5,8 +5,8 @@ const validarCamposSede = (data) => {
   const errores = [];
   const { nombre_sede, direccion, ciudad, telefono } = data;
 
-  if (!nombre_sede || typeof nombre_sede !== 'string' || nombre_sede.trim().length < 2) {
-    errores.push("El nombre de la sede debe tener al menos 2 caracteres");
+  if (!nombre_sede || typeof nombre_sede !== 'string' || nombre_sede.trim().length < 3) {
+    errores.push("El nombre de la sede debe tener al menos 3 caracteres");
   }
   if (!direccion || typeof direccion !== 'string' || direccion.trim().length < 5) {
     errores.push("La dirección debe tener al menos 5 caracteres");
@@ -14,8 +14,11 @@ const validarCamposSede = (data) => {
   if (!ciudad || typeof ciudad !== 'string' || ciudad.trim().length < 2) {
     errores.push("La ciudad debe tener al menos 2 caracteres");
   }
-  if (!telefono || typeof telefono !== 'string' || !/^\d{10}$/.test(telefono)) {
-    errores.push("El teléfono debe tener exactamente 10 dígitos numéricos");
+  
+  // Regex: acepta números, espacios, guiones, paréntesis y signo más. Longitud 7-20
+  const phoneRegex = /^[0-9+\s()-]{7,20}$/;
+  if (!telefono || typeof telefono !== 'string' || !phoneRegex.test(telefono.trim())) {
+    errores.push("El teléfono es inválido (7-20 caracteres, números y símbolos comunes)");
   }
 
   return errores;

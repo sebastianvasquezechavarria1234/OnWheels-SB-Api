@@ -33,28 +33,68 @@ export const getPatrocinadorById = async (req, res) => {
   }
 };
 
+// Función auxiliar de validación
+const validatePatrocinador = (body) => {
+    const { nombre_patrocinador, email, telefono, logo } = body;
+    let errors = [];
+
+    if (!nombre_patrocinador || nombre_patrocinador.trim().length < 2) {
+        errors.push("El nombre debe tener mínimo 2 caracteres");
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email.trim())) {
+        errors.push("Formato de email inválido");
+    }
+
+    const phoneRegex = /^[0-9+\s()-]{7,20}$/;
+    if (!telefono || !phoneRegex.test(telefono.trim())) {
+        errors.push("Teléfono inválido (7-20 caracteres)");
+    }
+
+    if (logo && logo.trim() !== "") {
+        try {
+            new URL(logo.trim());
+        } catch {
+            errors.push("URL del logo inválida");
+        }
+    }
+
+    return errors;
+};
+
 // Crear
 export const createPatrocinador = async (req, res) => {
   try {
+    const errors = validatePatrocinador(req.body);
+    if (errors.length > 0) {
+        return res.status(400).json({ mensaje: "Error de validación", detalles: errors });
+    }
+
     const { nombre_patrocinador, email, telefono, logo } = req.body;
 
     const result = await pool.query(
       `INSERT INTO patrocinadores (nombre_patrocinador, email, telefono, logo)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [nombre_patrocinador, email, telefono, logo]
+      [nombre_patrocinador.trim(), email.trim(), telefono.trim(), logo?.trim() || null]
     );
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error("❌ createPatrocinador:", error);
-    res.status(400).json({ mensaje: "Error al crear patrocinador" });
+    res.status(500).json({ mensaje: "Error al crear patrocinador", error: error.message });
   }
 };
 
 // Actualizar
 export const updatePatrocinador = async (req, res) => {
   try {
+    const errors = validatePatrocinador(req.body);
+    if (errors.length > 0) {
+        return res.status(400).json({ mensaje: "Error de validación", detalles: errors });
+    }
+
     const { id } = req.params;
     const { nombre_patrocinador, email, telefono, logo } = req.body;
 

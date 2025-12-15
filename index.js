@@ -32,6 +32,7 @@ import instructoresRoutes from "./routes/instructores.js";
 import matriculasManualesRoutes from "./routes/matriculasManualesRoutes.js";
 import clientesRoutes from "./routes/clientes.js";
 import administradoresRouter from "./routes/administradores.js";
+import emailMasivoRoutes from "./routes/emailMasivoRoutes.js";
 
 dotenv.config();
 
@@ -117,6 +118,7 @@ app.use("/api/variantes", variantesRoutes);
 app.use("/api/instructores", instructoresRoutes);
 app.use("/api/clientes-data", clientesRoutes);
 app.use("/api/administradores", administradoresRouter); // ✅ ¡Ruta corregida aquí!
+app.use("/api/admin/correos-masivos", emailMasivoRoutes);
 
 // 🚀 Iniciar servidor
 app.listen(PORT, () => {
