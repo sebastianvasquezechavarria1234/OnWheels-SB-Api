@@ -53,6 +53,71 @@ export const getVentas = async (req, res) => {
   }
 };
 
+// ✅ Obtener mis compras (Usuario logueado)
+export const getMisCompras = async (req, res) => {
+  try {
+    const id_usuario = req.user.id_usuario; // Viene del token
+
+    // 1. Obtener el id_cliente asociado al usuario
+    const clienteResult = await pool.query(
+      "SELECT id_cliente FROM clientes WHERE id_usuario = $1",
+      [id_usuario]
+    );
+
+    if (clienteResult.rows.length === 0) {
+      // El usuario no tiene perfil de cliente, por lo tanto no tiene compras
+      return res.json([]);
+    }
+
+    const id_cliente = clienteResult.rows[0].id_cliente;
+
+    // 2. Obtener las ventas de este cliente
+    const result = await pool.query(`
+      SELECT 
+        v.id_venta,
+        v.id_cliente,
+        v.metodo_pago,
+        v.estado AS estado,
+        v.fecha_venta,
+        v.total
+      FROM ventas v
+      WHERE v.id_cliente = $1
+      ORDER BY v.fecha_venta DESC
+    `, [id_cliente]);
+
+    // 3. Obtener items de cada venta
+    const ventasConItems = await Promise.all(
+      result.rows.map(async (venta) => {
+        const items = await pool.query(`
+          SELECT 
+            dv.id_detalle_venta,
+            dv.id_variante,
+            dv.cantidad,
+            dv.precio_unitario,
+            p.id_producto,
+            p.nombre_producto,
+            co.nombre_color,
+            t.nombre_talla,
+            (SELECT imagen_url FROM imagenes_producto ip WHERE ip.id_producto = p.id_producto LIMIT 1) as imagen
+          FROM detalle_ventas dv
+          INNER JOIN variantes var ON dv.id_variante = var.id_variante
+          INNER JOIN productos p ON var.id_producto = p.id_producto
+          LEFT JOIN colores co ON var.id_color = co.id_color
+          LEFT JOIN tallas t ON var.id_talla = t.id_talla
+          WHERE dv.id_venta = $1
+        `, [venta.id_venta]);
+        return { ...venta, items: items.rows };
+      })
+    );
+
+    res.json(ventasConItems);
+
+  } catch (err) {
+    console.error("Error en getMisCompras:", err);
+    res.status(500).json({ mensaje: "Error al obtener mis compras" });
+  }
+};
+
 // ✅ Obtener una venta por ID (completa)
 export const getVentaById = async (req, res) => {
   try {

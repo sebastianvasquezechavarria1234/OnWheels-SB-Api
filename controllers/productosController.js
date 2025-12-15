@@ -1,8 +1,7 @@
 import pool from "../db/postgresPool.js";
 import Producto from "../models/Productos.js";
 
-// Listar productos
-// Listar productos con variantes
+// Listar productos (con variantes JSON)
 export const getProductos = async (req, res) => {
   try {
     const sql = `
@@ -11,12 +10,17 @@ export const getProductos = async (req, res) => {
         p.nombre_producto,
         p.descripcion,
         p.precio_compra,
-        p.precio_venta, -- Normalizamos nombre si es necesario
+        p.precio_venta,
+        p.precio_venta AS precio, -- Compatibilidad
         p.imagen AS imagen,
+        p.imagen AS imagen_producto, -- Compatibilidad
         p.estado,
         p.descuento,
+        p.descuento AS descuento_producto, -- Compatibilidad
+        p.porcentaje_ganancia,
+        p.id_categoria,
         c.nombre_categoria,
-        -- Agregamos variantes en un array JSON
+        -- Variantes
         COALESCE(
           json_agg(
             json_build_object(
@@ -36,15 +40,11 @@ export const getProductos = async (req, res) => {
       LEFT JOIN variantes_producto v ON p.id_producto = v.id_producto
       LEFT JOIN colores co ON v.id_color = co.id_color
       LEFT JOIN tallas t ON v.id_talla = t.id_talla
-      WHERE p.estado = true
       GROUP BY p.id_producto, c.nombre_categoria
-      ORDER BY p.nombre_producto ASC
+      ORDER BY p.id_producto DESC
     `;
 
     const result = await pool.query(sql);
-
-    // Procesamos para limpiar datos duplicados si fuera necesario, 
-    // pero json_agg ya nos da la estructura agrupada por producto.
     res.json(result.rows);
   } catch (err) {
     console.error("❌ Error al obtener productos:", err);
@@ -52,8 +52,7 @@ export const getProductos = async (req, res) => {
   }
 };
 
-// ✅ Obtener producto por ID
-// ✅ Obtener producto por ID (con variantes)
+// Obtener producto por ID (con variantes)
 export const getProductoById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -64,12 +63,16 @@ export const getProductoById = async (req, res) => {
         p.descripcion,
         p.precio_compra,
         p.precio_venta AS precio,
+        p.precio_venta,
         p.imagen AS imagen_producto,
+        p.imagen,
         p.estado,
+        p.descuento AS descuento_producto,
         p.descuento,
+        p.porcentaje_ganancia,
         p.id_categoria,
-        c.nombre_categoria AS categoria_nombre,
-        -- Agregamos variantes en un array JSON
+        c.nombre_categoria,
+        -- Variantes
         COALESCE(
           json_agg(
             json_build_object(
@@ -85,7 +88,7 @@ export const getProductoById = async (req, res) => {
           '[]'
         ) AS variantes
       FROM productos p
-      INNER JOIN categorias_productos c ON p.id_categoria = c.id_categoria
+      LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
       LEFT JOIN variantes_producto v ON p.id_producto = v.id_producto
       LEFT JOIN colores co ON v.id_color = co.id_color
       LEFT JOIN tallas t ON v.id_talla = t.id_talla
@@ -106,60 +109,82 @@ export const getProductoById = async (req, res) => {
   }
 };
 
-// ✅ Crear producto
+// Crear producto (Transaccional con variantes)
 export const createProducto = async (req, res) => {
+  const client = await pool.connect(); // Iniciar cliente para transacción
   try {
+    await client.query('BEGIN'); // Iniciar transacción
+
     const {
       id_categoria,
       nombre_producto,
       descripcion,
       precio_compra,
-      precio,
+      precio, // Frontend envía 'precio' como venta
       imagen_producto,
-      imagen,
       estado,
-      descuento
+      descuento_producto,
+      porcentaje_ganancia,
+      variantes = [] // Array de variantes
     } = req.body;
 
-    const result = await pool.query(
-      `INSERT INTO productos 
-      (id_categoria, nombre_producto, descripcion, precio_compra, precio_venta, imagen, estado, descuento)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING id_producto`,
-      [
-        id_categoria,
-        nombre_producto,
-        descripcion,
-        precio_compra,
-        precio_venta,
-        imagen,
-        estado,
-        descuento
-      ]
-    );
+    // 1. Insertar Producto
+    const insertProductoQuery = `
+      INSERT INTO productos 
+      (id_categoria, nombre_producto, descripcion, precio_compra, precio_venta, imagen, estado, descuento, porcentaje_ganancia)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING id_producto`;
 
-    const nuevoProducto = new Producto({
-      id_producto: result.rows[0].id_producto,
+    const productoValues = [
       id_categoria,
       nombre_producto,
       descripcion,
       precio_compra,
-      precio: precio_venta,
-      imagen,
-      estado,
-      descuento
-    });
+      precio, // precio_venta
+      imagen_producto, // imagen
+      estado, // boolean
+      descuento_producto || 0, // descuento
+      porcentaje_ganancia || 0
+    ];
+
+    const productoResult = await client.query(insertProductoQuery, productoValues);
+    const newProductoId = productoResult.rows[0].id_producto;
+
+    // 2. Insertar Variantes (si existen)
+    if (variantes && variantes.length > 0) {
+      for (const variante of variantes) {
+        if (variante.id_color && variante.id_talla) {
+          await client.query(
+            `INSERT INTO variantes_producto (id_producto, id_color, id_talla, stock)
+              VALUES ($1, $2, $3, $4)`,
+            [newProductoId, variante.id_color, variante.id_talla, variante.stock || 0]
+          );
+        }
+      }
+    }
+
+    await client.query('COMMIT'); // Confirmar transacción
+
+    const nuevoProducto = {
+      id_producto: newProductoId,
+      ...req.body
+    };
 
     res.status(201).json(nuevoProducto);
   } catch (err) {
-    console.error("❌ Error al crear producto:", err);
+    await client.query('ROLLBACK'); // Revertir cambios si falla
+    console.error("❌ Error al crear producto (Transacción fallida):", err);
     res.status(400).json({ mensaje: "Error al crear producto", error: err.message });
+  } finally {
+    client.release(); // Liberar cliente
   }
 };
 
-// Actualizar producto
+// Actualizar producto (Transaccional con variantes)
 export const updateProducto = async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     const { id } = req.params;
     const {
       id_categoria,
@@ -170,11 +195,13 @@ export const updateProducto = async (req, res) => {
       imagen_producto,
       estado,
       porcentaje_ganancia,
-      descuento_producto
+      descuento_producto,
+      variantes = []
     } = req.body;
 
-    const result = await pool.query(
-      `UPDATE productos
+    // 1. Actualizar Datos Básicos
+    const updateQuery = `
+       UPDATE productos
        SET id_categoria = $1,
            nombre_producto = $2,
            descripcion = $3,
@@ -182,55 +209,89 @@ export const updateProducto = async (req, res) => {
            precio_venta = $5,
            imagen = $6,
            estado = $7,
-           descuento = $8
-       WHERE id_producto = $9`,
-      [
-        id_categoria,
-        nombre_producto,
-        descripcion,
-        precio_compra,
-        precio_venta,
-        imagen,
-        estado,
-        descuento,
-        id
-      ]
-    );
+           descuento = $8,
+           porcentaje_ganancia = $9
+       WHERE id_producto = $10`;
+
+    const updateValues = [
+      id_categoria,
+      nombre_producto,
+      descripcion,
+      precio_compra,
+      precio,
+      imagen_producto,
+      estado,
+      descuento_producto,
+      porcentaje_ganancia,
+      id
+    ];
+
+    const result = await client.query(updateQuery, updateValues);
 
     if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ mensaje: "Producto no encontrado" });
     }
 
+    // 2. Gestionar Variantes
+    // Estrategia simplificada: Eliminar todas las variantes anteriores y recrearlas (o hacer upsert inteligente).
+    // Para simplificar y evitar inconsistencias, eliminamos y recreamos las que se envían.
+    // OJO: Si se requiere mantener IDs de variantes para historial de ventas, esto NO es ideal. 
+    // Pero dado el frontend actual, es lo más robusto para sincronizar estado.
+
+    // OPCIÓN: Borrar variantes existentes de este producto y reinsertar las nuevas.
+    await client.query('DELETE FROM variantes_producto WHERE id_producto = $1', [id]);
+
+    if (variantes && variantes.length > 0) {
+      for (const variante of variantes) {
+        if (variante.id_color && variante.id_talla) {
+          await client.query(
+            `INSERT INTO variantes_producto (id_producto, id_color, id_talla, stock)
+                VALUES ($1, $2, $3, $4)`,
+            [id, variante.id_color, variante.id_talla, variante.stock || 0]
+          );
+        }
+      }
+    }
+
+    await client.query('COMMIT');
     res.json({ mensaje: "Producto actualizado correctamente" });
+
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error("❌ Error al actualizar producto:", err);
     res.status(400).json({ mensaje: "Error al actualizar producto", error: err.message });
+  } finally {
+    client.release();
   }
 };
 
-// productosController.js
-export const getProductoPorId = async (req, res) => {
+// Eliminar producto
+export const deleteProducto = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query("DELETE FROM productos WHERE id_producto = $1", [id]);
 
-    if (result.rowCount === 0) {
+    // Primero verificar si existe
+    const checkSql = "SELECT * FROM productos WHERE id_producto = $1";
+    const check = await pool.query(checkSql, [id]);
+
+    if (check.rows.length === 0) {
       return res.status(404).json({ mensaje: "Producto no encontrado" });
     }
+
+    // Eliminar (Cascada debería encargarse de variantes, pero por seguridad...)
+    // Si la FK tiene ON DELETE CASCADE, basta con borrar producto.
+    // Asumiremos que sí, o borramos explícitamente variantes primero por si acaso.
+    await pool.query("DELETE FROM variantes_producto WHERE id_producto = $1", [id]);
+    await pool.query("DELETE FROM productos WHERE id_producto = $1", [id]);
 
     res.json({ mensaje: "Producto eliminado correctamente" });
   } catch (err) {
     console.error("❌ Error al eliminar producto:", err);
-    res.status(500).json({ mensaje: "Error al eliminar producto" });
-  }
-};
-export const deleteProducto = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const pool = await getPool();
-    await pool.query("DELETE FROM productos WHERE id = $1", [id]);
-    res.json({ message: "Producto eliminado correctamente" });
-  } catch (error) {
-    res.status(500).json({ error: "Error al eliminar el producto" });
+    // Verificar restricción de llave foránea (ej. ventas)
+    if (err.code === '23503') {
+      return res.status(400).json({ mensaje: "No se puede eliminar el producto porque tiene ventas asociadas." });
+    }
+    res.status(500).json({ mensaje: "Error al eliminar producto", error: err.message });
   }
 };
