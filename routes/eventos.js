@@ -1,4 +1,7 @@
+// routes/eventos.routes.js
 import express from "express";
+import { authenticateToken } from "../middleware/authMiddleware.js";
+import { adminOrPermission } from "../middleware/adminOrPermission.js";
 import {
   getEventos,
   getEventoById,
@@ -12,15 +15,63 @@ import {
 const router = express.Router();
 
 // ============================================
-// RUTAS PARA EVENTOS
+// RUTAS PARA EVENTOS (con sistema de permisos)
 // ============================================
 
-router.get("/", getEventos);
-router.get("/futuros", getEventosFuturos);
-router.get("/categoria/:categoriaId", getEventosPorCategoria);
-router.get("/:id", getEventoById);
-router.post("/", createEvento);
-router.put("/:id", updateEvento);
-router.delete("/:id", deleteEvento);
+// Ver todos los eventos → requiere "ver_eventos"
+router.get(
+  "/",
+  authenticateToken,
+  adminOrPermission("ver_eventos"),
+  getEventos
+);
+
+// Ver eventos futuros → también parte de "ver_eventos"
+router.get(
+  "/futuros",
+  authenticateToken,
+  adminOrPermission("ver_eventos"),
+  getEventosFuturos
+);
+
+// Ver eventos por categoría → también "ver_eventos"
+router.get(
+  "/categoria/:categoriaId",
+  authenticateToken,
+  adminOrPermission("ver_eventos"),
+  getEventosPorCategoria
+);
+
+// Ver un evento específico → "ver_eventos"
+router.get(
+  "/:id",
+  authenticateToken,
+  adminOrPermission("ver_eventos"),
+  getEventoById
+);
+
+// Crear evento → requiere "gestionar_eventos"
+router.post(
+  "/",
+  authenticateToken,
+  adminOrPermission("gestionar_eventos"),
+  createEvento
+);
+
+// Actualizar evento → "gestionar_eventos"
+router.put(
+  "/:id",
+  authenticateToken,
+  adminOrPermission("gestionar_eventos"),
+  updateEvento
+);
+
+// Eliminar evento → "gestionar_eventos"
+router.delete(
+  "/:id",
+  authenticateToken,
+  adminOrPermission("gestionar_eventos"),
+  deleteEvento
+);
 
 export default router;

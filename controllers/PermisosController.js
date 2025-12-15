@@ -1,5 +1,6 @@
+
 import pool from "../db/postgresPool.js"
-import Permiso from "../models/Permiso.js"
+import Permiso from "../models/Permisos.js"
 
 // Obtener todos los permisos
 export const getPermisos = async (req, res) => {

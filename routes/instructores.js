@@ -1,23 +1,14 @@
-// routes/instructores.js
-import express from "express";
-import {
-  getInstructores,
-  getInstructorById,
-  createInstructor,
-  updateInstructor,
-  deleteInstructor,
-  getUsuariosNoInstructores
-} from "../controllers/instructoresController.js";
+import express from 'express';
+import { authenticateToken } from "../middleware/authMiddleware.js";
+import { adminOrPermission } from "../middleware/adminOrPermission.js";
+import instructorController from '../controllers/instructorController.js';
 
 const router = express.Router();
 
-router.get("/", getInstructores);
-router.get("/:id", getInstructorById);
-router.post("/", createInstructor);
-router.put("/:id", updateInstructor);
-router.delete("/:id", deleteInstructor);
-
-// Endpoint auxiliar para obtener usuarios disponibles
-router.get("/usuarios/disponibles", getUsuariosNoInstructores);
+router.get('/', authenticateToken, adminOrPermission("ver_instructores"), instructorController.getAll);
+router.get('/:id', authenticateToken, adminOrPermission("ver_instructores"), instructorController.getById);
+router.post('/', authenticateToken, adminOrPermission("gestionar_instructores"), instructorController.create);
+router.put('/:id', authenticateToken, adminOrPermission("gestionar_instructores"), instructorController.update);
+router.delete('/:id', authenticateToken, adminOrPermission("gestionar_instructores"), instructorController.delete);
 
 export default router;

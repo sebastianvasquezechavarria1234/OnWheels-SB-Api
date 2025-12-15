@@ -1,4 +1,6 @@
 import express from "express";
+import { authenticateToken } from "../middleware/authMiddleware.js";
+import { adminOrPermission } from "../middleware/adminOrPermission.js";
 import {
   getPlanes,
   getPlanById,
@@ -9,10 +11,11 @@ import {
 
 const router = express.Router();
 
-router.get("/", getPlanes);        // Obtener todos los planes
-router.get("/:id", getPlanById);   // Obtener plan por ID
-router.post("/", createPlan);      // Crear plan
-router.put("/:id", updatePlan);    // Actualizar plan
-router.delete("/:id", deletePlan); // Eliminar plan
+router.get("/", getPlanes);
+router.get("/:id", getPlanById);
+
+router.post("/", authenticateToken, adminOrPermission("gestionar_planes"), createPlan);
+router.put("/:id", authenticateToken, adminOrPermission("gestionar_planes"), updatePlan);
+router.delete("/:id", authenticateToken, adminOrPermission("gestionar_planes"), deletePlan);
 
 export default router;

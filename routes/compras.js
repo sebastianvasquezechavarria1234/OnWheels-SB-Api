@@ -1,21 +1,25 @@
-import express from "express"
-import { authenticateToken, authorizeModule } from "../middleware/authMiddleware.js"
+import express from "express";
+import { authenticateToken } from "../middleware/authMiddleware.js";
+import { adminOrPermission } from "../middleware/adminOrPermission.js";
 import {
   getCompras,
   getCompraById,
   createCompra,
   updateCompra,
   deleteCompra,
-  updateCompraEstado,
-} from "../controllers/comprasController.js"
+} from "../controllers/comprasController.js";
 
-const router = express.Router()
+const router = express.Router();
 
-router.get("/", authenticateToken, authorizeModule("compras"), getCompras)
-router.get("/:id", authenticateToken, authorizeModule("compras"), getCompraById)
-router.post("/", authenticateToken, authorizeModule("compras"), createCompra)
-router.put("/:id", authenticateToken, authorizeModule("compras"), updateCompra)
-router.put("/:id/estado", authenticateToken, authorizeModule("compras"), updateCompraEstado)
-router.delete("/:id", authenticateToken, authorizeModule("compras"), deleteCompra)
+// Listar compras (admin/permiso)
+router.get("/", authenticateToken, adminOrPermission("ver_compras"), getCompras);
 
-export default router
+// Obtener compra por id (admin/permiso)
+router.get("/:id", authenticateToken, adminOrPermission("ver_compras"), getCompraById);
+
+// Crear/Actualizar/Eliminar -> gestionar_compras
+router.post("/", authenticateToken, adminOrPermission("gestionar_compras"), createCompra);
+router.put("/:id", authenticateToken, adminOrPermission("gestionar_compras"), updateCompra);
+router.delete("/:id", authenticateToken, adminOrPermission("gestionar_compras"), deleteCompra);
+
+export default router;

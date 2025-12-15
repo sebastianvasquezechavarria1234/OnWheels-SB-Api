@@ -1,5 +1,7 @@
+// routes/colores.js
 import express from "express";
-import { createColor, getAllColors } from "../controllers/coloresController.js";
+// Cambia 'getAllColors' por 'getColores'
+import { createColor, getColores } from "../controllers/coloresController.js";
 
 const router = express.Router();
 
@@ -7,6 +9,7 @@ const router = express.Router();
 router.post("/", createColor);
 
 // Ruta para obtener todos los colores
-router.get("/", getAllColors);
+// Usa 'getColores' aquí
+router.get("/", getColores);
 
 export default router;

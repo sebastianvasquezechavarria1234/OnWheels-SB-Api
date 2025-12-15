@@ -1,5 +1,7 @@
 // usuarioRoutes.js
 import express from "express";
+import { authenticateToken } from "../middleware/authMiddleware.js";
+import { adminOrPermission } from "../middleware/adminOrPermission.js";
 import {
   getUsuarios,
   getUsuarioById,
@@ -7,24 +9,76 @@ import {
   createUsuario,
   updateUsuario,
   deleteUsuario,
-  getUsuariosElegiblesParaEstudiante, // ← Asegúrate de importarla
-  getUsuariosSinCliente,  // ← Asegúrate de importarla
+  verifyPassword,
+  getUsuariosElegiblesParaEstudiante,
+  getUsuariosSinCliente,
   getUsuariosSoloConRolCliente
 } from "../controllers/usuariosController.js";
 
 const router = express.Router();
 
-// Rutas sin parámetros → van primero
-router.get("/", getUsuarios);
-router.get("/elegibles-para-estudiante", getUsuariosElegiblesParaEstudiante);
+// === 🟢 RUTAS PÚBLICAS (sin autenticación) ===
 router.get("/verificar-email/:email", verificarEmail);
+router.get("/elegibles-para-estudiante", getUsuariosElegiblesParaEstudiante);
 router.get("/sin-cliente", getUsuariosSinCliente);
-router.get("/rol/solo-cliente", getUsuariosSoloConRolCliente);
+router.get("/rol/solo-cliente", getUsuariosSoloConRolCliente); // ← Nueva ruta pública
+router.post("/", createUsuario); // Registro público
 
-// Rutas con parámetros → van al final
-router.get("/:id", getUsuarioById);
-router.post("/", createUsuario);
-router.put("/:id", updateUsuario);
-router.delete("/:id", deleteUsuario);
+// === 🔒 RUTAS PROTEGIDAS (con auth y permisos) ===
+
+// Listar usuarios → solo admin o con "ver_usuarios"
+router.get(
+  "/",
+  authenticateToken,
+  adminOrPermission("ver_usuarios"),
+  getUsuarios
+);
+
+// Ver usuario → si es propio → ok; si no → requiere "ver_usuarios"
+router.get(
+  "/:id",
+  authenticateToken,
+  async (req, res, next) => {
+    if (String(req.params.id) === String(req.user.id_usuario)) {
+      return next(); // Acceso propio → permitido
+    }
+    return adminOrPermission("ver_usuarios")(req, res, next);
+  },
+  getUsuarioById
+);
+
+// Actualizar usuario → si es propio → ok; si no → requiere "gestionar_usuarios"
+router.put(
+  "/:id",
+  authenticateToken,
+  async (req, res, next) => {
+    if (String(req.params.id) === String(req.user.id_usuario)) {
+      return next();
+    }
+    return adminOrPermission("gestionar_usuarios")(req, res, next);
+  },
+  updateUsuario
+);
+
+// Eliminar usuario → solo admin o con "gestionar_usuarios"
+router.delete(
+  "/:id",
+  authenticateToken,
+  adminOrPermission("gestionar_usuarios"),
+  deleteUsuario
+);
+
+// Verificar contraseña → solo para el mismo usuario (o admin)
+router.post(
+  "/:id/verify-password",
+  authenticateToken,
+  async (req, res, next) => {
+    if (String(req.params.id) === String(req.user.id_usuario)) {
+      return next();
+    }
+    return adminOrPermission("gestionar_usuarios")(req, res, next);
+  },
+  verifyPassword
+);
 
 export default router;

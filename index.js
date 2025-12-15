@@ -82,6 +82,7 @@ app.get("/", (req, res) => {
       colores: "/api/colores",
       variantes: "/api/variantes",
       rolesPermisos: "/api/roles-permisos",
+      permisos:"api/permisos",
       instructores: "/api/instructores",
       clientes: "/api/clientes-data", // ✅ Nombre actualizado
       administradores: "/api/administradores"
@@ -121,7 +122,8 @@ app.use("/api/admin/correos-masivos", emailMasivoRoutes);
 
 // 🚀 Iniciar servidor
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-  console.log(`🌐 OnWheels API corriendo en puerto ${PORT}`);
-  console.log(`🗄️ Usando PostgreSQL`);
-});
+  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`)
+  console.log(`🌐 OnWheels API corriendo en puerto ${PORT}`)
+  console.log(`🗄️ Usando PostgreSQL`)
+})
+

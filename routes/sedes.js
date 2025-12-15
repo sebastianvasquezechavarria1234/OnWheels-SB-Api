@@ -1,5 +1,7 @@
-// routes/sedes.js
 import express from "express";
+import { authenticateToken } from "../middleware/authMiddleware.js";
+import { adminOrPermission } from "../middleware/adminOrPermission.js";
+
 import {
   getSedes,
   getSedeById,
@@ -12,8 +14,11 @@ const router = express.Router();
 
 router.get("/", getSedes);
 router.get("/:id", getSedeById);
-router.post("/", createSede);
-router.put("/:id", updateSede);
-router.delete("/:id", deleteSede);
+
+
+router.post("/", authenticateToken, adminOrPermission("gestionar_sedes"), createSede);
+router.put("/:id", authenticateToken, adminOrPermission("gestionar_sedes"), updateSede);
+router.delete("/:id", authenticateToken, adminOrPermission("gestionar_sedes"), deleteSede);
 
 export default router;
+

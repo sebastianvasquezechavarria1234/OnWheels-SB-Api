@@ -1,104 +1,128 @@
-import pool from "../db/postgresPool.js"; 
-import CategoriaProducto from "../models/CategoriaProductos.js"
+// controllers/categoriasController.js
+import pool from "../db/postgresPool.js";
 
-// Obtener todas las categorías
+
+// ──── UTILIDADES ────────────────────────────────────────
+
+const handleError = (res, message, status = 500, error = null) => {
+  if (error) console.error(`❌ ${message}:`, error);
+  return res.status(status).json({ mensaje: message });
+};
+
+// ──── CONTROLADORES ─────────────────────────────────────
+
 export const getCategorias = async (req, res) => {
   try {
-    // Cambiado: CATEGORIAS_DE_PRODUCTOS por categorias_productos
-    const result = await pool.query("SELECT * FROM categorias_productos ORDER BY id_categoria"); // Asegúrate también del nombre de la columna 'id_categoria'
-    const categorias = result.rows.map(row => new CategoriaProducto(row));
-    res.json(categorias);
+    const result = await pool.query(
+      "SELECT * FROM categorias_eventos ORDER BY id_categoria_evento ASC"
+    );
+    return res.json(result.rows); // ✅ Sin clase
   } catch (err) {
-    console.error("Error en getCategorias:", err);
-    res.status(500).json({ mensaje: "Error al obtener categorías" });
+    return handleError(res, "Error al obtener categorías", 500, err);
   }
 };
 
-// Obtener categoría por ID
 export const getCategoriaById = async (req, res) => {
   try {
     const { id } = req.params;
-    // Cambiado: CATEGORIAS_DE_PRODUCTOS por categorias_productos
     const result = await pool.query(
-      "SELECT * FROM categorias_productos WHERE id_categoria = $1", // Asegúrate del nombre de la columna 'id_categoria'
+      "SELECT * FROM categorias_eventos WHERE id_categoria_evento = $1",
       [id]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ mensaje: "Categoría no encontrada" });
+      return handleError(res, "Categoría no encontrada", 404);
     }
 
-    const categoria = new CategoriaProducto(result.rows[0]);
-    res.json(categoria);
+    return res.json(result.rows[0]); // ✅ Sin clase
   } catch (err) {
-    console.error("Error en getCategoriaById:", err);
-    res.status(500).json({ mensaje: "Error al obtener categoría" });
+    return handleError(res, "Error al obtener la categoría", 500, err);
   }
 };
 
-// Crear nueva categoría
 export const createCategoria = async (req, res) => {
   try {
     const { nombre_categoria, descripcion } = req.body;
 
-    // Cambiado: CATEGORIAS_DE_PRODUCTOS por categorias_productos
+    if (!nombre_categoria || nombre_categoria.trim().length < 2) {
+      return handleError(res, "El nombre debe tener mínimo 2 caracteres", 400);
+    }
+
     const result = await pool.query(
-      `INSERT INTO categorias_productos (nombre_categoria, descripcion) -- Asegúrate de los nombres de las columnas
-       VALUES ($1, $2) RETURNING *`,
-      [nombre_categoria, descripcion]
+      `INSERT INTO categorias_eventos (nombre_categoria, descripcion)
+       VALUES ($1, $2)
+       RETURNING *`,
+      [nombre_categoria.trim(), descripcion?.trim() || null]
     );
 
-    const nuevaCategoria = new CategoriaProducto(result.rows[0]);
-
-    res.status(201).json(nuevaCategoria);
+    return res.status(201).json(result.rows[0]); // ✅ Sin clase
   } catch (err) {
-    console.error("Error en createCategoria:", err);
-    res.status(400).json({ mensaje: "Error al crear categoría", error: err.message });
+    return handleError(res, "Error al crear categoría", 500, err);
   }
 };
 
-// Actualizar categoría
 export const updateCategoria = async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre_categoria, descripcion } = req.body;
 
-    // Cambiado: CATEGORIAS_DE_PRODUCTOS por categorias_productos
-    const result = await pool.query(
-      `UPDATE categorias_productos -- Asegúrate de los nombres de las columnas
-       SET nombre_categoria = $1, descripcion = $2
-       WHERE id_categoria = $3`, // Asegúrate del nombre de la columna 'id_categoria'
-      [nombre_categoria, descripcion, id]
-    );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ mensaje: "Categoría no encontrada" });
+    if (!nombre_categoria || nombre_categoria.trim().length < 2) {
+      return handleError(res, "El nombre debe tener mínimo 2 caracteres", 400);
     }
 
-    res.json({ mensaje: "Categoría actualizada correctamente" });
+    const result = await pool.query(
+      `UPDATE categorias_eventos
+       SET nombre_categoria = $1,
+           descripcion = $2
+       WHERE id_categoria_evento = $3
+       RETURNING *`,
+      [nombre_categoria.trim(), descripcion?.trim() || null, id]
+    );
+
+    if (result.rows.length === 0) {
+      return handleError(res, "Categoría no encontrada", 404);
+    }
+
+    return res.json({
+      mensaje: "Categoría actualizada correctamente",
+      categoria: result.rows[0], // ✅ Sin clase
+    });
   } catch (err) {
-    console.error("Error en updateCategoria:", err);
-    res.status(400).json({ mensaje: "Error al actualizar categoría", error: err.message });
+    return handleError(res, "Error al actualizar categoría", 500, err);
   }
 };
 
-// Eliminar categoría
 export const deleteCategoria = async (req, res) => {
   try {
     const { id } = req.params;
-    // Cambiado: CATEGORIAS_DE_PRODUCTOS por categorias_productos
-    const result = await pool.query(
-      "DELETE FROM categorias_productos WHERE id_categoria = $1", // Asegúrate del nombre de la columna 'id_categoria'
+
+    const usados = await pool.query(
+      "SELECT COUNT(*) AS total FROM eventos WHERE id_categoria_evento = $1",
       [id]
     );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ mensaje: "Categoría no encontrada" });
+    if (Number(usados.rows[0].total) > 0) {
+      return handleError(
+        res,
+        "No se puede eliminar la categoría porque tiene eventos asociados",
+        409
+      );
     }
 
-    res.json({ mensaje: "Categoría eliminada correctamente" });
+    const result = await pool.query(
+      "DELETE FROM categorias_eventos WHERE id_categoria_evento = $1 RETURNING *",
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return handleError(res, "Categoría no encontrada", 404);
+    }
+
+    return res.json({
+      mensaje: "Categoría eliminada correctamente",
+      categoria: result.rows[0], // ✅ Sin clase
+    });
   } catch (err) {
-    console.error("Error en deleteCategoria:", err);
-    res.status(500).json({ mensaje: "Error al eliminar categoría" });
+    return handleError(res, "Error al eliminar categoría", 500, err);
   }
 };
