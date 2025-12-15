@@ -98,7 +98,7 @@ app.use("/api/roles", rolesRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/eventos", eventosRoutes);
 app.use("/api/clases", clasesRoutes);
-app.use("/api/categoria-eventos", categoriaEventosRoutes);
+app.use("/api/categorias-eventos", categoriaEventosRoutes);
 app.use("/api/categoria-productos", categoriaproductosRoutes);
 app.use("/api/compras", comprasRoutes);
 app.use("/api/sedes", sedesRoutes);

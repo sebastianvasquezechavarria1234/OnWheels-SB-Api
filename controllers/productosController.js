@@ -1,58 +1,99 @@
-// controllers/productosController.js
 import pool from "../db/postgresPool.js";
 import Producto from "../models/Productos.js";
 
 // Listar productos
+// Listar productos con variantes
 export const getProductos = async (req, res) => {
   try {
-    // Cambiado: 'categorias_de_productos' por 'categorias_productos'
-    const result = await pool.query(`
+    const sql = `
       SELECT 
         p.id_producto,
         p.nombre_producto,
         p.descripcion,
         p.precio_compra,
-        p.precio_venta AS precio, -- Asumiendo que 'precio' en el modelo es 'precio_venta' en la DB
-        p.imagen AS imagen_producto, -- Asumiendo que 'imagen_producto' en el modelo es 'imagen' en la DB
+        p.precio_venta, -- Normalizamos nombre si es necesario
+        p.imagen AS imagen,
         p.estado,
-        p.descuento AS descuento_producto, -- Asumiendo que 'descuento_producto' en el modelo es 'descuento' en la DB
-        p.id_categoria,
-        c.nombre_categoria AS categoria_nombre
-      FROM PRODUCTOS p -- Nombre corregido de la tabla
-      INNER JOIN categorias_productos c -- Nombre corregido de la tabla
-        ON p.id_categoria = c.id_categoria
+        p.descuento,
+        c.nombre_categoria,
+        -- Agregamos variantes en un array JSON
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id_variante', v.id_variante,
+              'id_color', v.id_color,
+              'nombre_color', co.nombre_color,
+              'color_hex', co.codigo_hex,
+              'id_talla', v.id_talla,
+              'nombre_talla', t.nombre_talla,
+              'stock', v.stock
+            ) 
+          ) FILTER (WHERE v.id_variante IS NOT NULL), 
+          '[]'
+        ) AS variantes
+      FROM productos p
+      LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
+      LEFT JOIN variantes_producto v ON p.id_producto = v.id_producto
+      LEFT JOIN colores co ON v.id_color = co.id_color
+      LEFT JOIN tallas t ON v.id_talla = t.id_talla
+      WHERE p.estado = true
+      GROUP BY p.id_producto, c.nombre_categoria
       ORDER BY p.nombre_producto ASC
-    `);
+    `;
 
+    const result = await pool.query(sql);
+
+    // Procesamos para limpiar datos duplicados si fuera necesario, 
+    // pero json_agg ya nos da la estructura agrupada por producto.
     res.json(result.rows);
   } catch (err) {
     console.error("❌ Error al obtener productos:", err);
-    res.status(500).json({ mensaje: "Error al obtener productos" });
+    res.status(500).json({ mensaje: "Error al obtener productos", error: err.message });
   }
 };
 
 // ✅ Obtener producto por ID
+// ✅ Obtener producto por ID (con variantes)
 export const getProductoById = async (req, res) => {
   try {
     const { id } = req.params;
-    // Cambiado: 'categorias_de_productos' por 'categorias_productos'
-    const result = await pool.query(`
+    const sql = `
       SELECT 
         p.id_producto,
         p.nombre_producto,
         p.descripcion,
         p.precio_compra,
-        p.precio_venta AS precio, -- Asumiendo mapeo
-        p.imagen AS imagen_producto, -- Asumiendo mapeo
+        p.precio_venta AS precio,
+        p.imagen AS imagen_producto,
         p.estado,
-        p.descuento AS descuento_producto, -- Asumiendo mapeo
+        p.descuento,
         p.id_categoria,
-        c.nombre_categoria AS categoria_nombre
-      FROM productos p -- Nombre corregido de la tabla
-      INNER JOIN categorias_productos c -- Nombre corregido de la tabla
-        ON p.id_categoria = c.id_categoria
+        c.nombre_categoria AS categoria_nombre,
+        -- Agregamos variantes en un array JSON
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id_variante', v.id_variante,
+              'id_color', v.id_color,
+              'nombre_color', co.nombre_color,
+              'color_hex', co.codigo_hex,
+              'id_talla', v.id_talla,
+              'nombre_talla', t.nombre_talla,
+              'stock', v.stock
+            ) 
+          ) FILTER (WHERE v.id_variante IS NOT NULL), 
+          '[]'
+        ) AS variantes
+      FROM productos p
+      INNER JOIN categorias_productos c ON p.id_categoria = c.id_categoria
+      LEFT JOIN variantes_producto v ON p.id_producto = v.id_producto
+      LEFT JOIN colores co ON v.id_color = co.id_color
+      LEFT JOIN tallas t ON v.id_talla = t.id_talla
       WHERE p.id_producto = $1
-    `, [id]);
+      GROUP BY p.id_producto, c.nombre_categoria
+    `;
+
+    const result = await pool.query(sql, [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Producto no encontrado" });
@@ -73,35 +114,41 @@ export const createProducto = async (req, res) => {
       nombre_producto,
       descripcion,
       precio_compra,
-      precio, // Asumiendo que 'precio' en req.body es para 'precio_venta' en la DB
-      imagen_producto, // Asumiendo que 'imagen_producto' en req.body es para 'imagen' en la DB
+      precio,
+      imagen_producto,
+      imagen,
       estado,
-      porcentaje_ganancia, // Esta columna no existe en tu esquema
-      descuento_producto // Asumiendo que 'descuento_producto' en req.body es para 'descuento' en la DB
+      descuento
     } = req.body;
 
-    // Ajusté los nombres de las columnas para que coincidan con tu esquema
-    // y quité 'porcentaje_ganancia' porque no existe en la tabla productos
     const result = await pool.query(
-      `INSERT INTO productos -- Nombre corregido de la tabla
+      `INSERT INTO productos 
       (id_categoria, nombre_producto, descripcion, precio_compra, precio_venta, imagen, estado, descuento)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *`, // RETURNING * para obtener el producto insertado completo
+      RETURNING id_producto`,
       [
         id_categoria,
         nombre_producto,
         descripcion,
         precio_compra,
-        precio, // Mapeado a precio_venta
-        imagen_producto, // Mapeado a imagen
+        precio_venta,
+        imagen,
         estado,
-        descuento_producto // Mapeado a descuento
-        // No se incluye porcentaje_ganancia
+        descuento
       ]
     );
 
-    // Creamos el producto con los datos devueltos por la DB
-    const nuevoProducto = new Producto(result.rows[0]);
+    const nuevoProducto = new Producto({
+      id_producto: result.rows[0].id_producto,
+      id_categoria,
+      nombre_producto,
+      descripcion,
+      precio_compra,
+      precio: precio_venta,
+      imagen,
+      estado,
+      descuento
+    });
 
     res.status(201).json(nuevoProducto);
   } catch (err) {
@@ -119,37 +166,34 @@ export const updateProducto = async (req, res) => {
       nombre_producto,
       descripcion,
       precio_compra,
-      precio, // Asumiendo que 'precio' en req.body es para 'precio_venta' en la DB
-      imagen_producto, // Asumiendo que 'imagen_producto' en req.body es para 'imagen' en la DB
+      precio,
+      imagen_producto,
       estado,
-      porcentaje_ganancia, // Esta columna no existe en tu esquema
-      descuento_producto // Asumiendo que 'descuento_producto' en req.body es para 'descuento' en la DB
+      porcentaje_ganancia,
+      descuento_producto
     } = req.body;
 
-    // Ajusté los nombres de las columnas para que coincidan con tu esquema
-    // y quité 'porcentaje_ganancia' porque no existe en la tabla productos
     const result = await pool.query(
-      `UPDATE productos -- Nombre corregido de la tabla
+      `UPDATE productos
        SET id_categoria = $1,
            nombre_producto = $2,
            descripcion = $3,
            precio_compra = $4,
-           precio_venta = $5, -- Mapeado de 'precio'
-           imagen = $6, -- Mapeado de 'imagen_producto'
+           precio_venta = $5,
+           imagen = $6,
            estado = $7,
-           descuento = $8 -- Mapeado de 'descuento_producto'
-           -- No se actualiza porcentaje_ganancia
-       WHERE id_producto = $9`, // Ajusté el número del placeholder
+           descuento = $8
+       WHERE id_producto = $9`,
       [
         id_categoria,
         nombre_producto,
         descripcion,
         precio_compra,
-        precio, // Mapeado a precio_venta
-        imagen_producto, // Mapeado a imagen
+        precio_venta,
+        imagen,
         estado,
-        descuento_producto, // Mapeado a descuento
-        id // Ahora es $9
+        descuento,
+        id
       ]
     );
 
@@ -164,51 +208,29 @@ export const updateProducto = async (req, res) => {
   }
 };
 
-// Eliminar producto - FUNCIÓN CORREGIDA
-// Eliminar producto - MEJORADA
-// Eliminar producto - CON MENSAJE ESPECÍFICO PARA EL FRONTEND
-export const deleteProducto = async (req, res) => {
+// productosController.js
+export const getProductoPorId = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // Verificar si hay variantes asociadas
-    const variantesResult = await pool.query(
-      "SELECT 1 FROM variantes_producto WHERE id_producto = $1 LIMIT 1",
-      [id]
-    );
-    if (variantesResult.rows.length > 0) {
-      return res.status(400).json({
-        mensaje: "No se puede eliminar el producto porque tiene variantes registradas."
-      });
-    }
-
-    // Verificar si hay registros en detalle_compras o detalle_ventas
-    const comprasResult = await pool.query(
-      "SELECT 1 FROM detalle_compras WHERE id_producto = $1 LIMIT 1",
-      [id]
-    );
-    const ventasResult = await pool.query(
-      "SELECT 1 FROM detalle_ventas WHERE id_producto = $1 LIMIT 1",
-      [id]
-    );
-
-    if (comprasResult.rows.length > 0 || ventasResult.rows.length > 0) {
-      return res.status(400).json({
-        mensaje: "No se puede eliminar el producto porque ya está asociado a compras o ventas."
-      });
-    }
-
-    // Si pasa ambas validaciones, eliminar el producto
     const result = await pool.query("DELETE FROM productos WHERE id_producto = $1", [id]);
+
     if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Producto no encontrado" });
     }
-    res.json({ mensaje: "Producto eliminado correctamente" });
 
+    res.json({ mensaje: "Producto eliminado correctamente" });
   } catch (err) {
     console.error("❌ Error al eliminar producto:", err);
-
-    // Para errores inesperados, enviamos un mensaje genérico
-    res.status(500).json({ mensaje: "Error al eliminar el producto" });
+    res.status(500).json({ mensaje: "Error al eliminar producto" });
+  }
+};
+export const deleteProducto = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pool = await getPool();
+    await pool.query("DELETE FROM productos WHERE id = $1", [id]);
+    res.json({ message: "Producto eliminado correctamente" });
+  } catch (error) {
+    res.status(500).json({ error: "Error al eliminar el producto" });
   }
 };
