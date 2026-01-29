@@ -2,33 +2,25 @@ import express from "express";
 import { authenticateToken } from "../middleware/authMiddleware.js";
 import { adminOrPermission } from "../middleware/adminOrPermission.js";
 import { checkOwnershipOrPermission } from "../middleware/checkOwnershipOrPermission.js";
-import { getVentas, getVentaById, createVenta, updateVenta, deleteVenta, getMisCompras } from "../controllers/ventasController.js";
+import { getVentas, getVentaById, createVenta, updateVenta, deleteVenta, cancelVenta, getMisCompras, updateVentaStatus } from "../controllers/ventasController.js";
 
 const router = express.Router();
 
-// Crear venta (cliente autenticado hace la compra)
-router.post("/", authenticateToken, createVenta);
+// ... existing routes ...
 
-// Listar ventas -> admin or ver_ventas
-router.get("/", authenticateToken, adminOrPermission("ver_ventas"), getVentas);
+// Listar todas (admin/gestor)
+router.get("/", authenticateToken, adminOrPermission("gestionar_ventas"), getVentas);
 
-// 🟢 Nueva ruta: Obtener mis compras (usuario autenticado)
-// Se coloca ANTES de /:id para evitar conflicto
-router.get("/mis-compras", authenticateToken, getMisCompras);
+// Ver detalle (admin/gestor)
+router.get("/:id", authenticateToken, adminOrPermission("gestionar_ventas"), getVentaById);
 
-// Obtener venta por id -> owner (cliente) o admin/permiso ver_ventas
-// Ajustar SQL: obtener id_usuario del cliente asociado a la venta
-router.get("/:id",
-  authenticateToken,
-  checkOwnershipOrPermission({
-    sql: `SELECT c.id_usuario FROM ventas v JOIN clientes c ON v.id_cliente = c.id_cliente WHERE v.id_venta = $1`,
-    ownerField: "id_usuario",
-    permission: "ver_ventas"
-  }),
-  getVentaById);
+// Crear nueva venta
+router.post("/", authenticateToken, adminOrPermission("gestionar_ventas"), createVenta);
 
 // Editar/eliminar -> admin or gestionar_ventas
 router.put("/:id", authenticateToken, adminOrPermission("gestionar_ventas"), updateVenta);
+router.put("/:id/status", authenticateToken, adminOrPermission("gestionar_ventas"), updateVentaStatus);
+router.put("/:id/cancel", authenticateToken, adminOrPermission("gestionar_ventas"), cancelVenta);
 router.delete("/:id", authenticateToken, adminOrPermission("gestionar_ventas"), deleteVenta);
 
 export default router;

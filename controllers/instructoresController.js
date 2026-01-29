@@ -1,6 +1,17 @@
 // controllers/instructoresController.js
 import pool from "../db/postgresPool.js";
 
+// ✅ Verificar si un usuario tiene un rol específico
+const usuarioTieneRol = async (id_usuario, rolesProhibidos) => {
+  const result = await pool.query(`
+    SELECT r.nombre_rol
+    FROM usuario_roles ur
+    JOIN roles r ON ur.id_rol = r.id_rol
+    WHERE ur.id_usuario = $1 AND r.nombre_rol = ANY($2)
+  `, [id_usuario, rolesProhibidos]);
+  return result.rows.length > 0;
+};
+
 // ✅ Obtener todos los instructores
 export const getInstructores = async (req, res) => {
   try {
@@ -23,14 +34,14 @@ export const getInstructores = async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error("❌ Error al obtener instructores:", err);
-    res.status(500).json({ mensaje: "Error al obtener instructores" });
+    res.status(500).json({ mensaje: "Error al obtener instructores", error: err.message });
   }
 };
 
 // ✅ Obtener instructor por ID
 export const getInstructorById = async (req, res) => {
+  const { id } = req.params;
   try {
-    const { id } = req.params;
     const result = await pool.query(`
       SELECT 
         i.id_instructor,
@@ -44,71 +55,64 @@ export const getInstructorById = async (req, res) => {
         u.documento
       FROM instructores i
       JOIN usuarios u ON i.id_usuario = u.id_usuario
-      WHERE i.id_instructor = $1 AND i.estado = TRUE
+      WHERE i.id_instructor = $1
     `, [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ mensaje: "Instructor no encontrado" });
     }
+
     res.json(result.rows[0]);
   } catch (err) {
     console.error("❌ Error al obtener instructor:", err);
-    res.status(500).json({ mensaje: "Error al obtener instructor" });
+    res.status(500).json({ mensaje: "Error al obtener instructor", error: err.message });
   }
-};
-
-// ✅ Verificar si un usuario tiene un rol específico
-const usuarioTieneRol = async (id_usuario, rolesProhibidos) => {
-  const result = await pool.query(`
-    SELECT r.nombre_rol
-    FROM usuario_roles ur
-    JOIN roles r ON ur.id_rol = r.id_rol
-    WHERE ur.id_usuario = $1 AND r.nombre_rol = ANY($2)
-  `, [id_usuario, rolesProhibidos]);
-  return result.rows.length > 0;
 };
 
 // ✅ Crear instructor
 export const createInstructor = async (req, res) => {
+  const { id_usuario, anios_experiencia, especialidad } = req.body;
+
   try {
-    const { id_usuario, anios_experiencia, especialidad } = req.body;
-
-    if (!id_usuario) {
-      return res.status(400).json({ mensaje: "El ID de usuario es obligatorio" });
-    }
-
-    // Verificar que el usuario exista y esté activo
-    const userCheck = await pool.query(
-      "SELECT id_usuario FROM usuarios WHERE id_usuario = $1 AND estado = TRUE",
+    // Verificar si el usuario ya es instructor
+    const existingInstructor = await pool.query(
+      "SELECT * FROM instructores WHERE id_usuario = $1",
       [id_usuario]
     );
-    if (userCheck.rows.length === 0) {
-      return res.status(400).json({ mensaje: "El usuario no existe o está inactivo" });
+
+    if (existingInstructor.rows.length > 0) {
+      // Si existe pero está inactivo (estado = false), lo reactivamos
+      if (!existingInstructor.rows[0].estado) {
+        const reactivated = await pool.query(
+          "UPDATE instructores SET estado = TRUE, anios_experiencia = $2, especialidad = $3 WHERE id_usuario = $1 RETURNING *",
+          [id_usuario, anios_experiencia, especialidad]
+        );
+        // Asignar rol de instructor si no lo tiene
+        const rolResult = await pool.query("SELECT id_rol FROM roles WHERE nombre_rol = 'Instructor'");
+        if (rolResult.rows.length > 0) {
+          await pool.query(
+            "INSERT INTO usuario_roles (id_usuario, id_rol) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+            [id_usuario, rolResult.rows[0].id_rol]
+          );
+        }
+        return res.status(201).json(reactivated.rows[0]);
+      }
+      return res.status(400).json({ mensaje: "El usuario ya está registrado como instructor" });
     }
 
     // Verificar roles prohibidos
     const rolesProhibidos = ['Administrador', 'Estudiante', 'Instructor'];
     const tieneRolProhibido = await usuarioTieneRol(id_usuario, rolesProhibidos);
     if (tieneRolProhibido) {
-      return res.status(400).json({ 
-        mensaje: "El usuario ya tiene un rol incompatible (Administrador, Estudiante o Instructor)" 
+      return res.status(400).json({
+        mensaje: "El usuario ya tiene un rol incompatible (Administrador, Estudiante o Instructor)"
       });
     }
 
-    // Verificar que no sea ya instructor
-    const instructorCheck = await pool.query(
-      "SELECT id_instructor FROM instructores WHERE id_usuario = $1 AND estado = TRUE",
-      [id_usuario]
-    );
-    if (instructorCheck.rows.length > 0) {
-      return res.status(400).json({ mensaje: "Este usuario ya es instructor" });
-    }
-
+    // Crear nuevo instructor
     const result = await pool.query(
-      `INSERT INTO instructores (id_usuario, anios_experiencia, especialidad, estado)
-       VALUES ($1, $2, $3, TRUE)
-       RETURNING *`,
-      [id_usuario, anios_experiencia || null, especialidad || null]
+      "INSERT INTO instructores (id_usuario, anios_experiencia, especialidad, estado) VALUES ($1, $2, $3, TRUE) RETURNING *",
+      [id_usuario, anios_experiencia, especialidad]
     );
 
     // Asignar rol de "Instructor"
@@ -125,16 +129,16 @@ export const createInstructor = async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error("❌ Error al crear instructor:", err);
-    res.status(400).json({ mensaje: "Error al crear instructor", error: err.message });
+    res.status(500).json({ mensaje: "Error al crear instructor", error: err.message });
   }
 };
 
 // ✅ Actualizar instructor
 export const updateInstructor = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { id_usuario, anios_experiencia, especialidad } = req.body;
+  const { id } = req.params;
+  const { id_usuario, anios_experiencia, especialidad } = req.body;
 
+  try {
     const existing = await pool.query(
       "SELECT id_instructor, id_usuario FROM instructores WHERE id_instructor = $1",
       [id]
@@ -157,8 +161,8 @@ export const updateInstructor = async (req, res) => {
       const rolesProhibidos = ['Administrador', 'Estudiante', 'Instructor'];
       const tieneRolProhibido = await usuarioTieneRol(id_usuario, rolesProhibidos);
       if (tieneRolProhibido) {
-        return res.status(400).json({ 
-          mensaje: "El usuario seleccionado tiene un rol incompatible" 
+        return res.status(400).json({
+          mensaje: "El usuario seleccionado tiene un rol incompatible"
         });
       }
 
@@ -192,12 +196,12 @@ export const updateInstructor = async (req, res) => {
 
     const result = await pool.query(
       `UPDATE instructores
-       SET 
-         id_usuario = COALESCE($1, id_usuario),
-         anios_experiencia = COALESCE($2, anios_experiencia),
-         especialidad = COALESCE($3, especialidad)
-       WHERE id_instructor = $4
-       RETURNING *`,
+           SET
+             id_usuario = COALESCE($1, id_usuario),
+             anios_experiencia = COALESCE($2, anios_experiencia),
+             especialidad = COALESCE($3, especialidad)
+           WHERE id_instructor = $4
+           RETURNING *`,
       [id_usuario, anios_experiencia, especialidad, id]
     );
 
@@ -245,13 +249,13 @@ export const getUsuariosNoInstructores = async (req, res) => {
       SELECT u.id_usuario, u.nombre_completo, u.email, u.documento
       FROM usuarios u
       WHERE u.estado = TRUE
-        AND u.id_usuario NOT IN (
+        AND u.id_usuario NOT IN(
           SELECT ur.id_usuario
           FROM usuario_roles ur
           JOIN roles r ON ur.id_rol = r.id_rol
-          WHERE r.nombre_rol IN ('Administrador', 'Estudiante', 'Instructor')
+          WHERE r.nombre_rol IN('Administrador', 'Estudiante', 'Instructor')
         )
-        AND u.id_usuario NOT IN (
+        AND u.id_usuario NOT IN(
           SELECT i.id_usuario
           FROM instructores i
           WHERE i.estado = TRUE
@@ -261,6 +265,6 @@ export const getUsuariosNoInstructores = async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error("❌ Error al obtener usuarios disponibles:", err);
-    res.status(500).json({ mensaje: "Error al obtener usuarios disponibles" });
+    res.status(500).json({ mensaje: "Error al obtener usuarios disponibles", error: err.message });
   }
 };

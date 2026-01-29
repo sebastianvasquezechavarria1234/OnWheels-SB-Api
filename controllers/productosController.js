@@ -128,6 +128,12 @@ export const createProducto = async (req, res) => {
       variantes = [] // Array de variantes
     } = req.body;
 
+    // VALIDACIÓN IMPORTANTE
+    if (!id_categoria || isNaN(Number(id_categoria))) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ mensaje: "Debe seleccionar una categoría válida." });
+    }
+
     // 1. Insertar Producto
     const insertProductoQuery = `
       INSERT INTO productos 
@@ -166,8 +172,8 @@ export const createProducto = async (req, res) => {
     await client.query('COMMIT'); // Confirmar transacción
 
     const nuevoProducto = {
-      id_producto: newProductoId,
-      ...req.body
+      ...req.body,
+      id_producto: newProductoId
     };
 
     res.status(201).json(nuevoProducto);

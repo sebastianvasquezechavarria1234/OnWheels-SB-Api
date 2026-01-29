@@ -13,7 +13,7 @@ import matriculasRoutes from "./routes/matriculas.js";
 import preinscripcionesRoutes from "./routes/preinscripciones.js";
 import planesClasesRoutes from "./routes/planes.js";
 import nivelesClasesRoutes from "./routes/niveles.js";
- import ventasRoutes from "./routes/ventas.js";
+import ventasRoutes from "./routes/ventas.js";
 import patrocinadoresRoutes from "./routes/patrocinadores.js";
 import sedesRoutes from "./routes/sedes.js";
 import comprasRoutes from "./routes/compras.js";
@@ -26,6 +26,7 @@ import eventosRoutes from "./routes/eventos.js";
 import clasesRoutes from "./routes/clases.js";
 import proveedoresRoutes from "./routes/proveedores.js";
 import rolesPermisosRoutes from "./routes/rolesPermisos.js";
+import permisosRoutes from "./routes/permisos.js";
 import estudiantesRoutes from "./routes/estudiantes.js";
 import acudientesRoutes from "./routes/acudientesRoutes.js";
 import instructoresRoutes from "./routes/instructores.js";
@@ -82,7 +83,7 @@ app.get("/", (req, res) => {
       colores: "/api/colores",
       variantes: "/api/variantes",
       rolesPermisos: "/api/roles-permisos",
-      permisos:"api/permisos",
+      permisos: "api/permisos",
       instructores: "/api/instructores",
       clientes: "/api/clientes-data", // ✅ Nombre actualizado
       administradores: "/api/administradores"
@@ -96,6 +97,7 @@ app.use("/api/roles-permisos", rolesPermisosRoutes);
 app.use("/api/productos", productosRoutes);
 app.use("/api/proveedores", proveedoresRoutes);
 app.use("/api/roles", rolesRoutes);
+app.use("/api/permisos", permisosRoutes);
 app.use("/api/usuarios", usuariosRoutes);
 app.use("/api/eventos", eventosRoutes);
 app.use("/api/clases", clasesRoutes);
