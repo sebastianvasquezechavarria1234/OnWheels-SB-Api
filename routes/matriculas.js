@@ -7,10 +7,15 @@ import {
   listar as getMatriculas,
   obtenerPorId as getMatriculaById,
   actualizar as updateMatricula,
-  eliminar as deleteMatricula
+  eliminar as deleteMatricula,
+  getMisMatriculas
 } from "../controllers/matriculasController.js";
 
 const router = express.Router();
+
+// 🟢 Nueva ruta: Mis matrículas (Estudiantes)
+// Antes de /:id para evitar colisiones
+router.get("/mis-matriculas", authenticateToken, getMisMatriculas);
 
 // Listar matrículas → solo admin o con permiso "ver_matriculas"
 router.get("/", authenticateToken, adminOrPermission("ver_matriculas"), getMatriculas);

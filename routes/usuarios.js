@@ -12,7 +12,8 @@ import {
   verifyPassword,
   getUsuariosElegiblesParaEstudiante,
   getUsuariosSinCliente,
-  getUsuariosSoloConRolCliente
+  getUsuariosSoloConRolCliente,
+  updatePerfil
 } from "../controllers/usuariosController.js";
 
 const router = express.Router();
@@ -25,6 +26,9 @@ router.get("/rol/solo-cliente", getUsuariosSoloConRolCliente); // ← Nueva ruta
 router.post("/", createUsuario); // Registro público
 
 // === 🔒 RUTAS PROTEGIDAS (con auth y permisos) ===
+
+// Perfil Usuario (Autogestión)
+router.put("/perfil", authenticateToken, updatePerfil);
 
 // Listar usuarios → solo admin o con "ver_usuarios"
 router.get(

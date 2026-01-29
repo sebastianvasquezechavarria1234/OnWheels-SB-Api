@@ -235,3 +235,64 @@ export const deleteClase = async (req, res) => {
     res.status(500).json({ mensaje: "Error al eliminar la clase" });
   }
 };
+
+/**
+ * Obtener clases asignadas al instructor autenticado.
+ * - Valida que el ID solicitado coincida con el usuario token, o sea Admin.
+ */
+export const getClasesInstructor = async (req, res) => {
+  try {
+    const { id } = req.params; // ID de usuario (instructor)
+    const userId = req.user.id_usuario;
+    const userRole = req.user.roles || []; // array de strings o objetos?
+    // AuthController retorna: roles: ['admin', 'instructor'] (strings) o objetos?
+    // En authController login: const roles = rolesResult.rows.map(r => r.nombre_rol.toLowerCase()); -> Array de strings.
+
+    // Validación de seguridad: Solo el propio instructor o un admin pueden ver esto
+    const isAdmin = userRole.some(r => r === 'administrador' || r === 'admin');
+
+    if (userId.toString() !== id.toString() && !isAdmin) {
+      return res.status(403).json({ mensaje: "No tienes permiso para ver las clases de otro instructor" });
+    }
+
+    // Buscar el id_instructor correspondiente al id_usuario
+    const instResult = await pool.query("SELECT id_instructor FROM instructores WHERE id_usuario = $1", [id]);
+    if (instResult.rowCount === 0) {
+      return res.json([]); // No es instructor registrado -> 0 clases
+    }
+    const id_instructor = instResult.rows[0].id_instructor;
+
+    // Reutilizamos la query gigante pero filtrando por instructor
+    // Nota: La query original hace LEFT JOIN instructores i ...
+    // Podemos filtrar WHERE ci.id_instructor = $1
+    const query = `
+      SELECT
+        c.*,
+        n.nombre_nivel,
+        s.nombre_sede,
+        json_agg(
+          json_build_object(
+            'id_instructor', i.id_instructor,
+            'nombre_instructor', u.nombre_completo,
+            'rol_instructor', ci.rol_instructor
+          )
+        ) FILTER (WHERE i.id_instructor IS NOT NULL) AS instructores
+      FROM clases c
+      LEFT JOIN niveles_clases n ON c.id_nivel = n.id_nivel
+      LEFT JOIN sedes s ON c.id_sede = s.id_sede
+      JOIN clases_instructores ci_filter ON c.id_clase = ci_filter.id_clase -- Join específico para el filtro
+      LEFT JOIN clases_instructores ci ON c.id_clase = ci.id_clase -- Join para el json_agg (todos los instructores de la clase)
+      LEFT JOIN instructores i ON ci.id_instructor = i.id_instructor
+      LEFT JOIN usuarios u ON i.id_usuario = u.id_usuario
+      WHERE ci_filter.id_instructor = $1
+      GROUP BY c.id_clase, n.nombre_nivel, s.nombre_sede
+      ORDER BY c.id_clase DESC
+    `;
+
+    const result = await pool.query(query, [id_instructor]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error al obtener clases de instructor:", err);
+    res.status(500).json({ mensaje: "Error al obtener clases" });
+  }
+};

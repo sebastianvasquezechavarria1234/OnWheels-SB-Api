@@ -212,7 +212,7 @@ export const createUsuario = async (req, res) => {
       }
     });
   } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(() => { });
     console.error("Error al crear usuario:", err);
     // Manejo posible conflicto de unique email/documento
     if (err.code === "23505") {
@@ -372,7 +372,7 @@ export const deleteUsuario = async (req, res) => {
     await client.query("COMMIT");
     return res.json({ mensaje: "Usuario y sus roles eliminados correctamente" });
   } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(() => { });
     console.error("Error al eliminar usuario:", err);
     return res.status(500).json({ mensaje: "Error al eliminar usuario", error: err.message });
   } finally {
@@ -495,5 +495,53 @@ export const getUsuariosSinCliente = async (req, res) => {
       mensaje: "Error interno del servidor",
       error: err.message || "Error desconocido"
     });
+  }
+};
+
+/**
+ * Actualizar perfil del usuario autenticado.
+ * - Solo permite actualizar datos restringidos (nombre, telefono).
+ * - Usa estrictamente req.user.id_usuario.
+ * - Mapea 'nombre' (frontend) a 'nombre_completo' (db).
+ */
+export const updatePerfil = async (req, res) => {
+  try {
+    const id = req.user.id_usuario;
+    const { nombre, telefono, direccion } = req.body; // Frontend envía 'nombre', no 'nombre_completo'
+
+    // Nota: 'direccion' no parece existir en la tabla usuarios basada en el código actual,
+    // pero se incluye por si acaso se agrega posteriormente o si existe en DB pero no en select.
+    // Por ahora, actualizamos nombre y telefono.
+
+    const query = `
+      UPDATE usuarios
+      SET
+        nombre_completo = COALESCE($1, nombre_completo),
+        telefono = COALESCE($2, telefono)
+      WHERE id_usuario = $3
+      RETURNING
+        id_usuario,
+        documento,
+        tipo_documento,
+        nombre_completo,
+        email,
+        telefono,
+        fecha_nacimiento,
+        estado;
+    `;
+
+    const result = await pool.query(query, [nombre, telefono, id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Usuario no encontrado" });
+    }
+
+    return res.json({
+      mensaje: "Perfil actualizado correctamente",
+      usuario: result.rows[0]
+    });
+  } catch (err) {
+    console.error("Error al actualizar perfil:", err);
+    return res.status(500).json({ mensaje: "Error al actualizar perfil", error: err.message });
   }
 };

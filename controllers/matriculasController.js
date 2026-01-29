@@ -5,7 +5,35 @@ import {
   obtenerMatriculaPorId,
   actualizarMatricula,
   eliminarMatricula,
+  obtenerMatriculasPorEstudiante
 } from "../models/matriculasModel.js";
+import pool from "../db/postgresPool.js"; // Necesario para buscar el estudiante por id_usuario
+
+// Obtener matrículas del estudiante autenticado
+export const getMisMatriculas = async (req, res) => {
+  try {
+    const id_usuario = req.user.id_usuario;
+
+    // 1. Buscar el id_estudiante asociado al usuario
+    const estQuery = "SELECT id_estudiante FROM estudiantes WHERE id_usuario = $1";
+    const estResult = await pool.query(estQuery, [id_usuario]);
+
+    if (estResult.rowCount === 0) {
+      // Si no es estudiante, retornamos array vacío o error?
+      // Mejor array vacío para no romper la UI
+      return res.json([]);
+    }
+
+    const id_estudiante = estResult.rows[0].id_estudiante;
+
+    // 2. Obtener sus matrículas
+    const matriculas = await obtenerMatriculasPorEstudiante(id_estudiante);
+    res.json(matriculas);
+  } catch (err) {
+    console.error("Error al obtener mis matrículas:", err);
+    res.status(500).json({ mensaje: "Error al obtener tus matrículas" });
+  }
+};
 
 // Crear matrícula (solo si el estudiante ya existe)
 export const crear = async (req, res) => {

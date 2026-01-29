@@ -6,12 +6,17 @@ import {
   getClaseById,
   createClase,
   updateClase,
-  deleteClase
+  deleteClase,
+  getClasesInstructor
 } from "../controllers/clasesController.js";
 
 const router = express.Router();
 
 router.get("/", getClases); // público (opcional) o protected list
+
+// 🟢 Nueva ruta: Clases de un instructor específico
+router.get("/instructor/:id", authenticateToken, getClasesInstructor);
+
 router.get("/:id", getClaseById);
 
 router.post("/", authenticateToken, adminOrPermission("gestionar_clases"), createClase);
