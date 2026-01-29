@@ -1,4 +1,4 @@
-// controllers/categoriasController.js
+// controllers/CategoriaproductosController.js
 import pool from "../db/postgresPool.js";
 
 
@@ -14,11 +14,11 @@ const handleError = (res, message, status = 500, error = null) => {
 export const getCategorias = async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM categorias_eventos ORDER BY id_categoria_evento ASC"
+      "SELECT * FROM categorias_productos ORDER BY id_categoria ASC"
     );
-    return res.json(result.rows); // ✅ Sin clase
+    return res.json(result.rows);
   } catch (err) {
-    return handleError(res, "Error al obtener categorías", 500, err);
+    return handleError(res, "Error al obtener categorías de productos", 500, err);
   }
 };
 
@@ -26,7 +26,7 @@ export const getCategoriaById = async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      "SELECT * FROM categorias_eventos WHERE id_categoria_evento = $1",
+      "SELECT * FROM categorias_productos WHERE id_categoria = $1",
       [id]
     );
 
@@ -34,7 +34,7 @@ export const getCategoriaById = async (req, res) => {
       return handleError(res, "Categoría no encontrada", 404);
     }
 
-    return res.json(result.rows[0]); // ✅ Sin clase
+    return res.json(result.rows[0]);
   } catch (err) {
     return handleError(res, "Error al obtener la categoría", 500, err);
   }
@@ -49,13 +49,13 @@ export const createCategoria = async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO categorias_eventos (nombre_categoria, descripcion)
+      `INSERT INTO categorias_productos (nombre_categoria, descripcion)
        VALUES ($1, $2)
        RETURNING *`,
       [nombre_categoria.trim(), descripcion?.trim() || null]
     );
 
-    return res.status(201).json(result.rows[0]); // ✅ Sin clase
+    return res.status(201).json(result.rows[0]);
   } catch (err) {
     return handleError(res, "Error al crear categoría", 500, err);
   }
@@ -71,10 +71,10 @@ export const updateCategoria = async (req, res) => {
     }
 
     const result = await pool.query(
-      `UPDATE categorias_eventos
+      `UPDATE categorias_productos
        SET nombre_categoria = $1,
            descripcion = $2
-       WHERE id_categoria_evento = $3
+       WHERE id_categoria = $3
        RETURNING *`,
       [nombre_categoria.trim(), descripcion?.trim() || null, id]
     );
@@ -85,7 +85,7 @@ export const updateCategoria = async (req, res) => {
 
     return res.json({
       mensaje: "Categoría actualizada correctamente",
-      categoria: result.rows[0], // ✅ Sin clase
+      categoria: result.rows[0],
     });
   } catch (err) {
     return handleError(res, "Error al actualizar categoría", 500, err);
@@ -96,21 +96,22 @@ export const deleteCategoria = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Verificar si hay productos usando esta categoría
     const usados = await pool.query(
-      "SELECT COUNT(*) AS total FROM eventos WHERE id_categoria_evento = $1",
+      "SELECT COUNT(*) AS total FROM productos WHERE id_categoria = $1",
       [id]
     );
 
     if (Number(usados.rows[0].total) > 0) {
       return handleError(
         res,
-        "No se puede eliminar la categoría porque tiene eventos asociados",
+        "No se puede eliminar la categoría porque tiene productos asociados",
         409
       );
     }
 
     const result = await pool.query(
-      "DELETE FROM categorias_eventos WHERE id_categoria_evento = $1 RETURNING *",
+      "DELETE FROM categorias_productos WHERE id_categoria = $1 RETURNING *",
       [id]
     );
 
@@ -120,7 +121,7 @@ export const deleteCategoria = async (req, res) => {
 
     return res.json({
       mensaje: "Categoría eliminada correctamente",
-      categoria: result.rows[0], // ✅ Sin clase
+      categoria: result.rows[0],
     });
   } catch (err) {
     return handleError(res, "Error al eliminar categoría", 500, err);

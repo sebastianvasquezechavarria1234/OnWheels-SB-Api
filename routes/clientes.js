@@ -4,15 +4,18 @@ import { adminOrPermission } from "../middleware/adminOrPermission.js";
 import {
   getClientes,
   getClienteById,
+  getMyClientProfile,
   createCliente,
   updateCliente,
   deleteCliente
-} from "../controllers/clienteController.js";
+} from "../controllers/clientesController.js";
 
 const router = Router();
 
+// Obtener mi perfil de cliente (Autocompletado checkout)
+router.get("/profile", authenticateToken, getMyClientProfile);
+
 // Crear cliente: admin o gestionar_clientes (si clientes los administra admin)
-// Si clientes son usuarios que se registran por auth, este POST puede no usarse.
 router.post("/", createCliente);
 
 // Listar y ver: admin/permiso

@@ -8,6 +8,9 @@ const { Pool } = pkg;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 10000, // Esperar 10s antes de dar timeout al conectar
+  idleTimeoutMillis: 30000,      // Cerrar clientes inactivos tras 30s
+  keepAlive: true,               // Mantener conexión viva
 });
 
 pool.on("connect", () => {

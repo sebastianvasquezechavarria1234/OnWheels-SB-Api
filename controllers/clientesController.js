@@ -3,7 +3,7 @@ import pool from "../db/postgresPool.js";
 
 // Obtener todos los clientes con info de usuario
 export const getClientes = async (req, res) => {
-      console.log("🔍 getClientes: solicitud recibida");
+  console.log("🔍 getClientes: solicitud recibida");
   console.log("Headers:", Object.keys(req.headers));
   try {
     const query = `
@@ -56,6 +56,56 @@ export const getClienteById = async (req, res) => {
   } catch (err) {
     console.error("Error al obtener cliente:", err);
     return res.status(500).json({ mensaje: "Error al obtener cliente" });
+  }
+};
+
+// Obtener perfil del cliente logueado
+export const getMyClientProfile = async (req, res) => {
+  try {
+    const id_usuario = req.user.id_usuario; // Asumiendo que el middleware de auth populo esto
+
+    if (!id_usuario) {
+      return res.status(401).json({ mensaje: "Usuario no autenticado" });
+    }
+
+    const query = `
+      SELECT 
+        c.id_cliente,
+        c.id_usuario,
+        c.direccion_envio,
+        c.telefono_contacto,
+        c.metodo_pago,
+        u.nombre_completo,
+        u.email,
+        u.telefono AS telefono_usuario,
+        u.documento
+      FROM clientes c
+      JOIN usuarios u ON c.id_usuario = u.id_usuario
+      WHERE c.id_usuario = $1;
+    `;
+
+    const result = await pool.query(query, [id_usuario]);
+
+    // Si no tiene perfil de cliente, devolvemos info basica del usuario para pre-llenar
+    if (result.rows.length === 0) {
+      // Buscar solo usuario
+      const userRes = await pool.query("SELECT nombre_completo, email, telefono, documento FROM usuarios WHERE id_usuario = $1", [id_usuario]);
+      if (userRes.rows.length === 0) return res.status(404).json({ mensaje: "Usuario no encontrado" });
+
+      return res.json({
+        exists: false,
+        ...userRes.rows[0] // Datos base para el form
+      });
+    }
+
+    return res.json({
+      exists: true,
+      ...result.rows[0]
+    });
+
+  } catch (err) {
+    console.error("Error al obtener mi perfil de cliente:", err);
+    return res.status(500).json({ mensaje: "Error al obtener perfil" });
   }
 };
 
