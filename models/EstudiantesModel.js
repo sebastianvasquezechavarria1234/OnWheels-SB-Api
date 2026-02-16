@@ -16,7 +16,7 @@ export const crearEstudiante = async (datos, client = null) => {
 
   const db = client || pool; // ← Usa el cliente de transacción si se proporciona
 
-  const usuarioCheck = await db.query("SELECT id_usuario FROM usuarios WHERE id_usuario = $1 AND estado = true", [
+  const usuarioCheck = await db.query("SELECT id_usuario FROM usuarios WHERE id_usuario = $1", [
     id_usuario,
   ]);
 
