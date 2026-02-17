@@ -15,7 +15,7 @@ export const crearPreinscripcionCtrl = async (req, res) => {
   try {
     console.log("📥 [Preinscripción] Inicio de solicitud:", req.body);
     console.log("🚀 [DEBUG] CONFIRMACIÓN DE CÓDIGO NUEVO - V2.0");
-    const {
+    let {
       id_usuario, // Viene del frontend (auth user id)
       enfermedad,
       nivel_experiencia,
@@ -25,6 +25,9 @@ export const crearPreinscripcionCtrl = async (req, res) => {
       tipo_preinscripcion, // "PROPIA" | "TERCERO"
       datos_tercero // { nombre, email, fecha_nacimiento, ... }
     } = req.body;
+
+    // Aseguramos que sea entero si viene como string
+    id_usuario = parseInt(id_usuario);
 
     console.log("🔍 [Preinscripción] Datos extraídos:", { tipo_preinscripcion, id_usuario, edad, nivel_experiencia });
 
@@ -231,6 +234,7 @@ export const crearPreinscripcionCtrl = async (req, res) => {
     // =========================================================================
 
     // Validar que NO exista ya una preinscripción pendiente para este studentUserId
+    console.log(`🔎 [Preinscripción] Verificando duplicados para StudentID: ${studentUserId} (AuthUser: ${id_usuario})`);
     const existente = await client.query(
       "SELECT id_estudiante FROM estudiantes WHERE id_usuario = $1 AND estado != 'Rechazado'",
       [studentUserId]

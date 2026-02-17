@@ -25,11 +25,13 @@ export const crearEstudiante = async (datos, client = null) => {
   }
 
   // Evitar duplicar preinscripción pendiente
+  console.log(`🔎 [EstudiantesModel] Verificando preexistencia para Usuario ID: ${id_usuario}`);
   const preexistente = await db.query(
     "SELECT id_estudiante FROM estudiantes WHERE id_usuario = $1 AND estado = 'Pendiente'",
     [id_usuario]
   );
   if (preexistente.rowCount > 0) {
+    console.warn(`⚠️ [EstudiantesModel] Bloqueo: Usuario ID ${id_usuario} ya tiene preinscripción ID ${preexistente.rows[0].id_estudiante}`);
     throw new Error("Ya tienes una preinscripción pendiente");
   }
 
