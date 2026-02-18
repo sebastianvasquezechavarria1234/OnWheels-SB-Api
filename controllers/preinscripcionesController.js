@@ -1,229 +1,406 @@
-    // controllers/preinscripcionesController.js
-    import pool from "../db/postgresPool.js";
-    import {
-      crearPreinscripcion,
-      obtenerPreinscripcionesPendientes,
-      obtenerEstudiantePorId,
-    } from "../models/EstudiantesModel.js";
-    import { crearMatricula } from "../models/matriculasModel.js";
+// controllers/preinscripcionesController.js
+import pool from "../db/postgresPool.js";
+import {
+  crearPreinscripcion,
+  obtenerPreinscripcionesPendientes,
+  obtenerEstudiantePorId,
+} from "../models/EstudiantesModel.js";
+import { crearMatricula } from "../models/matriculasModel.js";
 
-    // ================================
-    // Crear preinscripción (con lógica completa de menores y transacciones)
-    // ================================
-    export const crearPreinscripcionCtrl = async (req, res) => {
-      const client = await pool.connect();
+// ================================
+// Crear preinscripción (con lógica completa de menores y transacciones)
+// ================================
+export const crearPreinscripcionCtrl = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    console.log("📥 [Preinscripción] Inicio de solicitud:", req.body);
+    console.log("🚀 [DEBUG] CONFIRMACIÓN DE CÓDIGO NUEVO - V2.0");
+    let {
+      id_usuario, // Viene del frontend (auth user id)
+      enfermedad,
+      nivel_experiencia,
+      edad,
+      id_acudiente, // Puede venir si selecciona uno existente
+      nuevoAcudiente, // Objeto si crea uno nuevo
+      tipo_preinscripcion, // "PROPIA" | "TERCERO"
+      datos_tercero // { nombre, email, fecha_nacimiento, ... }
+    } = req.body;
+
+    // Aseguramos que sea entero si viene como string
+    id_usuario = parseInt(id_usuario);
+
+    console.log("🔍 [Preinscripción] Datos extraídos:", { tipo_preinscripcion, id_usuario, edad, nivel_experiencia });
+
+    // Validación básica
+    if (!tipo_preinscripcion || !nivel_experiencia) {
+      await client.release();
+      return res.status(400).json({ mensaje: "Faltan campos obligatorios (tipo, nivel)" });
+    }
+
+    // Iniciar transacción
+    await client.query("BEGIN");
+
+    let studentUserId = null; // El usuario que será el "estudiante"
+    let finalIdAcudiente = null;
+    let tempPassword = null;
+    let isNewUser = false;
+
+    // =========================================================================
+    // CASO 1: PREINSCRIPCIÓN PARA TERCERO (Hijo / Acudido)
+    // =========================================================================
+    if (tipo_preinscripcion === "TERCERO") {
+      const { nombre_completo, email, fecha_nacimiento, genero } = datos_tercero || {};
+
+      if (!nombre_completo || !email || !fecha_nacimiento || !edad) {
+        await client.query("ROLLBACK");
+        client.release();
+        return res.status(400).json({ mensaje: "Faltan datos del tercero" });
+      }
+
+      // 1. Validar si el email del tercero ya existe (Seguridad)
+      const emailCheck = await client.query("SELECT id_usuario FROM usuarios WHERE email = $1", [email]);
+      if (emailCheck.rowCount > 0) {
+        console.warn("⚠️ [Preinscripción] Email ya registrado:", email);
+        await client.query("ROLLBACK");
+        client.release();
+        return res.status(409).json({
+          mensaje: "El email del tercero ya está registrado. Por favor usa otro correo o contacta soporte."
+        });
+      }
+
+      // 2. Generar Token de Activación (No contraseña)
+      const crypto = await import("crypto");
+      const activationToken = crypto.randomBytes(32).toString("hex");
+      const tokenExpiration = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 horas
+
+      // 3. Crear Usuario del Tercero (Rol CLIENTE, Inactivo)
+      const insertUserQuery = `
+                INSERT INTO usuarios (nombre_completo, email, contrasena, fecha_nacimiento, estado, documento, tipo_documento, telefono, activation_token, token_expiration)
+                VALUES ($1, $2, $3, $4, false, 'NO_DOC', 'CC', '0000000000', $5, $6) 
+                RETURNING id_usuario
+            `;
+      // Nota: Se usa una contraseña dummy no utilizable para cumplir restricción NOT NULL si existe
+      const dummyPass = "$2a$10$UnusablePasswordHashForSecurityReasonsToForceActivationFlow";
+
+      const newUserRes = await client.query(insertUserQuery, [
+        nombre_completo,
+        email,
+        dummyPass,
+        fecha_nacimiento,
+        activationToken,
+        tokenExpiration
+      ]);
+      studentUserId = newUserRes.rows[0].id_usuario;
+      isNewUser = true;
+
+      // 4. Asignar Rol CLIENTE
+      const rolRes = await client.query("SELECT id_rol FROM roles WHERE nombre_rol ILIKE 'Cliente'");
+      if (rolRes.rowCount > 0) {
+        await client.query(
+          "INSERT INTO usuario_roles (id_usuario, id_rol) VALUES ($1, $2)",
+          [studentUserId, rolRes.rows[0].id_rol]
+        );
+      }
+      console.log("✅ [Preinscripción] Usuario TERCERO creado. ID:", studentUserId);
+
+      // 3. Vincular Acudiente (El usuario autenticado/padre es el acudiente)
+      // Buscamos si el usuario autenticado (req.user o id_usuario enviado) ya es acudiente
+      // NOTA: id_usuario aquí es el del PADRE (quien hace la request)
+      const parentUserId = id_usuario;
+      console.log(`👨‍👦 [Preinscripción] Buscando padre ID: ${parentUserId} (Type: ${typeof parentUserId})`);
+
+      // 4. Obtener datos del padre (usuario autenticado) para vincular acudiente
+      // Usamos SELECT * para evitar errores de columnas específicas por ahora, y query simple
+      const parentUserQuery = "SELECT * FROM usuarios WHERE id_usuario = $1";
+      const parentUser = await client.query(parentUserQuery, [parentUserId]);
+
+      if (parentUser.rows.length === 0) {
+        console.error(`❌ [Preinscripción] No se encontró usuario con ID ${parentUserId}`);
+        throw new Error("Usuario padre no encontrado en la base de datos.");
+      }
+
+      // Verificar si ya existe en tabla acudientes por EMAIL
+      const existingAcudiente = await client.query(
+        "SELECT id_acudiente FROM acudientes WHERE email = $1",
+        [parentUser.rows[0]?.email]
+      );
+
+      // (Nota: moví la búsqueda del usuario padre antes para tener el email)
+
+      if (existingAcudiente.rows.length > 0) {
+        finalIdAcudiente = existingAcudiente.rows[0].id_acudiente;
+        console.log("✅ [Preinscripción] Acudiente existente encontrado por email. ID:", finalIdAcudiente);
+      } else {
+        // Si no existe, lo creamos copiando datos básicos del usuario
+        const { nombre_completo, telefono, email } = parentUser.rows[0];
+
+        const newAcudiente = await client.query(
+          `INSERT INTO acudientes (nombre_acudiente, telefono, email, relacion)
+           VALUES ($1, $2, $3, 'Padre/Madre/Tutor')
+           RETURNING id_acudiente`,
+          [nombre_completo, telefono, email]
+        );
+        finalIdAcudiente = newAcudiente.rows[0].id_acudiente;
+        console.log("✨ [Preinscripción] Nuevo acudiente creado para el padre. ID:", finalIdAcudiente);
+      }
+
+      // 6. Enviar Correo de Activación (NO bloqueante)
       try {
-        const { 
-          id_usuario, 
-          enfermedad, 
-          nivel_experiencia, 
-          edad, 
-          id_acudiente, 
-          nuevoAcudiente 
-        } = req.body;
+        const nodemailer = (await import("nodemailer")).default;
 
-        // Validación básica
-        if (!id_usuario || !nivel_experiencia || !edad) {
-          await client.release();
-          return res.status(400).json({ mensaje: "Faltan campos obligatorios" });
+        const transporter = nodemailer.createTransport({
+          host: "smtp.gmail.com",
+          port: 465,
+          secure: true,
+          auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS
+          }
+        });
+
+        const activationLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/activar-cuenta?token=${activationToken}`;
+
+        // Log para debug manual si falla el correo
+        console.log("📧 [Preinscripción] Link de activación (Backup):", activationLink);
+
+        const mailOptions = {
+          from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+          to: email,
+          subject: "Activa tu cuenta en OnWheels",
+          html: `
+            <h1>Bienvenido a OnWheels</h1>
+            <p>Para completar tu registro, por favor activa tu cuenta haciendo clic en el siguiente enlace:</p>
+            <a href="${activationLink}">Activar Cuenta</a>
+            <p>Este enlace expira en 24 horas.</p>
+          `
+        };
+
+        // Fire & Forget: No usamos await para no bloquear ni arriesgar la transacción
+        transporter.sendMail(mailOptions)
+          .then(() => console.log("✅ [Preinscripción] Correo enviado a:", email))
+          .catch((err) => console.error("⚠️ [Preinscripción] Falló envío correo (Async):", err.message));
+
+
+      } catch (emailError) {
+        console.error("⚠️ [Preinscripción] Falló el envío del correo (No crítico):", emailError.message);
+        // NO hacemos ROLLBACK. El usuario se crea igual.
+      }
+    }
+    // =========================================================================
+    // CASO 2: PREINSCRIPCIÓN PROPIA (Usuario logueado)
+    // =========================================================================
+    else {
+      if (!id_usuario) {
+        await client.query("ROLLBACK");
+        client.release();
+        return res.status(400).json({ mensaje: "Usuario no identificado para inscripción propia" });
+      }
+      studentUserId = id_usuario;
+
+      // Lógica original de acudiente para menores (si aplica)
+      if (edad < 18) {
+        const { nuevoAcudiente, id_acudiente: idAcudienteForm } = req.body;
+
+        // Opción A: Acudiente existente seleccionado
+        if (idAcudienteForm) {
+          finalIdAcudiente = idAcudienteForm;
         }
-
-        // Iniciar transacción
-        await client.query("BEGIN");
-
-        let finalIdAcudiente = id_acudiente;
-
-        // Si es menor y se envía nuevoAcudiente, créalo
-        if (edad < 18 && nuevoAcudiente) {
-          const { nombre_acudiente, telefono, email, relacion } = nuevoAcudiente;
-          if (!nombre_acudiente || !telefono || !email || !relacion) {
+        // Opción B: Nuevo acudiente
+        else if (nuevoAcudiente) {
+          const { nombre_acudiente, telefono, email: emailAcu, relacion } = nuevoAcudiente;
+          if (!nombre_acudiente || !telefono || !emailAcu || !relacion) {
             await client.query("ROLLBACK");
             client.release();
             return res.status(400).json({ mensaje: "Faltan datos del acudiente" });
           }
           const acudienteRes = await client.query(
             `INSERT INTO acudientes (nombre_acudiente, telefono, email, relacion)
-            VALUES ($1, $2, $3, $4) RETURNING id_acudiente`,
-            [nombre_acudiente, telefono, email, relacion]
+                         VALUES ($1, $2, $3, $4) RETURNING id_acudiente`,
+            [nombre_acudiente, telefono, emailAcu, relacion]
           );
           finalIdAcudiente = acudienteRes.rows[0].id_acudiente;
         }
 
-        // Si es menor y no hay acudiente, error
-        if (edad < 18 && !finalIdAcudiente) {
+        if (!finalIdAcudiente) {
           await client.query("ROLLBACK");
           client.release();
-          return res.status(400).json({ mensaje: "Se requiere información del acudiente para menores de edad" });
+          return res.status(400).json({ mensaje: "Menor de edad requiere acudiente" });
         }
-
-        // Validar que el usuario exista
-        const userRes = await client.query("SELECT id_usuario FROM usuarios WHERE id_usuario = $1", [id_usuario]);
-        if (userRes.rowCount === 0) {
-          await client.query("ROLLBACK");
-          client.release();
-          return res.status(404).json({ mensaje: "Usuario no encontrado" });
-        }
-
-        // Validar que no tenga ya una preinscripción (en cualquier estado)
-        const existente = await client.query(
-          "SELECT id_estudiante FROM estudiantes WHERE id_usuario = $1",
-          [id_usuario]
-        );
-        if (existente.rowCount > 0) {
-          await client.query("ROLLBACK");
-          client.release();
-          return res.status(409).json({ mensaje: "Ya tienes una preinscripción pendiente" });
-        }
-
-        // Preparar datos para el modelo
-        const datosPreinscripcion = {
-          id_usuario,
-          enfermedad: enfermedad || "No aplica",
-          nivel_experiencia,
-          edad,
-          id_acudiente: finalIdAcudiente,
-        };
-
-        // Usar el modelo para crear (pero dentro de la transacción)
-        const nuevaPreinscripcion = await crearPreinscripcion(datosPreinscripcion, client);
-
-        await client.query("COMMIT");
-        client.release();
-
-        res.status(201).json({
-          mensaje: "Preinscripción creada correctamente",
-          preinscripcion: nuevaPreinscripcion,
-        });
-      } catch (error) {
-        await client.query("ROLLBACK");
-        client.release();
-        console.error("Error al crear preinscripción:", error);
-        if (error.message.includes("Usuario no encontrado")) {
-          return res.status(404).json({ mensaje: error.message });
-        }
-        if (error.message.includes("Ya tienes una preinscripción pendiente")) {
-          return res.status(409).json({ mensaje: error.message });
-        }
-        res.status(400).json({ mensaje: error.message || "Error al crear preinscripción" });
       }
+    }
+
+    // =========================================================================
+    // VERIFICACIONES FINALES COMUNES Y CREACIÓN DE ESTUDIANTE
+    // =========================================================================
+
+    // Validar que NO exista ya una preinscripción pendiente para este studentUserId
+    console.log(`🔎 [Preinscripción] Verificando duplicados para StudentID: ${studentUserId} (AuthUser: ${id_usuario})`);
+    const existente = await client.query(
+      "SELECT id_estudiante FROM estudiantes WHERE id_usuario = $1 AND estado != 'Rechazado'",
+      [studentUserId]
+    );
+    // Nota: Ajustado a verificar si ya existe registro. 
+    // Si quieres permitir re-inscripción solo si fue rechazado, la query está bien.
+    // Si tiene 'Activo', tampoco debería dejar.
+
+    if (existente.rowCount > 0) {
+      await client.query("ROLLBACK");
+      client.release();
+      return res.status(409).json({ mensaje: "El usuario ya tiene una preinscripción o es estudiante activo" });
+    }
+
+    // Crear registro en estudiantes
+    console.log("📝 [Preinscripción] Creando registro de estudiante...");
+    const datosPreinscripcion = {
+      id_usuario: studentUserId,
+      enfermedad: enfermedad || "No aplica",
+      nivel_experiencia,
+      edad,
+      id_acudiente: finalIdAcudiente,
     };
 
-    // ================================
-    // Funciones restantes: usan modelos (como en Controller B)
-    // ================================
+    const nuevaPreinscripcion = await crearPreinscripcion(datosPreinscripcion, client);
+    console.log("✅ [Preinscripción] Estudiante creado exitosamente. ID:", nuevaPreinscripcion.id_estudiante);
 
-    export const listarPreinscripcionesPendientes = async (req, res) => {
-      try {
-        const preinscripciones = await obtenerPreinscripcionesPendientes();
-        res.status(200).json(preinscripciones);
-      } catch (error) {
-        console.error("Error al listar preinscripciones pendientes:", error);
-        res.status(500).json({ mensaje: "Error al listar preinscripciones pendientes" });
-      }
-    };
+    await client.query("COMMIT");
+    client.release();
 
-    export const obtenerPreinscripcionPorId = async (req, res) => {
-      try {
-        const { id } = req.params;
-        const preinscripcion = await obtenerEstudiantePorId(id);
+    res.status(201).json({
+      mensaje: "Preinscripción creada correctamente. Por favor verifica tu correo para activar la cuenta.",
+      preinscripcion: nuevaPreinscripcion
+    });
 
-        if (!preinscripcion || preinscripcion.estado !== "Pendiente") {
-          return res.status(404).json({ mensaje: "Preinscripción no encontrada" });
-        }
+  } catch (error) {
+    console.error("❌ [Preinscripción] Error CRÍTICO capturado:", error);
+    console.error("❌ [Preinscripción] Stack Trace:", error.stack);
+    if (client) {
+      try { await client.query("ROLLBACK"); } catch (e) { }
+      client.release();
+    }
+    // Return explicit error message
+    res.status(400).json({
+      mensaje: error.message || "Error al crear preinscripción",
+      detalle: error.stack // Optional: remove in production
+    });
+  }
+};
 
-        res.status(200).json(preinscripcion);
-      } catch (error) {
-        console.error("Error al obtener preinscripción:", error);
-        res.status(500).json({ mensaje: "Error al obtener preinscripción" });
-      }
-    };
+// ================================
+// Funciones restantes: usan modelos (como en Controller B)
+// ================================
 
-    export const rechazarPreinscripcion = async (req, res) => {
-      try {
-        const { id } = req.params;
-        const result = await pool.query(
-          "UPDATE estudiantes SET estado = 'Rechazado' WHERE id_estudiante = $1 RETURNING *",
-          [id]
-        );
-        if (result.rowCount === 0) {
-          return res.status(404).json({ mensaje: "Preinscripción no encontrada" });
-        }
-        res.status(200).json({ mensaje: "Preinscripción rechazada correctamente" });
-      } catch (error) {
-        console.error("Error al rechazar preinscripción:", error);
-        res.status(500).json({ mensaje: "Error al rechazar preinscripción" });
-      }
-    };
+export const listarPreinscripcionesPendientes = async (req, res) => {
+  try {
+    const preinscripciones = await obtenerPreinscripcionesPendientes();
+    res.status(200).json(preinscripciones);
+  } catch (error) {
+    console.error("Error al listar preinscripciones pendientes:", error);
+    res.status(500).json({ mensaje: "Error al listar preinscripciones pendientes" });
+  }
+};
 
-    export const aceptarPreinscripcionYCrearMatricula = async (req, res) => {
-      const client = await pool.connect();
-      try {
-        await client.query("BEGIN");
-        const { id } = req.params;
-        const { id_clase, id_plan, fecha_matricula } = req.body;
+export const obtenerPreinscripcionPorId = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const preinscripcion = await obtenerEstudiantePorId(id);
 
-        if (!id_clase || !id_plan) {
-          await client.query("ROLLBACK");
-          client.release();
-          return res.status(400).json({
-            mensaje: "id_clase e id_plan son obligatorios para crear la matrícula",
-          });
-        }
+    if (!preinscripcion || preinscripcion.estado !== "Pendiente") {
+      return res.status(404).json({ mensaje: "Preinscripción no encontrada" });
+    }
 
-        const preinscripcion = await obtenerEstudiantePorId(id);
-        if (!preinscripcion || preinscripcion.estado !== "Pendiente") {
-          await client.query("ROLLBACK");
-          client.release();
-          return res.status(404).json({ mensaje: "Preinscripción no encontrada o ya procesada" });
-        }
+    res.status(200).json(preinscripcion);
+  } catch (error) {
+    console.error("Error al obtener preinscripción:", error);
+    res.status(500).json({ mensaje: "Error al obtener preinscripción" });
+  }
+};
 
-        const clase = await client.query("SELECT id_clase FROM clases WHERE id_clase = $1 AND estado = 'Disponible'", [id_clase]);
-        if (clase.rowCount === 0) {
-          await client.query("ROLLBACK");
-          client.release();
-          return res.status(404).json({ mensaje: "Clase no disponible" });
-        }
+export const rechazarPreinscripcion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      "UPDATE estudiantes SET estado = 'Rechazado' WHERE id_estudiante = $1 RETURNING *",
+      [id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Preinscripción no encontrada" });
+    }
+    res.status(200).json({ mensaje: "Preinscripción rechazada correctamente" });
+  } catch (error) {
+    console.error("Error al rechazar preinscripción:", error);
+    res.status(500).json({ mensaje: "Error al rechazar preinscripción" });
+  }
+};
 
-        const plan = await client.query("SELECT id_plan FROM planes_clases WHERE id_plan = $1", [id_plan]);
-        if (plan.rowCount === 0) {
-          await client.query("ROLLBACK");
-          client.release();
-          return res.status(404).json({ mensaje: "Plan no encontrado" });
-        }
+export const aceptarPreinscripcionYCrearMatricula = async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { id } = req.params;
+    const { id_clase, id_plan, fecha_matricula } = req.body;
 
-        await client.query("UPDATE estudiantes SET estado = 'Activo' WHERE id_estudiante = $1", [id]);
+    if (!id_clase || !id_plan) {
+      await client.query("ROLLBACK");
+      client.release();
+      return res.status(400).json({
+        mensaje: "id_clase e id_plan son obligatorios para crear la matrícula",
+      });
+    }
 
-        const matricula = await crearMatricula({
-          id_estudiante: id,
-          id_clase,
-          id_plan,
-          fecha_matricula,
-          estado: "Activa"
-        }, client); // ← Si tu modelo acepta cliente, pásalo
+    const preinscripcion = await obtenerEstudiantePorId(id);
+    if (!preinscripcion || preinscripcion.estado !== "Pendiente") {
+      await client.query("ROLLBACK");
+      client.release();
+      return res.status(404).json({ mensaje: "Preinscripción no encontrada o ya procesada" });
+    }
 
-        const rolEstudiante = await client.query("SELECT id_rol FROM roles WHERE nombre_rol = 'Estudiante' AND estado = true");
-        if (rolEstudiante.rowCount > 0) {
-          await client.query(
-            `INSERT INTO usuario_roles (id_usuario, id_rol) 
+    const clase = await client.query("SELECT id_clase FROM clases WHERE id_clase = $1 AND estado = 'Disponible'", [id_clase]);
+    if (clase.rowCount === 0) {
+      await client.query("ROLLBACK");
+      client.release();
+      return res.status(404).json({ mensaje: "Clase no disponible" });
+    }
+
+    const plan = await client.query("SELECT id_plan FROM planes_clases WHERE id_plan = $1", [id_plan]);
+    if (plan.rowCount === 0) {
+      await client.query("ROLLBACK");
+      client.release();
+      return res.status(404).json({ mensaje: "Plan no encontrado" });
+    }
+
+    await client.query("UPDATE estudiantes SET estado = 'Activo' WHERE id_estudiante = $1", [id]);
+
+    const matricula = await crearMatricula({
+      id_estudiante: id,
+      id_clase,
+      id_plan,
+      fecha_matricula,
+      estado: "Activa"
+    }, client); // ← Si tu modelo acepta cliente, pásalo
+
+    const rolEstudiante = await client.query("SELECT id_rol FROM roles WHERE nombre_rol = 'Estudiante' AND estado = true");
+    if (rolEstudiante.rowCount > 0) {
+      await client.query(
+        `INSERT INTO usuario_roles (id_usuario, id_rol) 
             VALUES ($1, $2) 
             ON CONFLICT (id_usuario, id_rol) DO NOTHING`,
-            [preinscripcion.id_usuario, rolEstudiante.rows[0].id_rol]
-          );
-        }
+        [preinscripcion.id_usuario, rolEstudiante.rows[0].id_rol]
+      );
+    }
 
-        await client.query("COMMIT");
-        client.release();
+    await client.query("COMMIT");
+    client.release();
 
-        res.status(200).json({
-          mensaje: "Preinscripción aceptada y matrícula creada correctamente",
-          matricula
-        });
-      } catch (error) {
-        await client.query("ROLLBACK");
-        client.release();
-        console.error("Error al aceptar preinscripción:", error);
-        res.status(500).json({
-          mensaje: error.message || "Error al aceptar preinscripción"
-        });
-      }
-    };
+    res.status(200).json({
+      mensaje: "Preinscripción aceptada y matrícula creada correctamente",
+      matricula
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    client.release();
+    console.error("Error al aceptar preinscripción:", error);
+    res.status(500).json({
+      mensaje: error.message || "Error al aceptar preinscripción"
+    });
+  }
+};

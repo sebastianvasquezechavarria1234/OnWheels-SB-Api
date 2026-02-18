@@ -113,6 +113,13 @@ export async function login(req, res) {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
+    // 🔒 Bloqueo si la cuenta no está activa o tiene un token de activación pendiente
+    if (user.estado === false || user.activation_token !== null) {
+      return res.status(403).json({
+        message: 'Tu cuenta aún no ha sido activada. Por favor revisa tu correo electrónico.'
+      });
+    }
+
     if (needsMigration) {
       const salt = await bcryptjs.genSalt(saltRounds);
       const newHashedPassword = await bcryptjs.hash(contrasena, salt);
@@ -170,20 +177,20 @@ export async function login(req, res) {
   }
 }
 // ==================== GET USER DATA (for frontend) ====================
-// export async function getAuthUser(req, res) {
-//   try {
+export async function getAuthUser(req, res) {
+  try {
 
-//     res.json({
-//       id_usuario: req.user.id_usuario,
-//       email: req.user.email,
-//       roles: req.user.roles,
-//       permisos: req.user.permisos
-//     });
-//   } catch (err) {
-//     console.error("Error en getAuthUser:", err);
-//     res.status(500).json({ message: "Error al obtener datos de usuario" });
-//   }
-// }
+    res.json({
+      id_usuario: req.user.id_usuario,
+      email: req.user.email,
+      roles: req.user.roles,
+      permisos: req.user.permisos
+    });
+  } catch (err) {
+    console.error("Error en getAuthUser:", err);
+    res.status(500).json({ message: "Error al obtener datos de usuario" });
+  }
+}
 
 // ==================== REQUEST PASSWORD RESET ====================
 export async function requestPasswordReset(req, res) {

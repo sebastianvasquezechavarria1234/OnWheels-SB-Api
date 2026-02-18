@@ -76,8 +76,6 @@
 
 // export default router;
 
-
-
 // routes/eventos.routes.js
 import express from "express";
 import { authenticateToken } from "../middleware/authMiddleware.js";
@@ -140,4 +138,3 @@ router.delete(
 );
 
 export default router;
-

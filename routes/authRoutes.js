@@ -1,16 +1,20 @@
 // backend/routes/authRoutes.js
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { 
-  register, 
-  login, 
-  requestPasswordReset, 
+import {
+  register,
+  login,
+  requestPasswordReset,
   resetPassword,
-  // getAuthUser  // ← Asegúrate de importar la función
+  getAuthUser
 } from '../controllers/authController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = Router();
+import { activateAccount } from '../controllers/activationController.js';
+
+// Activar Cuenta
+router.post('/activate', activateAccount);
 
 // Registro
 router.post(
@@ -35,7 +39,8 @@ router.post(
 );
 
 // Perfil del usuario autenticado
-// router.get("/me", authenticateToken, getAuthUser);  // ← ¡ESTA ES LA RUTA QUE FALTABA!
+// Perfil del usuario autenticado
+router.get("/me", authenticateToken, getAuthUser);
 
 // Recuperar contraseña
 router.post(
