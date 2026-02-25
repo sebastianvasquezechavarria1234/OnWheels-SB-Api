@@ -12,18 +12,26 @@ export const getProductos = async (req, res) => {
         p.precio_compra,
         p.precio_venta,
         p.precio_venta AS precio, -- Compatibilidad
-        p.imagen AS imagen,
-        p.imagen AS imagen_producto, -- Compatibilidad
         p.estado,
         p.descuento,
         p.descuento AS descuento_producto, -- Compatibilidad
         p.porcentaje_ganancia,
         p.id_categoria,
         c.nombre_categoria,
+        -- Imágenes
+        COALESCE(
+          json_agg(
+            DISTINCT jsonb_build_object(
+              'id_imagen', pi.id_imagen, 
+              'url_imagen', pi.url_imagen
+            )
+          ) FILTER (WHERE pi.id_imagen IS NOT NULL), 
+          '[]'
+        ) AS imagenes,
         -- Variantes
         COALESCE(
           json_agg(
-            json_build_object(
+            DISTINCT jsonb_build_object(
               'id_variante', v.id_variante,
               'id_color', v.id_color,
               'nombre_color', co.nombre_color,
@@ -40,6 +48,7 @@ export const getProductos = async (req, res) => {
       LEFT JOIN variantes_producto v ON p.id_producto = v.id_producto
       LEFT JOIN colores co ON v.id_color = co.id_color
       LEFT JOIN tallas t ON v.id_talla = t.id_talla
+      LEFT JOIN producto_imagenes pi ON p.id_producto = pi.id_producto
       GROUP BY p.id_producto, c.nombre_categoria
       ORDER BY p.id_producto DESC
     `;
@@ -64,18 +73,26 @@ export const getProductoById = async (req, res) => {
         p.precio_compra,
         p.precio_venta AS precio,
         p.precio_venta,
-        p.imagen AS imagen_producto,
-        p.imagen,
         p.estado,
         p.descuento AS descuento_producto,
         p.descuento,
         p.porcentaje_ganancia,
         p.id_categoria,
         c.nombre_categoria,
+        -- Imágenes
+        COALESCE(
+          json_agg(
+            DISTINCT jsonb_build_object(
+              'id_imagen', pi.id_imagen, 
+              'url_imagen', pi.url_imagen
+            )
+          ) FILTER (WHERE pi.id_imagen IS NOT NULL), 
+          '[]'
+        ) AS imagenes,
         -- Variantes
         COALESCE(
           json_agg(
-            json_build_object(
+            DISTINCT jsonb_build_object(
               'id_variante', v.id_variante,
               'id_color', v.id_color,
               'nombre_color', co.nombre_color,
@@ -92,6 +109,7 @@ export const getProductoById = async (req, res) => {
       LEFT JOIN variantes_producto v ON p.id_producto = v.id_producto
       LEFT JOIN colores co ON v.id_color = co.id_color
       LEFT JOIN tallas t ON v.id_talla = t.id_talla
+      LEFT JOIN producto_imagenes pi ON p.id_producto = pi.id_producto
       WHERE p.id_producto = $1
       GROUP BY p.id_producto, c.nombre_categoria
     `;
@@ -115,17 +133,37 @@ export const createProducto = async (req, res) => {
   try {
     await client.query('BEGIN'); // Iniciar transacción
 
+    let parsedVariantes = [];
+    if (typeof req.body.variantes === "string") {
+      try {
+        parsedVariantes = JSON.parse(req.body.variantes);
+      } catch (e) {
+        console.error("Error parseando variantes:", e);
+      }
+    } else if (Array.isArray(req.body.variantes)) {
+      parsedVariantes = req.body.variantes;
+    }
+
+    let manualUrls = [];
+    if (typeof req.body.imagenes_urls === "string") {
+      try {
+        manualUrls = JSON.parse(req.body.imagenes_urls);
+      } catch (e) {
+        manualUrls = [req.body.imagenes_urls];
+      }
+    } else if (Array.isArray(req.body.imagenes_urls)) {
+      manualUrls = req.body.imagenes_urls;
+    }
+
     const {
       id_categoria,
       nombre_producto,
       descripcion,
       precio_compra,
       precio, // Frontend envía 'precio' como venta
-      imagen_producto,
       estado,
       descuento_producto,
-      porcentaje_ganancia,
-      variantes = [] // Array de variantes
+      porcentaje_ganancia
     } = req.body;
 
     // VALIDACIÓN IMPORTANTE
@@ -137,8 +175,8 @@ export const createProducto = async (req, res) => {
     // 1. Insertar Producto
     const insertProductoQuery = `
       INSERT INTO productos 
-      (id_categoria, nombre_producto, descripcion, precio_compra, precio_venta, imagen, estado, descuento, porcentaje_ganancia)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      (id_categoria, nombre_producto, descripcion, precio_compra, precio_venta, estado, descuento, porcentaje_ganancia)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id_producto`;
 
     const productoValues = [
@@ -147,7 +185,6 @@ export const createProducto = async (req, res) => {
       descripcion,
       precio_compra,
       precio, // precio_venta
-      imagen_producto, // imagen
       estado, // boolean
       descuento_producto || 0, // descuento
       porcentaje_ganancia || 0
@@ -156,9 +193,33 @@ export const createProducto = async (req, res) => {
     const productoResult = await client.query(insertProductoQuery, productoValues);
     const newProductoId = productoResult.rows[0].id_producto;
 
-    // 2. Insertar Variantes (si existen)
-    if (variantes && variantes.length > 0) {
-      for (const variante of variantes) {
+    // 2. Insertar Imágenes
+    // Imágenes desde archivos físicos
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const url = `/uploads/${file.filename}`;
+        await client.query(
+          `INSERT INTO producto_imagenes (id_producto, url_imagen) VALUES ($1, $2)`,
+          [newProductoId, url]
+        );
+      }
+    }
+
+    // Imágenes manuales (URLs)
+    if (manualUrls && manualUrls.length > 0) {
+      for (const url of manualUrls) {
+        if (typeof url === 'string' && url.trim() !== '') {
+          await client.query(
+            `INSERT INTO producto_imagenes (id_producto, url_imagen) VALUES ($1, $2)`,
+            [newProductoId, url.trim()]
+          );
+        }
+      }
+    }
+
+    // 3. Insertar Variantes (si existen)
+    if (parsedVariantes && parsedVariantes.length > 0) {
+      for (const variante of parsedVariantes) {
         if (variante.id_color && variante.id_talla) {
           await client.query(
             `INSERT INTO variantes_producto (id_producto, id_color, id_talla, stock)
@@ -191,6 +252,43 @@ export const updateProducto = async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // Parsing formData fields
+    let parsedVariantes = [];
+    if (typeof req.body.variantes === "string") {
+      try {
+        parsedVariantes = JSON.parse(req.body.variantes);
+      } catch (e) {
+        console.error("Error parseando variantes:", e);
+      }
+    } else if (Array.isArray(req.body.variantes)) {
+      parsedVariantes = req.body.variantes;
+    }
+
+    let manualUrls = [];
+    if (typeof req.body.imagenes_urls === "string") {
+      try {
+        manualUrls = JSON.parse(req.body.imagenes_urls);
+      } catch (e) {
+        manualUrls = [req.body.imagenes_urls];
+      }
+    } else if (Array.isArray(req.body.imagenes_urls)) {
+      manualUrls = req.body.imagenes_urls;
+    }
+
+    let imgConservadasArray = [];
+    if (typeof req.body.imagenes_conservadas === "string") {
+      try {
+        imgConservadasArray = JSON.parse(req.body.imagenes_conservadas);
+      } catch (e) {
+        imgConservadasArray = [req.body.imagenes_conservadas]; // fallback
+      }
+    } else if (Array.isArray(req.body.imagenes_conservadas)) {
+      imgConservadasArray = req.body.imagenes_conservadas;
+    }
+
+    // Convertir IDs a números
+    imgConservadasArray = imgConservadasArray.map(id => Number(id)).filter(id => !isNaN(id));
+
     const { id } = req.params;
     const {
       id_categoria,
@@ -198,11 +296,9 @@ export const updateProducto = async (req, res) => {
       descripcion,
       precio_compra,
       precio,
-      imagen_producto,
       estado,
       porcentaje_ganancia,
-      descuento_producto,
-      variantes = []
+      descuento_producto
     } = req.body;
 
     // 1. Actualizar Datos Básicos
@@ -213,11 +309,10 @@ export const updateProducto = async (req, res) => {
            descripcion = $3,
            precio_compra = $4,
            precio_venta = $5,
-           imagen = $6,
-           estado = $7,
-           descuento = $8,
-           porcentaje_ganancia = $9
-       WHERE id_producto = $10`;
+           estado = $6,
+           descuento = $7,
+           porcentaje_ganancia = $8
+       WHERE id_producto = $9`;
 
     const updateValues = [
       id_categoria,
@@ -225,7 +320,6 @@ export const updateProducto = async (req, res) => {
       descripcion,
       precio_compra,
       precio,
-      imagen_producto,
       estado,
       descuento_producto,
       porcentaje_ganancia,
@@ -239,7 +333,43 @@ export const updateProducto = async (req, res) => {
       return res.status(404).json({ mensaje: "Producto no encontrado" });
     }
 
-    // 2. Gestionar Variantes
+    // 2. Gestionar Imágenes
+    // Borrar las imágenes que no estén en `imgConservadasArray`
+    if (imgConservadasArray.length > 0) {
+      const placeholders = imgConservadasArray.map((_, i) => `$${i + 2}`).join(',');
+      await client.query(
+        `DELETE FROM producto_imagenes WHERE id_producto = $1 AND id_imagen NOT IN (${placeholders})`,
+        [id, ...imgConservadasArray]
+      );
+    } else {
+      // Si no se conserva ninguna imagen, borrarlas todas (para este producto)
+      await client.query(`DELETE FROM producto_imagenes WHERE id_producto = $1`, [id]);
+    }
+
+    // Imágenes desde archivos físicos (nuevas)
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const url = `/uploads/${file.filename}`;
+        await client.query(
+          `INSERT INTO producto_imagenes (id_producto, url_imagen) VALUES ($1, $2)`,
+          [id, url]
+        );
+      }
+    }
+
+    // Imágenes manuales (URLs nuevas)
+    if (manualUrls && manualUrls.length > 0) {
+      for (const url of manualUrls) {
+        if (typeof url === 'string' && url.trim() !== '') {
+          await client.query(
+            `INSERT INTO producto_imagenes (id_producto, url_imagen) VALUES ($1, $2)`,
+            [id, url.trim()]
+          );
+        }
+      }
+    }
+
+    // 3. Gestionar Variantes
     // Estrategia simplificada: Eliminar todas las variantes anteriores y recrearlas (o hacer upsert inteligente).
     // Para simplificar y evitar inconsistencias, eliminamos y recreamos las que se envían.
     // OJO: Si se requiere mantener IDs de variantes para historial de ventas, esto NO es ideal. 
@@ -248,8 +378,8 @@ export const updateProducto = async (req, res) => {
     // OPCIÓN: Borrar variantes existentes de este producto y reinsertar las nuevas.
     await client.query('DELETE FROM variantes_producto WHERE id_producto = $1', [id]);
 
-    if (variantes && variantes.length > 0) {
-      for (const variante of variantes) {
+    if (parsedVariantes && parsedVariantes.length > 0) {
+      for (const variante of parsedVariantes) {
         if (variante.id_color && variante.id_talla) {
           await client.query(
             `INSERT INTO variantes_producto (id_producto, id_color, id_talla, stock)
