@@ -20,6 +20,7 @@ export const getVentas = async (req, res) => {
       FROM ventas v
       INNER JOIN clientes c ON v.id_cliente = c.id_cliente
       INNER JOIN usuarios u ON c.id_usuario = u.id_usuario
+      WHERE v.estado IN ('Pagado', 'Entregada', 'Procesada', 'Cancelada')
       ORDER BY v.fecha_venta DESC
     `);
 
