@@ -8,14 +8,19 @@ import {
   obtenerPorId as getMatriculaById,
   actualizar as updateMatricula,
   eliminar as deleteMatricula,
-  getMisMatriculas
+  getMisMatriculas,
+  getEstudiantesDeInstructor  // ✅ nuevo
 } from "../controllers/matriculasController.js";
 
 const router = express.Router();
 
-// 🟢 Nueva ruta: Mis matrículas (Estudiantes)
-// Antes de /:id para evitar colisiones
+// ✅ Rutas específicas PRIMERO (antes de /:id para evitar colisiones)
+
+// Mis matrículas (Estudiante autenticado)
 router.get("/mis-matriculas", authenticateToken, getMisMatriculas);
+
+// Estudiantes del instructor autenticado
+router.get("/instructor/:id_usuario", authenticateToken, getEstudiantesDeInstructor); // ✅ nueva
 
 // Listar matrículas → solo admin o con permiso "ver_matriculas"
 router.get("/", authenticateToken, adminOrPermission("ver_matriculas"), getMatriculas);
@@ -23,7 +28,7 @@ router.get("/", authenticateToken, adminOrPermission("ver_matriculas"), getMatri
 // Ver una matrícula → solo admin o con "ver_matriculas"
 router.get("/:id", authenticateToken, adminOrPermission("ver_matriculas"), getMatriculaById);
 
-// Crear matrícula (estudiante ya existe) → solo con "gestionar_matriculas"
+// Crear matrícula → solo con "gestionar_matriculas"
 router.post("/", authenticateToken, adminOrPermission("gestionar_matriculas"), createMatricula);
 
 // Actualizar matrícula → solo con "gestionar_matriculas"

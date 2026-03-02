@@ -7,26 +7,21 @@ import {
   eliminarMatricula,
   obtenerMatriculasPorEstudiante
 } from "../models/matriculasModel.js";
-import pool from "../db/postgresPool.js"; // Necesario para buscar el estudiante por id_usuario
+import pool from "../db/postgresPool.js";
 
 // Obtener matrículas del estudiante autenticado
 export const getMisMatriculas = async (req, res) => {
   try {
     const id_usuario = req.user.id_usuario;
 
-    // 1. Buscar el id_estudiante asociado al usuario
     const estQuery = "SELECT id_estudiante FROM estudiantes WHERE id_usuario = $1";
     const estResult = await pool.query(estQuery, [id_usuario]);
 
     if (estResult.rowCount === 0) {
-      // Si no es estudiante, retornamos array vacío o error?
-      // Mejor array vacío para no romper la UI
       return res.json([]);
     }
 
     const id_estudiante = estResult.rows[0].id_estudiante;
-
-    // 2. Obtener sus matrículas
     const matriculas = await obtenerMatriculasPorEstudiante(id_estudiante);
     res.json(matriculas);
   } catch (err) {
@@ -35,7 +30,7 @@ export const getMisMatriculas = async (req, res) => {
   }
 };
 
-// Crear matrícula (solo si el estudiante ya existe)
+// Crear matrícula
 export const crear = async (req, res) => {
   try {
     const { id_estudiante, id_clase, id_plan } = req.body;
@@ -55,7 +50,7 @@ export const crear = async (req, res) => {
   }
 };
 
-// Listar matrículas
+// Listar todas las matrículas (admin)
 export const listar = async (req, res) => {
   try {
     const matriculas = await obtenerMatriculas();
@@ -108,5 +103,42 @@ export const eliminar = async (req, res) => {
   } catch (error) {
     console.error("Error al eliminar matrícula:", error);
     res.status(500).json({ mensaje: "Error al eliminar matrícula" });
+  }
+};
+
+// ✅ NUEVA: Estudiantes activos del instructor
+export const getEstudiantesDeInstructor = async (req, res) => {
+  try {
+    const { id_usuario } = req.params;
+
+    const result = await pool.query(`
+      SELECT DISTINCT
+        e.id_estudiante,
+        u.nombre_completo,
+        u.email,
+        u.telefono,
+        u.documento,
+        n.nombre_nivel,
+        c.id_clase,
+        c.dia_semana,
+        c.hora_inicio,
+        m.estado
+      FROM clases_instructores ci
+      JOIN instructores i        ON ci.id_instructor = i.id_instructor
+      JOIN usuarios u_inst       ON i.id_usuario = u_inst.id_usuario
+      JOIN clases c              ON ci.id_clase = c.id_clase
+      JOIN matriculas m          ON m.id_clase = c.id_clase
+      JOIN estudiantes e         ON m.id_estudiante = e.id_estudiante
+      JOIN usuarios u            ON e.id_usuario = u.id_usuario
+      LEFT JOIN niveles_clases n ON c.id_nivel = n.id_nivel
+      WHERE u_inst.id_usuario = $1
+        AND m.estado = 'Activa'
+      ORDER BY u.nombre_completo ASC
+    `, [id_usuario]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error al obtener estudiantes del instructor:", err);
+    res.status(500).json({ mensaje: "Error al obtener estudiantes" });
   }
 };
