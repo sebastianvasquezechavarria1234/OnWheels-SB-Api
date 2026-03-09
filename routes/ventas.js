@@ -7,6 +7,7 @@ import { getVentas, getVentaById, createVenta, updateVenta, deleteVenta, cancelV
 const router = express.Router();
 
 // ... existing routes ...
+router.get("/mis-compras", authenticateToken, getMisCompras);
 
 // Listar todas (admin/gestor)
 router.get("/", authenticateToken, adminOrPermission("gestionar_ventas"), getVentas);

@@ -2,8 +2,8 @@ import pool from "../db/postgresPool.js";
 
 // ✅ Obtener todos los pedidos (estado 'Pendiente')
 export const getPedidos = async (req, res) => {
-    try {
-        const result = await pool.query(`
+  try {
+    const result = await pool.query(`
       SELECT 
         v.id_venta,
         v.id_cliente,
@@ -19,14 +19,14 @@ export const getPedidos = async (req, res) => {
       FROM ventas v
       INNER JOIN clientes c ON v.id_cliente = c.id_cliente
       INNER JOIN usuarios u ON c.id_usuario = u.id_usuario
-      WHERE v.estado = 'Pendiente'
+      WHERE v.estado IN ('Pendiente', 'Cancelada')
       ORDER BY v.fecha_venta DESC
     `);
 
-        // Obtener items de cada pedido
-        const pedidosConItems = await Promise.all(
-            result.rows.map(async (venta) => {
-                const items = await pool.query(`
+    // Obtener items de cada pedido
+    const pedidosConItems = await Promise.all(
+      result.rows.map(async (venta) => {
+        const items = await pool.query(`
           SELECT 
             dv.id_detalle_venta,
             dv.id_variante,
@@ -43,23 +43,23 @@ export const getPedidos = async (req, res) => {
           LEFT JOIN tallas t ON var.id_talla = t.id_talla
           WHERE dv.id_venta = $1
         `, [venta.id_venta]);
-                return { ...venta, items: items.rows };
-            })
-        );
+        return { ...venta, items: items.rows };
+      })
+    );
 
-        res.json(pedidosConItems);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ mensaje: "Error al obtener pedidos", error: err.message });
-    }
+    res.json(pedidosConItems);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ mensaje: "Error al obtener pedidos", error: err.message });
+  }
 };
 
 // ✅ Obtener un pedido por ID (solo si es "Pendiente")
 export const getPedidoById = async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        const ventaResult = await pool.query(`
+    const ventaResult = await pool.query(`
       SELECT 
         v.id_venta,
         v.id_cliente,
@@ -79,13 +79,13 @@ export const getPedidoById = async (req, res) => {
       WHERE v.id_venta = $1 AND v.estado = 'Pendiente'
     `, [id]);
 
-        if (ventaResult.rows.length === 0) {
-            return res.status(404).json({ mensaje: "Pedido no encontrado o ya procesado" });
-        }
+    if (ventaResult.rows.length === 0) {
+      return res.status(404).json({ mensaje: "Pedido no encontrado o ya procesado" });
+    }
 
-        const venta = ventaResult.rows[0];
+    const venta = ventaResult.rows[0];
 
-        const itemsResult = await pool.query(`
+    const itemsResult = await pool.query(`
       SELECT 
         dv.id_detalle_venta,
         dv.id_variante,
@@ -103,9 +103,9 @@ export const getPedidoById = async (req, res) => {
       WHERE dv.id_venta = $1
     `, [id]);
 
-        res.json({ ...venta, items: itemsResult.rows });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ mensaje: "Error al obtener el pedido", error: err.message });
-    }
+    res.json({ ...venta, items: itemsResult.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ mensaje: "Error al obtener el pedido", error: err.message });
+  }
 };
