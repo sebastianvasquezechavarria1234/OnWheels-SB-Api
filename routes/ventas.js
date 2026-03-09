@@ -6,18 +6,23 @@ import { getVentas, getVentaById, createVenta, updateVenta, deleteVenta, cancelV
 
 const router = express.Router();
 
-// ... existing routes ...
+// Obtener todas las ventas (Admin o permiso)
+router.get("/", authenticateToken, adminOrPermission("ver_ventas"), getVentas);
 
-// Listar todas (admin/gestor)
-router.get("/", authenticateToken, adminOrPermission("gestionar_ventas"), getVentas);
+// Obtener mis compras (Usuario logueado)
+router.get("/mis-compras", authenticateToken, getMisCompras);
 
-// Ver detalle (admin/gestor)
-router.get("/:id", authenticateToken, adminOrPermission("gestionar_ventas"), getVentaById);
+// Obtener detalles de una venta (Dueño o permiso)
+router.get("/:id", authenticateToken, checkOwnershipOrPermission({
+    sql: "SELECT c.id_usuario FROM ventas v JOIN clientes c ON v.id_cliente = c.id_cliente WHERE v.id_venta = $1",
+    ownerField: "id_usuario",
+    permission: "ver_ventas"
+}), getVentaById);
 
-// Crear nueva venta
-router.post("/", authenticateToken, adminOrPermission("gestionar_ventas"), createVenta);
+// Crear nueva venta (Cualquier usuario autenticado puede comprar)
+router.post("/", authenticateToken, createVenta);
 
-// Editar/eliminar -> admin or gestionar_ventas
+// Editar/eliminar -> solo admin or gestionar_ventas
 router.put("/:id", authenticateToken, adminOrPermission("gestionar_ventas"), updateVenta);
 router.put("/:id/status", authenticateToken, adminOrPermission("gestionar_ventas"), updateVentaStatus);
 router.put("/:id/cancel", authenticateToken, adminOrPermission("gestionar_ventas"), cancelVenta);

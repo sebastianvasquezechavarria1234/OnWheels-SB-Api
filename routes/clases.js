@@ -7,15 +7,19 @@ import {
   createClase,
   updateClase,
   deleteClase,
-  getClasesInstructor
+  getClasesInstructor,
+  getClasesInstructorDetailed
 } from "../controllers/clasesController.js";
 
 const router = express.Router();
 
 router.get("/", getClases); // público (opcional) o protected list
 
-// 🟢 Nueva ruta: Clases de un instructor específico
+// 🟢 Nueva ruta: Clases de un instructor específico (Simple para Compatibilidad Web)
 router.get("/instructor/:id", authenticateToken, getClasesInstructor);
+
+// 🟢 Nueva ruta: Clases de un instructor específico (Detallada con Estudiantes para App Móvil)
+router.get("/instructor-detalladas/:id", authenticateToken, getClasesInstructorDetailed);
 
 router.get("/:id", getClaseById);
 

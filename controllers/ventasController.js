@@ -16,7 +16,8 @@ export const getVentas = async (req, res) => {
         u.nombre_completo AS nombre_cliente,
         u.email,
         u.documento,
-        c.direccion_envio
+        COALESCE(v.direccion_envio, c.direccion_envio) AS direccion_envio,
+        COALESCE(v.telefono_envio, u.telefono) as telefono_envio
       FROM ventas v
       INNER JOIN clientes c ON v.id_cliente = c.id_cliente
       INNER JOIN usuarios u ON c.id_usuario = u.id_usuario
@@ -77,7 +78,9 @@ export const getMisCompras = async (req, res) => {
         v.metodo_pago,
         v.estado AS estado,
         v.fecha_venta,
-        v.total
+        v.total,
+        v.direccion_envio,
+        v.telefono_envio
       FROM ventas v
       WHERE v.id_cliente = $1
       ORDER BY v.fecha_venta DESC
@@ -95,7 +98,7 @@ export const getMisCompras = async (req, res) => {
             p.nombre_producto,
             co.nombre_color,
             t.nombre_talla,
-            (SELECT imagen_url FROM imagenes_producto ip WHERE ip.id_producto = p.id_producto LIMIT 1) as imagen
+            (SELECT url_imagen FROM producto_imagenes ip WHERE ip.id_producto = p.id_producto LIMIT 1) as imagen
           FROM detalle_ventas dv
           INNER JOIN variantes_producto var ON dv.id_variante = var.id_variante
           INNER JOIN productos p ON var.id_producto = p.id_producto
@@ -131,9 +134,9 @@ export const getVentaById = async (req, res) => {
         u.id_usuario,
         u.nombre_completo AS nombre_cliente,
         u.email,
-        u.telefono,
         u.documento,
-        c.direccion_envio
+        COALESCE(v.direccion_envio, c.direccion_envio) AS direccion_envio,
+        COALESCE(v.telefono_envio, c.telefono_contacto, u.telefono) AS telefono_envio
       FROM ventas v
       INNER JOIN clientes c ON v.id_cliente = c.id_cliente
       INNER JOIN usuarios u ON c.id_usuario = u.id_usuario
@@ -209,6 +212,8 @@ export const createVenta = async (req, res) => {
     );
 
     const { direccion, telefono } = req.body;
+    let direccionFinal = direccion;
+    let telefonoFinal = telefono;
 
     if (clientRecordCheck.rows.length === 0) {
       // Crear registro de cliente base
@@ -216,18 +221,27 @@ export const createVenta = async (req, res) => {
       if (user.rows.length === 0) throw new Error("Usuario no existe");
       const userData = user.rows[0];
 
+      direccionFinal = direccion || "Dirección Pendiente";
+      telefonoFinal = telefono || userData.telefono;
+
       const newClient = await client.query(
         `INSERT INTO clientes (id_usuario, direccion_envio, telefono_contacto)
          VALUES ($1, $2, $3) RETURNING id_cliente`,
         [
           id_usuario,
-          direccion || "Dirección Pendiente",
-          telefono || userData.telefono_usuario
+          direccionFinal,
+          telefonoFinal
         ]
       );
       id_cliente = newClient.rows[0].id_cliente;
     } else {
       id_cliente = clientRecordCheck.rows[0].id_cliente;
+
+      // Obtener datos existentes por si el frontend no los manda
+      const existingClient = await client.query("SELECT direccion_envio, telefono_contacto FROM clientes WHERE id_cliente = $1", [id_cliente]);
+      direccionFinal = direccion || existingClient.rows[0]?.direccion_envio || "Dirección Pendiente";
+      telefonoFinal = telefono || existingClient.rows[0]?.telefono_contacto || "Sin Telefono";
+
       // Opcional: Actualizar datos de contacto si se envían
       if (direccion || telefono) {
         await client.query("UPDATE clientes SET direccion_envio = COALESCE($1, direccion_envio), telefono_contacto = COALESCE($2, telefono_contacto) WHERE id_cliente = $3", [direccion, telefono, id_cliente]);
@@ -273,10 +287,10 @@ export const createVenta = async (req, res) => {
 
     // 3. CREAR VENTA
     const ventaResult = await client.query(
-      `INSERT INTO ventas (id_cliente, metodo_pago, estado, fecha_venta, total)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO ventas (id_cliente, metodo_pago, estado, fecha_venta, total, direccion_envio, telefono_envio)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id_venta`,
-      [id_cliente, metodo_pago || 'Efectivo', "Pendiente", fecha_venta || new Date(), totalCalculado]
+      [id_cliente, metodo_pago || 'Efectivo', "Pendiente", fecha_venta || new Date(), totalCalculado, direccionFinal, telefonoFinal]
     );
     const id_venta = ventaResult.rows[0].id_venta;
 
@@ -344,7 +358,7 @@ export const updateVenta = async (req, res) => {
         const newClient = await client.query(
           `INSERT INTO clientes (id_usuario, direccion_envio, telefono_contacto)
              VALUES ($1, $2, $3) RETURNING id_cliente`,
-          [id_usuario, direccion || "Dirección Pendiente", telefono || userData.telefono_usuario || ""]
+          [id_usuario, direccion || "Dirección Pendiente", telefono || userData.telefono || ""]
         );
         finalIdCliente = newClient.rows[0].id_cliente;
       } else {

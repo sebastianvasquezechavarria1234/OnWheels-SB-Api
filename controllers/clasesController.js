@@ -41,21 +41,36 @@ export const getClaseById = async (req, res) => {
         c.*,
         n.nombre_nivel,
         s.nombre_sede,
-        json_agg(
-          json_build_object(
-            'id_instructor', i.id_instructor,
-            'nombre_instructor', u.nombre_completo,
-            'rol_instructor', ci.rol_instructor
-          )
-        ) FILTER (WHERE i.id_instructor IS NOT NULL) AS instructores
+        (
+          SELECT COALESCE(json_agg(
+            json_build_object(
+              'id_instructor', ins.id_instructor,
+              'nombre_instructor', u_ins.nombre_completo,
+              'rol_instructor', ci_sub.rol_instructor
+            )
+          ), '[]'::json)
+          FROM clases_instructores ci_sub
+          JOIN instructores ins ON ci_sub.id_instructor = ins.id_instructor
+          JOIN usuarios u_ins ON ins.id_usuario = u_ins.id_usuario
+          WHERE ci_sub.id_clase = c.id_clase
+        ) AS instructores,
+        (
+          SELECT COALESCE(json_agg(
+            json_build_object(
+              'id_estudiante', est.id_estudiante,
+              'nombre_estudiante', u_est.nombre_completo,
+              'telefono', u_est.telefono
+            )
+          ), '[]'::json)
+          FROM matriculas mat
+          JOIN estudiantes est ON mat.id_estudiante = est.id_estudiante
+          JOIN usuarios u_est ON est.id_usuario = u_est.id_usuario
+          WHERE mat.id_clase = c.id_clase AND mat.estado = 'Activa'
+        ) AS estudiantes
       FROM clases c
       LEFT JOIN niveles_clases n ON c.id_nivel = n.id_nivel
       LEFT JOIN sedes s ON c.id_sede = s.id_sede
-      LEFT JOIN clases_instructores ci ON c.id_clase = ci.id_clase
-      LEFT JOIN instructores i ON ci.id_instructor = i.id_instructor
-      LEFT JOIN usuarios u ON i.id_usuario = u.id_usuario
       WHERE c.id_clase = $1
-      GROUP BY c.id_clase, n.nombre_nivel, s.nombre_sede
     `, [id]);
 
     if (result.rows.length === 0) {
@@ -293,6 +308,77 @@ export const getClasesInstructor = async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error("Error al obtener clases de instructor:", err);
+    res.status(500).json({ mensaje: "Error al obtener clases" });
+  }
+};
+
+/**
+ * Obtener clases asignadas al instructor autenticado con detalle de estudiantes.
+ * Versión extendida para la app móvil (incluye lista de estudiantes matriculados).
+ */
+export const getClasesInstructorDetailed = async (req, res) => {
+  try {
+    const { id } = req.params; // ID de usuario (instructor)
+    const userId = req.user.id_usuario;
+    const userRole = req.user.roles || [];
+
+    const isAdmin = userRole.some(r => r === 'administrador' || r === 'admin');
+
+    if (userId.toString() !== id.toString() && !isAdmin) {
+      return res.status(403).json({ mensaje: "No tienes permiso para ver las clases de otro instructor" });
+    }
+
+    // Buscar el id_instructor correspondiente al id_usuario
+    const instResult = await pool.query("SELECT id_instructor FROM instructores WHERE id_usuario = $1", [id]);
+    if (instResult.rowCount === 0) {
+      return res.json([]);
+    }
+    const id_instructor = instResult.rows[0].id_instructor;
+
+    const query = `
+      SELECT
+        c.*,
+        n.nombre_nivel,
+        s.nombre_sede,
+        (
+          SELECT COALESCE(json_agg(
+            json_build_object(
+              'id_instructor', ins.id_instructor,
+              'nombre_instructor', u_ins.nombre_completo,
+              'rol_instructor', ci_sub.rol_instructor
+            )
+          ), '[]'::json)
+          FROM clases_instructores ci_sub
+          JOIN instructores ins ON ci_sub.id_instructor = ins.id_instructor
+          JOIN usuarios u_ins ON ins.id_usuario = u_ins.id_usuario
+          WHERE ci_sub.id_clase = c.id_clase
+        ) AS instructores,
+        (
+          SELECT COALESCE(json_agg(
+            json_build_object(
+              'id_estudiante', est.id_estudiante,
+              'nombre_estudiante', u_est.nombre_completo,
+              'telefono', u_est.telefono
+            )
+          ), '[]'::json)
+          FROM matriculas mat
+          JOIN estudiantes est ON mat.id_estudiante = est.id_estudiante
+          JOIN usuarios u_est ON est.id_usuario = u_est.id_usuario
+          WHERE mat.id_clase = c.id_clase AND mat.estado = 'Activa'
+        ) AS estudiantes
+      FROM clases c
+      LEFT JOIN niveles_clases n ON c.id_nivel = n.id_nivel
+      LEFT JOIN sedes s ON c.id_sede = s.id_sede
+      WHERE c.id_clase IN (
+        SELECT id_clase FROM clases_instructores WHERE id_instructor = $1
+      )
+      ORDER BY c.id_clase DESC
+    `;
+
+    const result = await pool.query(query, [id_instructor]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error al obtener clases detalladas de instructor:", err);
     res.status(500).json({ mensaje: "Error al obtener clases" });
   }
 };
