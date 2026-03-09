@@ -74,14 +74,12 @@ export const createClase = async (req, res) => {
   try {
     const { id_nivel, id_sede, instructores, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin } = req.body;
 
-    // Validaciones básicas
     if (!id_nivel || !id_sede) {
       return res.status(400).json({ mensaje: "Nivel y sede son obligatorios" });
     }
 
     await client.query('BEGIN');
 
-    // Insertar la clase
     const claseResult = await client.query(
       `INSERT INTO clases (id_nivel, id_sede, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -90,7 +88,6 @@ export const createClase = async (req, res) => {
     );
     const id_clase = claseResult.rows[0].id_clase;
 
-    // Insertar los instructores
     if (instructores && instructores.length > 0) {
       for (const inst of instructores) {
         if (!inst.id_instructor) continue;
@@ -104,7 +101,6 @@ export const createClase = async (req, res) => {
 
     await client.query('COMMIT');
 
-    // Devolver la clase completa
     const result = await pool.query(`
       SELECT 
         c.*,
@@ -150,7 +146,6 @@ export const updateClase = async (req, res) => {
 
     await client.query('BEGIN');
 
-    // Actualizar la clase
     await client.query(
       `UPDATE clases
        SET 
@@ -166,10 +161,8 @@ export const updateClase = async (req, res) => {
       [id_nivel, id_sede, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin, id]
     );
 
-    // Eliminar instructores actuales
     await client.query("DELETE FROM clases_instructores WHERE id_clase = $1", [id]);
 
-    // Insertar nuevos instructores
     if (instructores && instructores.length > 0) {
       for (const inst of instructores) {
         if (!inst.id_instructor) continue;
@@ -183,7 +176,6 @@ export const updateClase = async (req, res) => {
 
     await client.query('COMMIT');
 
-    // Devolver la clase actualizada
     const result = await pool.query(`
       SELECT 
         c.*,
@@ -236,36 +228,28 @@ export const deleteClase = async (req, res) => {
   }
 };
 
-/**
- * Obtener clases asignadas al instructor autenticado.
- * - Valida que el ID solicitado coincida con el usuario token, o sea Admin.
- */
+// Clases del instructor autenticado
 export const getClasesInstructor = async (req, res) => {
   try {
-    const { id } = req.params; // ID de usuario (instructor)
+    const { id } = req.params;
     const userId = req.user.id_usuario;
-    const userRole = req.user.roles || []; // array de strings o objetos?
-    // AuthController retorna: roles: ['admin', 'instructor'] (strings) o objetos?
-    // En authController login: const roles = rolesResult.rows.map(r => r.nombre_rol.toLowerCase()); -> Array de strings.
+    const userRole = req.user.roles || [];
 
-    // Validación de seguridad: Solo el propio instructor o un admin pueden ver esto
     const isAdmin = userRole.some(r => r === 'administrador' || r === 'admin');
 
     if (userId.toString() !== id.toString() && !isAdmin) {
       return res.status(403).json({ mensaje: "No tienes permiso para ver las clases de otro instructor" });
     }
 
-    // Buscar el id_instructor correspondiente al id_usuario
-    const instResult = await pool.query("SELECT id_instructor FROM instructores WHERE id_usuario = $1", [id]);
-    if (instResult.rowCount === 0) {
-      return res.json([]); // No es instructor registrado -> 0 clases
-    }
+    const instResult = await pool.query(
+      "SELECT id_instructor FROM instructores WHERE id_usuario = $1",
+      [id]
+    );
+    if (instResult.rowCount === 0) return res.json([]);
+
     const id_instructor = instResult.rows[0].id_instructor;
 
-    // Reutilizamos la query gigante pero filtrando por instructor
-    // Nota: La query original hace LEFT JOIN instructores i ...
-    // Podemos filtrar WHERE ci.id_instructor = $1
-    const query = `
+    const result = await pool.query(`
       SELECT
         c.*,
         n.nombre_nivel,
@@ -280,19 +264,72 @@ export const getClasesInstructor = async (req, res) => {
       FROM clases c
       LEFT JOIN niveles_clases n ON c.id_nivel = n.id_nivel
       LEFT JOIN sedes s ON c.id_sede = s.id_sede
-      JOIN clases_instructores ci_filter ON c.id_clase = ci_filter.id_clase -- Join específico para el filtro
-      LEFT JOIN clases_instructores ci ON c.id_clase = ci.id_clase -- Join para el json_agg (todos los instructores de la clase)
+      JOIN clases_instructores ci_filter ON c.id_clase = ci_filter.id_clase
+      LEFT JOIN clases_instructores ci ON c.id_clase = ci.id_clase
       LEFT JOIN instructores i ON ci.id_instructor = i.id_instructor
       LEFT JOIN usuarios u ON i.id_usuario = u.id_usuario
       WHERE ci_filter.id_instructor = $1
       GROUP BY c.id_clase, n.nombre_nivel, s.nombre_sede
       ORDER BY c.id_clase DESC
-    `;
+    `, [id_instructor]);
 
-    const result = await pool.query(query, [id_instructor]);
     res.json(result.rows);
   } catch (err) {
     console.error("Error al obtener clases de instructor:", err);
     res.status(500).json({ mensaje: "Error al obtener clases" });
+  }
+};
+
+// ✅ NUEVA: Clases del estudiante autenticado
+export const getClasesEstudiante = async (req, res) => {
+  try {
+    const id_usuario = req.user.id_usuario;
+
+    const estResult = await pool.query(
+      "SELECT id_estudiante FROM estudiantes WHERE id_usuario = $1",
+      [id_usuario]
+    );
+    if (estResult.rowCount === 0) return res.json([]);
+
+    const id_estudiante = estResult.rows[0].id_estudiante;
+
+    const result = await pool.query(`
+      SELECT
+        c.id_clase,
+        c.dia_semana,
+        c.hora_inicio,
+        c.hora_fin,
+        c.cupo_maximo,
+        c.descripcion,
+        c.estado,
+        n.nombre_nivel,
+        s.nombre_sede,
+        s.direccion AS direccion_sede,
+        m.estado      AS estado_matricula,
+        m.fecha_matricula,
+        m.clases_restantes,
+        json_agg(
+          json_build_object(
+            'nombre_instructor', u.nombre_completo
+          )
+        ) FILTER (WHERE i.id_instructor IS NOT NULL) AS instructores
+      FROM matriculas m
+      JOIN clases c               ON m.id_clase = c.id_clase
+      LEFT JOIN niveles_clases n  ON c.id_nivel = n.id_nivel
+      LEFT JOIN sedes s           ON c.id_sede = s.id_sede
+      LEFT JOIN clases_instructores ci ON c.id_clase = ci.id_clase
+      LEFT JOIN instructores i    ON ci.id_instructor = i.id_instructor
+      LEFT JOIN usuarios u        ON i.id_usuario = u.id_usuario
+      WHERE m.id_estudiante = $1
+      GROUP BY
+        c.id_clase, n.nombre_nivel, s.nombre_sede,
+        s.direccion, m.estado, m.fecha_matricula, m.clases_restantes
+      ORDER BY m.fecha_matricula DESC
+    `, [id_estudiante]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error al obtener clases del estudiante:", err);
+    res.status(500).json({ mensaje: "Error al obtener tus clases" });
   }
 };

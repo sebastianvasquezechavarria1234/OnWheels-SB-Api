@@ -1,3 +1,4 @@
+// routes/clasesRoutes.js
 import express from "express";
 import { authenticateToken } from "../middleware/authMiddleware.js";
 import { adminOrPermission } from "../middleware/adminOrPermission.js";
@@ -7,16 +8,19 @@ import {
   createClase,
   updateClase,
   deleteClase,
-  getClasesInstructor
+  getClasesInstructor,
+  getClasesEstudiante
 } from "../controllers/clasesController.js";
 
 const router = express.Router();
 
-router.get("/", getClases); // público (opcional) o protected list
+router.get("/", getClases);
 
-// 🟢 Nueva ruta: Clases de un instructor específico
+// ✅ Rutas específicas SIEMPRE antes de /:id
+router.get("/mis-clases", authenticateToken, getClasesEstudiante);
 router.get("/instructor/:id", authenticateToken, getClasesInstructor);
 
+// ✅ Ruta dinámica al final
 router.get("/:id", getClaseById);
 
 router.post("/", authenticateToken, adminOrPermission("gestionar_clases"), createClase);
