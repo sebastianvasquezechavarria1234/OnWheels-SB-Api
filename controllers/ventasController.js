@@ -1,5 +1,6 @@
 // controllers/ventasController.js
 import pool from "../db/postgresPool.js";
+import { sendInvoiceEmail } from "../services/invoiceService.js";
 
 // ✅ Obtener todas las ventas (con cliente y items)
 export const getVentas = async (req, res) => {
@@ -132,6 +133,7 @@ export const getVentaById = async (req, res) => {
         v.estado AS estado,
         v.fecha_venta,
         v.total,
+        v.justificacion_cancelacion,
         u.id_usuario,
         u.nombre_completo AS nombre_cliente,
         u.email,
@@ -179,7 +181,7 @@ export const getVentaById = async (req, res) => {
 export const createVenta = async (req, res) => {
   const client = await pool.connect();
   try {
-    const { id_usuario, metodo_pago, fecha_venta, items = [] } = req.body;
+    const { id_usuario, metodo_pago, estado, fecha_venta, items = [] } = req.body;
 
     // Nota: El frontend puede enviar id_usuario. Si envía id_cliente, tendremos que buscar el usuario o asumirlo.
     // Vamos a estandarizar que se envíe id_usuario para poder validar roles fácilmente.
@@ -286,7 +288,6 @@ export const createVenta = async (req, res) => {
       });
     }
 
-    // 3. CREAR VENTA
     const ventaResult = await client.query(
       `INSERT INTO ventas (id_cliente, metodo_pago, estado, fecha_venta, total, direccion_envio, telefono_envio)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -306,6 +307,17 @@ export const createVenta = async (req, res) => {
         "UPDATE variantes_producto SET stock = stock - $1 WHERE id_variante = $2",
         [item.cantidad, item.id_variante]
       );
+    }
+
+    // 5. ENVIAR FACTURA POR CORREO
+    try {
+      const userRes = await client.query("SELECT email FROM usuarios WHERE id_usuario = $1", [id_usuario]);
+      const userEmail = userRes.rows[0]?.email;
+      if (userEmail) {
+        await sendInvoiceEmail(userEmail, { id_venta, total: totalCalculado, metodo_pago: metodo_pago || 'Efectivo', fecha_venta: fecha_venta || new Date() }, itemsProcesados);
+      }
+    } catch (emailErr) {
+      console.error("Error trigger email:", emailErr);
     }
 
     await client.query("COMMIT");
@@ -541,8 +553,12 @@ export const cancelVenta = async (req, res) => {
       }
     }
 
-    // 3. Update Estado
-    await client.query("UPDATE ventas SET estado = 'Cancelada' WHERE id_venta = $1", [id]);
+    // 3. Update Estado y Justificación
+    const { justificacion_cancelacion } = req.body;
+    await client.query(
+      "UPDATE ventas SET estado = 'Cancelada', justificacion_cancelacion = $1 WHERE id_venta = $2",
+      [justificacion_cancelacion || 'Sin justificación proporcionada', id]
+    );
 
     await client.query("COMMIT");
     res.json({ mensaje: "Venta cancelada correctamente. Stock restaurado." });

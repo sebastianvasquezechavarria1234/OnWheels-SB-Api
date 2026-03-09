@@ -6,8 +6,11 @@ import { getVentas, getVentaById, createVenta, updateVenta, deleteVenta, cancelV
 
 const router = express.Router();
 
-// Obtener todas las ventas (Admin o permiso)
-router.get("/", authenticateToken, adminOrPermission("ver_ventas"), getVentas);
+// ... existing routes ...
+router.get("/mis-compras", authenticateToken, getMisCompras);
+
+// Listar todas (admin/gestor)
+router.get("/", authenticateToken, adminOrPermission("gestionar_ventas"), getVentas);
 
 // Obtener mis compras (Usuario logueado)
 router.get("/mis-compras", authenticateToken, getMisCompras);
