@@ -6,12 +6,12 @@ export function adminOrPermission(requiredPermission) {
     }
 
     // ✅ Acceso total si es administrador
-    if (req.user.roles.includes('administrador')) {
+    if (req.user?.roles?.includes('administrador')) {
       return next();
     }
 
     // ✅ Verificar permiso explícito (en minúsculas)
-    if (req.user.permisos.includes(requiredPermission.toLowerCase())) {
+    if (req.user?.permisos?.includes(requiredPermission.toLowerCase())) {
       return next();
     }
 

@@ -12,8 +12,12 @@ router.get("/mis-compras", authenticateToken, getMisCompras);
 // Listar todas (admin/gestor)
 router.get("/", authenticateToken, adminOrPermission("gestionar_ventas"), getVentas);
 
-// Ver detalle (admin/gestor)
-router.get("/:id", authenticateToken, adminOrPermission("gestionar_ventas"), getVentaById);
+// Ver detalle (admin/gestor o dueño de la compra)
+router.get("/:id", authenticateToken, checkOwnershipOrPermission({
+    sql: "SELECT c.id_usuario FROM ventas v JOIN clientes c ON v.id_cliente = c.id_cliente WHERE v.id_venta = $1",
+    ownerField: "id_usuario",
+    permission: "gestionar_ventas"
+}), getVentaById);
 
 // Crear nueva venta
 router.post("/", authenticateToken, adminOrPermission("gestionar_ventas"), createVenta);
