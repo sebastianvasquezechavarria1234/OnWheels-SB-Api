@@ -44,6 +44,13 @@ const PORT = process.env.PORT || 3000;
 // Middlewares
 app.use(cors());
 app.use(express.json());
+
+// Logger de diagnóstico
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";

@@ -12,17 +12,20 @@ router.get("/mis-compras", authenticateToken, getMisCompras);
 // Listar todas (admin/gestor)
 router.get("/", authenticateToken, adminOrPermission("gestionar_ventas"), getVentas);
 
-// Ver detalle (admin/gestor o dueño de la compra)
+// Obtener mis compras (Usuario logueado)
+router.get("/mis-compras", authenticateToken, getMisCompras);
+
+// Obtener detalles de una venta (Dueño o permiso)
 router.get("/:id", authenticateToken, checkOwnershipOrPermission({
     sql: "SELECT c.id_usuario FROM ventas v JOIN clientes c ON v.id_cliente = c.id_cliente WHERE v.id_venta = $1",
     ownerField: "id_usuario",
-    permission: "gestionar_ventas"
+    permission: "ver_ventas"
 }), getVentaById);
 
-// Crear nueva venta
-router.post("/", authenticateToken, adminOrPermission("gestionar_ventas"), createVenta);
+// Crear nueva venta (Cualquier usuario autenticado puede comprar)
+router.post("/", authenticateToken, createVenta);
 
-// Editar/eliminar -> admin or gestionar_ventas
+// Editar/eliminar -> solo admin or gestionar_ventas
 router.put("/:id", authenticateToken, adminOrPermission("gestionar_ventas"), updateVenta);
 router.put("/:id/status", authenticateToken, adminOrPermission("gestionar_ventas"), updateVentaStatus);
 router.put("/:id/cancel", authenticateToken, adminOrPermission("gestionar_ventas"), cancelVenta);
