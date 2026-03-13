@@ -1,4 +1,4 @@
-import pool from './db/postgresPool.js';
+import pool from '../db/postgresPool.js';
 
 async function checkCols() {
     try {

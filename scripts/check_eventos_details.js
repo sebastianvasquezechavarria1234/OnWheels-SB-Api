@@ -1,13 +1,13 @@
-import pool from "./db/postgresPool.js";
+import pool from "../db/postgresPool.js";
 
 (async () => {
   try {
     const res = await pool.query(`
-      SELECT column_name, data_type 
+      SELECT column_name, is_nullable, data_type 
       FROM information_schema.columns 
       WHERE table_name = 'eventos';
     `);
-    console.log("Columnas en eventos:", res.rows.map(c => c.column_name));
+    console.log("Detalles columnas eventos:", res.rows);
   } catch (err) {
     console.error("Error consultando schema:", err);
   }

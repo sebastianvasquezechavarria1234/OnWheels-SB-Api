@@ -133,7 +133,7 @@ export const getVentaById = async (req, res) => {
         v.estado AS estado,
         v.fecha_venta,
         v.total,
-        v.justificacion_cancelacion,
+        v.motivo_cancelacion,
         u.id_usuario,
         u.nombre_completo AS nombre_cliente,
         u.email,
@@ -161,7 +161,8 @@ export const getVentaById = async (req, res) => {
         p.id_producto,
         p.nombre_producto,
         co.nombre_color,
-        t.nombre_talla
+        t.nombre_talla,
+        (SELECT url_imagen FROM producto_imagenes ip WHERE ip.id_producto = p.id_producto LIMIT 1) as imagen
       FROM detalle_ventas dv
       INNER JOIN variantes_producto var ON dv.id_variante = var.id_variante
       INNER JOIN productos p ON var.id_producto = p.id_producto
@@ -554,10 +555,10 @@ export const cancelVenta = async (req, res) => {
     }
 
     // 3. Update Estado y Justificación
-    const { justificacion_cancelacion } = req.body;
+    const { motivo_cancelacion } = req.body;
     await client.query(
-      "UPDATE ventas SET estado = 'Cancelada', justificacion_cancelacion = $1 WHERE id_venta = $2",
-      [justificacion_cancelacion || 'Sin justificación proporcionada', id]
+      "UPDATE ventas SET estado = 'Cancelada', motivo_cancelacion = $1 WHERE id_venta = $2",
+      [motivo_cancelacion || 'Sin justificación proporcionada', id]
     );
 
     await client.query("COMMIT");

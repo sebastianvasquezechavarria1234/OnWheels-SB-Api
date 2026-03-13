@@ -19,7 +19,7 @@ pool.on("connect", () => {
 
 pool.on("error", (err) => {
   console.error("❌ Error inesperado en el cliente PostgreSQL:", err);
-  process.exit(-1);
+  // process.exit(-1); -> Remoto para evitar caída del servidor por desconexiones inactivas
 });
 
 export default pool;

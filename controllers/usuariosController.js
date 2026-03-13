@@ -1,13 +1,16 @@
 
 import pool from "../db/postgresPool.js";
 import bcrypt from "bcryptjs";
+import cloudinary from "../config/cloudinary.js";
 
 /**
- * Obtener todos los usuarios con sus roles (roles -> array de objetos)
+ * Obtener todos los usuarios con sus roles (con paginación opcional)
  */
 export const getUsuarios = async (req, res) => {
   try {
-    const query = `
+    const { page, limit, search } = req.query;
+
+    let baseQuery = `
       SELECT 
         u.id_usuario,
         u.documento,
@@ -17,6 +20,8 @@ export const getUsuarios = async (req, res) => {
         u.telefono,
         u.fecha_nacimiento,
         u.estado,
+        u.foto_perfil,
+        u.estado,
         COALESCE(
           json_agg(
             json_build_object('id_rol', r.id_rol, 'nombre_rol', r.nombre_rol)
@@ -25,6 +30,34 @@ export const getUsuarios = async (req, res) => {
       FROM usuarios u
       LEFT JOIN usuario_roles ur ON ur.id_usuario = u.id_usuario
       LEFT JOIN roles r ON r.id_rol = ur.id_rol
+    `;
+
+    let countQuery = `
+      SELECT COUNT(DISTINCT u.id_usuario)
+      FROM usuarios u
+    `;
+
+    let values = [];
+    let valIndex = 1;
+
+    let whereClauses = [];
+    if (search) {
+      whereClauses.push(`(
+        u.nombre_completo ILIKE $${valIndex} OR 
+        u.email ILIKE $${valIndex} OR 
+        u.documento ILIKE $${valIndex}
+      )`);
+      values.push(`%${search}%`);
+      valIndex++;
+    }
+
+    if (whereClauses.length > 0) {
+      const whereString = " WHERE " + whereClauses.join(" AND ");
+      baseQuery += whereString;
+      countQuery += whereString;
+    }
+
+    baseQuery += `
       GROUP BY 
         u.id_usuario,
         u.documento,
@@ -33,12 +66,32 @@ export const getUsuarios = async (req, res) => {
         u.email,
         u.telefono,
         u.fecha_nacimiento,
-        u.estado
-      ORDER BY u.nombre_completo ASC;
+        u.estado,
+        u.foto_perfil
+      ORDER BY u.nombre_completo ASC
     `;
 
-    const result = await pool.query(query);
-    return res.json(result.rows);
+    if (page && limit) {
+      const offset = (parseInt(page) - 1) * parseInt(limit);
+      baseQuery += ` LIMIT $${valIndex} OFFSET $${valIndex + 1}`;
+      values.push(parseInt(limit), offset);
+
+      const [dataResult, countResult] = await Promise.all([
+        pool.query(baseQuery, values),
+        pool.query(countQuery, values.slice(0, valIndex - 1))
+      ]);
+
+      const total = parseInt(countResult.rows[0].count);
+      return res.json({
+        data: dataResult.rows,
+        total,
+        page: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit))
+      });
+    } else {
+      const result = await pool.query(baseQuery, values);
+      return res.json(result.rows);
+    }
   } catch (err) {
     console.error("Error al obtener usuarios:", err);
     return res.status(500).json({ mensaje: "Error al obtener usuarios" });
@@ -61,6 +114,8 @@ export const getUsuarioById = async (req, res) => {
         u.telefono,
         u.fecha_nacimiento,
         u.estado,
+        u.foto_perfil,
+        u.estado,
         COALESCE(
           json_agg(
             json_build_object('id_rol', r.id_rol, 'nombre_rol', r.nombre_rol)
@@ -78,7 +133,8 @@ export const getUsuarioById = async (req, res) => {
         u.email,
         u.telefono,
         u.fecha_nacimiento,
-        u.estado;
+        u.estado,
+        u.foto_perfil;
     `;
 
     const result = await pool.query(query, [id]);
@@ -108,6 +164,8 @@ export const verificarEmail = async (req, res) => {
         u.telefono,
         u.fecha_nacimiento,
         u.estado,
+        u.foto_perfil,
+        u.estado,
         COALESCE(
           json_agg(
             json_build_object('id_rol', r.id_rol, 'nombre_rol', r.nombre_rol)
@@ -125,7 +183,8 @@ export const verificarEmail = async (req, res) => {
         u.email,
         u.telefono,
         u.fecha_nacimiento,
-        u.estado;
+        u.estado,
+        u.foto_perfil;
     `;
     const result = await pool.query(query, [email]);
 
@@ -300,7 +359,8 @@ export const updateUsuario = async (req, res) => {
         email,
         telefono,
         fecha_nacimiento,
-        estado;
+        estado,
+        foto_perfil;
     `;
     const values = [documento, tipo_documento, nombre_completo, email, telefono, fecha_nacimiento, hashed, id];
 
@@ -527,7 +587,8 @@ export const updatePerfil = async (req, res) => {
         email,
         telefono,
         fecha_nacimiento,
-        estado;
+        estado,
+        foto_perfil;
     `;
 
     const result = await pool.query(query, [nombre, telefono, id]);
@@ -543,5 +604,67 @@ export const updatePerfil = async (req, res) => {
   } catch (err) {
     console.error("Error al actualizar perfil:", err);
     return res.status(500).json({ mensaje: "Error al actualizar perfil", error: err.message });
+  }
+};
+
+/**
+ * Subir o actualizar foto de perfil a Cloudinary.
+ * Ruta esperada (como ejemplo): POST /api/usuarios/:id/foto
+ */
+export const uploadProfileImage = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({ mensaje: "No se ha subido ninguna imagen" });
+    }
+
+    // Comprobar que el usuario exista
+    const userCheck = await pool.query("SELECT * FROM usuarios WHERE id_usuario = $1", [id]);
+    if (userCheck.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Usuario no encontrado" });
+    }
+
+    // Convertir el buffer en un array buffer manejable por cloudinary mediante un stream
+    // o usando un upload_stream
+    const uploadToCloudinary = () => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "onwheels_perfiles", // Carpeta en Cloudinary
+            public_id: `user_${id}_${Date.now()}` // ID con un timestamp para evitar cache
+          },
+          (error, result) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(result);
+            }
+          }
+        );
+        stream.end(req.file.buffer);
+      });
+    };
+
+    const cloudinaryResult = await uploadToCloudinary();
+    const secureUrl = cloudinaryResult.secure_url;
+
+    // Actualizar la tabla
+    await pool.query(
+      "UPDATE usuarios SET foto_perfil = $1 WHERE id_usuario = $2",
+      [secureUrl, id]
+    );
+
+    return res.json({
+      mensaje: "Foto de perfil subida correctamente",
+      foto_perfil: secureUrl
+    });
+  } catch (error) {
+    console.error("Error en uploadProfileImage:", error);
+    try {
+      const fs = await import('fs');
+      fs.writeFileSync('C:/OnWheels-SB-Api/foto_error.log', JSON.stringify(error, Object.getOwnPropertyNames(error)) + " || " + String(error));
+    } catch(e) {}
+    return res.status(500).json({ mensaje: "Error al subir la imagen", error: error.message || error.name || "Error desconocido en Cloudinary" });
   }
 };

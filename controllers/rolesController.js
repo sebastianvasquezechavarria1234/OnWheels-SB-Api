@@ -1,11 +1,52 @@
 // controllers/rolesController.js
 import pool from "../db/postgresPool.js";
 
-// ✅ Obtener todos los roles
+// ✅ Obtener todos los roles (con paginación opcional)
 export const getRoles = async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM roles ORDER BY nombre_rol ASC");
-    res.json(result.rows);
+    const { page, limit, search } = req.query;
+
+    let baseQuery = "SELECT * FROM roles";
+    let countQuery = "SELECT COUNT(*) FROM roles";
+    let whereClauses = [];
+    let values = [];
+    let valIndex = 1;
+
+    if (search) {
+      whereClauses.push(`(nombre_rol ILIKE $${valIndex} OR descripcion ILIKE $${valIndex})`);
+      values.push(`%${search}%`);
+      valIndex++;
+    }
+
+    if (whereClauses.length > 0) {
+      const whereString = " WHERE " + whereClauses.join(" AND ");
+      baseQuery += whereString;
+      countQuery += whereString;
+    }
+
+    baseQuery += " ORDER BY nombre_rol ASC";
+
+    if (page && limit) {
+      const offset = (parseInt(page) - 1) * parseInt(limit);
+      baseQuery += ` LIMIT $${valIndex} OFFSET $${valIndex + 1}`;
+      values.push(parseInt(limit), offset);
+
+      const [dataResult, countResult] = await Promise.all([
+        pool.query(baseQuery, values),
+        pool.query(countQuery, values.slice(0, valIndex - 1))
+      ]);
+
+      const total = parseInt(countResult.rows[0].count);
+      return res.json({
+        data: dataResult.rows,
+        total,
+        page: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit))
+      });
+    } else {
+      const result = await pool.query(baseQuery, values);
+      return res.json(result.rows);
+    }
   } catch (err) {
     console.error("Error en getRoles:", err);
     res.status(500).json({ mensaje: "Error al obtener roles" });

@@ -13,8 +13,10 @@ import {
   getUsuariosElegiblesParaEstudiante,
   getUsuariosSinCliente,
   getUsuariosSoloConRolCliente,
-  updatePerfil
+  updatePerfil,
+  uploadProfileImage
 } from "../controllers/usuariosController.js";
+import upload from "../middleware/upload.js";
 
 const router = express.Router();
 
@@ -62,6 +64,20 @@ router.put(
     return adminOrPermission("gestionar_usuarios")(req, res, next);
   },
   updateUsuario
+);
+
+// Subir/Actualizar foto de perfil -> si es propio -> ok; si no -> requiere "gestionar_usuarios"
+router.post(
+  "/:id/foto",
+  authenticateToken,
+  async (req, res, next) => {
+    if (String(req.params.id) === String(req.user.id_usuario)) {
+      return next();
+    }
+    return adminOrPermission("gestionar_usuarios")(req, res, next);
+  },
+  upload.single("foto_perfil"),
+  uploadProfileImage
 );
 
 // Eliminar usuario → solo admin o con "gestionar_usuarios"

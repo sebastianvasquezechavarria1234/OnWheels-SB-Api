@@ -2,25 +2,79 @@
 import pool from "../db/postgresPool.js";
 
 // ✅ Obtener todos los administradores
-// ✅ Obtener todos los usuarios con rol "Administrador" (sin necesidad de estar en tabla ADMINISTRADORES)
+// ✅ Obtener todos los administradores (con paginación opcional)
 export const getAdministradores = async (req, res) => {
   try {
-    const result = await pool.query(`
+    const { page, limit, search } = req.query;
+
+    let baseQuery = `
       SELECT 
         u.id_usuario,
         u.nombre_completo,
         u.email,
         u.telefono,
         u.documento,
-        r.nombre_rol AS rol
+        r.nombre_rol AS rol,
+        a.id_admin,
+        a.tipo_admin,
+        a.area
       FROM usuarios u
       INNER JOIN usuario_roles ur ON u.id_usuario = ur.id_usuario
       INNER JOIN roles r ON ur.id_rol = r.id_rol
+      LEFT JOIN administradores a ON u.id_usuario = a.id_usuario
       WHERE u.estado = TRUE
         AND LOWER(TRIM(r.nombre_rol)) = 'administrador'
-      ORDER BY u.nombre_completo ASC;
-    `);
-    res.json(result.rows);
+    `;
+
+    let countQuery = `
+      SELECT COUNT(*) 
+      FROM usuarios u
+      INNER JOIN usuario_roles ur ON u.id_usuario = ur.id_usuario
+      INNER JOIN roles r ON ur.id_rol = r.id_rol
+      LEFT JOIN administradores a ON u.id_usuario = a.id_usuario
+      WHERE u.estado = TRUE
+        AND LOWER(TRIM(r.nombre_rol)) = 'administrador'
+    `;
+
+    let values = [];
+    let valIndex = 1;
+
+    if (search) {
+      const searchCondition = ` AND (
+        u.nombre_completo ILIKE $${valIndex} OR 
+        u.email ILIKE $${valIndex} OR 
+        a.tipo_admin ILIKE $${valIndex} OR 
+        a.area ILIKE $${valIndex}
+      )`;
+      baseQuery += searchCondition;
+      countQuery += searchCondition;
+      values.push(`%${search}%`);
+      valIndex++;
+    }
+
+    baseQuery += " ORDER BY u.nombre_completo ASC";
+
+    if (page && limit) {
+      const offset = (parseInt(page) - 1) * parseInt(limit);
+      baseQuery += ` LIMIT $${valIndex} OFFSET $${valIndex + 1}`;
+      values.push(parseInt(limit), offset);
+
+      const [dataResult, countResult] = await Promise.all([
+        pool.query(baseQuery, values),
+        pool.query(countQuery, values.slice(0, valIndex - 1))
+      ]);
+
+      const total = parseInt(countResult.rows[0].count);
+      return res.json({
+        data: dataResult.rows,
+        total,
+        page: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit))
+      });
+    } else {
+      const result = await pool.query(baseQuery, values);
+      return res.json(result.rows);
+    }
   } catch (err) {
     console.error("❌ Error al obtener administradores:", err);
     res.status(500).json({ mensaje: "Error al obtener administradores" });
@@ -89,8 +143,8 @@ export const createAdministrador = async (req, res) => {
     const rolesProhibidos = ['Administrador', 'Estudiante', 'Instructor', 'Cliente'];
     const tieneRolProhibido = await usuarioTieneRol(id_usuario, rolesProhibidos);
     if (tieneRolProhibido) {
-      return res.status(400).json({ 
-        mensaje: "El usuario ya tiene un rol incompatible (Administrador, Estudiante, Instructor o Cliente)" 
+      return res.status(400).json({
+        mensaje: "El usuario ya tiene un rol incompatible (Administrador, Estudiante, Instructor o Cliente)"
       });
     }
 
@@ -156,8 +210,8 @@ export const updateAdministrador = async (req, res) => {
       const rolesProhibidos = ['Administrador', 'Estudiante', 'Instructor', 'Cliente'];
       const tieneRolProhibido = await usuarioTieneRol(id_usuario, rolesProhibidos);
       if (tieneRolProhibido) {
-        return res.status(400).json({ 
-          mensaje: "El usuario seleccionado tiene un rol incompatible" 
+        return res.status(400).json({
+          mensaje: "El usuario seleccionado tiene un rol incompatible"
         });
       }
 
