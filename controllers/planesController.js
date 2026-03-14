@@ -32,17 +32,17 @@ export const getPlanById = async (req, res) => {
 // ✅ Crear nuevo plan
 export const createPlan = async (req, res) => {
   try {
-    const { nombre_plan, descripcion, precio, descuento_porcentaje, numero_clases = 4 } = req.body;
+    const { nombre_plan, descripcion, precio, descuento_porcentaje, numero_clases = 4, duracion_meses = 1 } = req.body;
 
     if (!nombre_plan || precio === undefined) {
       return res.status(400).json({ mensaje: "Nombre y precio son requeridos" });
     }
 
     const result = await pool.query(
-      `INSERT INTO planes_clases (nombre_plan, descripcion, precio, descuento_porcentaje, numero_clases)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO planes_clases (nombre_plan, descripcion, precio, descuento_porcentaje, numero_clases, duracion_meses)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [nombre_plan, descripcion, precio, descuento_porcentaje, numero_clases]
+      [nombre_plan, descripcion, precio, descuento_porcentaje, numero_clases, duracion_meses]
     );
 
     res.status(201).json(result.rows[0]);
@@ -56,7 +56,7 @@ export const createPlan = async (req, res) => {
 export const updatePlan = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre_plan, descripcion, precio, descuento_porcentaje, numero_clases } = req.body;
+    const { nombre_plan, descripcion, precio, descuento_porcentaje, numero_clases, duracion_meses } = req.body;
 
     const result = await pool.query(
       `UPDATE planes_clases
@@ -64,10 +64,11 @@ export const updatePlan = async (req, res) => {
            descripcion = $2,
            precio = $3,
            descuento_porcentaje = $4,
-           numero_clases = $5
-       WHERE id_plan = $6
+           numero_clases = $5,
+           duracion_meses = $6
+       WHERE id_plan = $7
        RETURNING *`,
-      [nombre_plan, descripcion, precio, descuento_porcentaje, numero_clases, id]
+      [nombre_plan, descripcion, precio, descuento_porcentaje, numero_clases, duracion_meses, id]
     );
 
     if (result.rows.length === 0) {

@@ -11,7 +11,8 @@ export default class Evento {
     descripcion,
     imagen,
     estado,
-    nombre_categoria
+    nombre_categoria,
+    google_forms
   }) {
     this.id_evento = id_evento;
     this.id_categoria_evento = id_categoria_evento;
@@ -25,5 +26,6 @@ export default class Evento {
     this.imagen = imagen;
     this.estado = estado;
     this.nombre_categoria = nombre_categoria || null;
+    this.google_forms = google_forms || [];
   }
 }

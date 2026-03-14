@@ -87,18 +87,23 @@ export const crearMatriculaManual = async (req, res) => {
     if (claseCheck.rowCount === 0) {
       throw new Error("Clase no encontrada");
     }
-    const planCheck = await client.query("SELECT id_plan FROM planes_clases WHERE id_plan = $1", [id_plan]);
+    const planCheck = await client.query("SELECT id_plan, precio, duracion_meses FROM planes_clases WHERE id_plan = $1", [id_plan]);
     if (planCheck.rowCount === 0) {
       throw new Error("Plan no encontrado");
     }
+    const { precio, duracion_meses } = planCheck.rows[0];
 
     // Crear matrícula
     const matriculaResult = await client.query(
       `INSERT INTO matriculas (
-        id_estudiante, id_clase, id_plan, fecha_matricula, estado
-      ) VALUES ($1, $2, $3, $4, 'Activa')
+        id_estudiante, id_clase, id_plan, fecha_matricula, estado,
+        fecha_inicio, fecha_fin, precio_plan, total_pagado
+      ) VALUES (
+        $1, $2, $3, $4, 'Activa',
+        CURRENT_DATE, CURRENT_DATE + ($5 || ' months')::interval, $6, 0
+      )
       RETURNING *`,
-      [id_estudiante, id_clase, id_plan, fecha_matricula]
+      [id_estudiante, id_clase, id_plan, fecha_matricula, duracion_meses, precio]
     );
 
     await client.query("COMMIT");

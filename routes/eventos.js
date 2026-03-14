@@ -89,8 +89,22 @@ import {
   getEventosPorCategoria,
   getEventosFuturos
 } from "../controllers/eventosController.js";
+import multer from "multer";
+import path from "path";
 
 const router = express.Router();
+
+// Configuración de Multer para Eventos
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage });
 
 // ============================================
 // RUTAS PÚBLICAS (NO requieren login)
@@ -118,6 +132,7 @@ router.post(
   "/",
   authenticateToken,
   adminOrPermission("gestionar_eventos"),
+  upload.single('imagen'),
   createEvento
 );
 
@@ -126,6 +141,7 @@ router.put(
   "/:id",
   authenticateToken,
   adminOrPermission("gestionar_eventos"),
+  upload.single('imagen'),
   updateEvento
 );
 

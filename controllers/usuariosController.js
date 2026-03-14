@@ -251,14 +251,20 @@ export const updateUsuario = async (req, res) => {
 
     let hashed = null;
 
+    // Validar si el usuario existe y si es el Administrador Principal
+    const userQ = `SELECT email, contrasena FROM usuarios WHERE id_usuario = $1`;
+    const rUser = await pool.query(userQ, [id]);
+    if (rUser.rowCount === 0) {
+      return res.status(404).json({ mensaje: "Usuario no encontrado" });
+    }
+
+    const storedEmail = rUser.rows[0].email;
+    if (storedEmail === 'admin.demo@prueba.com' && email && email !== 'admin.demo@prueba.com') {
+      return res.status(403).json({ mensaje: "No se puede modificar el correo electrónico del Administrador Principal" });
+    }
+
     // Si se intenta cambiar la contraseña: validar currentPassword y confirmPassword
     if (contrasena) {
-      // comprobar que exista el usuario y obtener su hash actual
-      const userQ = `SELECT contrasena FROM usuarios WHERE id_usuario = $1`;
-      const rUser = await pool.query(userQ, [id]);
-      if (rUser.rowCount === 0) {
-        return res.status(404).json({ mensaje: "Usuario no encontrado" });
-      }
 
       const storedHash = rUser.rows[0].contrasena;
       if (!currentPassword) {
@@ -358,6 +364,35 @@ export const deleteUsuario = async (req, res) => {
   const client = await pool.connect();
   try {
     const { id } = req.params;
+
+    const userQuery = await client.query("SELECT email FROM usuarios WHERE id_usuario = $1", [id]);
+    if (userQuery.rows.length === 0) {
+      return res.status(404).json({ mensaje: "Usuario no encontrado" });
+    }
+
+    if (userQuery.rows[0].email === 'admin.demo@prueba.com') {
+      return res.status(403).json({ mensaje: "No se puede eliminar al Administrador Principal" });
+    }
+
+    // Verificar si es administrador y cuántos quedan
+    const adminCheck = await client.query(`
+      SELECT r.nombre_rol 
+      FROM usuario_roles ur
+      JOIN roles r ON ur.id_rol = r.id_rol
+      WHERE ur.id_usuario = $1 AND LOWER(TRIM(r.nombre_rol)) = 'administrador'
+    `, [id]);
+
+    if (adminCheck.rows.length > 0) {
+      const countQuery = await client.query(`
+        SELECT COUNT(*) as count 
+        FROM usuario_roles ur
+        JOIN roles r ON ur.id_rol = r.id_rol
+        WHERE LOWER(TRIM(r.nombre_rol)) = 'administrador'
+      `);
+      if (parseInt(countQuery.rows[0].count) <= 1) {
+        return res.status(403).json({ mensaje: "Debe existir al menos un administrador en el sistema" });
+      }
+    }
 
     await client.query("BEGIN");
     // eliminar asignaciones de rol

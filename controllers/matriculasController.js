@@ -5,7 +5,8 @@ import {
   obtenerMatriculaPorId,
   actualizarMatricula,
   eliminarMatricula,
-  obtenerMatriculasPorEstudiante
+  obtenerMatriculasPorEstudiante,
+  actualizarMatriculasVencidas
 } from "../models/matriculasModel.js";
 import pool from "../db/postgresPool.js";
 
@@ -13,6 +14,8 @@ import pool from "../db/postgresPool.js";
 export const getMisMatriculas = async (req, res) => {
   try {
     const id_usuario = req.user.id_usuario;
+    // Asegurar que las fechas estén al día antes de mostrar
+    await actualizarMatriculasVencidas();
 
     const estQuery = "SELECT id_estudiante FROM estudiantes WHERE id_usuario = $1";
     const estResult = await pool.query(estQuery, [id_usuario]);
@@ -53,6 +56,8 @@ export const crear = async (req, res) => {
 // Listar todas las matrículas (admin)
 export const listar = async (req, res) => {
   try {
+    // Asegurar que las fechas estén al día antes de mostrar
+    await actualizarMatriculasVencidas();
     const matriculas = await obtenerMatriculas();
     res.json(matriculas);
   } catch (error) {
@@ -140,5 +145,17 @@ export const getEstudiantesDeInstructor = async (req, res) => {
   } catch (err) {
     console.error("Error al obtener estudiantes del instructor:", err);
     res.status(500).json({ mensaje: "Error al obtener estudiantes" });
+  }
+};
+
+// ✅ NUEVA: Listar historial de un estudiante específico (para admin)
+export const listarPorEstudiante = async (req, res) => {
+  try {
+    const { id_estudiante } = req.params;
+    const matriculas = await obtenerMatriculasPorEstudiante(id_estudiante);
+    res.json(matriculas);
+  } catch (error) {
+    console.error("Error al listar historial del estudiante:", error);
+    res.status(500).json({ mensaje: "Error al obtener el historial del estudiante" });
   }
 };

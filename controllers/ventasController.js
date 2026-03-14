@@ -133,7 +133,7 @@ export const getVentaById = async (req, res) => {
         v.estado AS estado,
         v.fecha_venta,
         v.total,
-        v.justificacion_cancelacion,
+        v.motivo_cancelacion,
         u.id_usuario,
         u.nombre_completo AS nombre_cliente,
         u.email,
@@ -553,11 +553,11 @@ export const cancelVenta = async (req, res) => {
       }
     }
 
-    // 3. Update Estado y Justificación
-    const { justificacion_cancelacion } = req.body;
+    // 3. Update Estado y motivo
+    const { motivo_cancelacion } = req.body;
     await client.query(
-      "UPDATE ventas SET estado = 'Cancelada', justificacion_cancelacion = $1 WHERE id_venta = $2",
-      [justificacion_cancelacion || 'Sin justificación proporcionada', id]
+      "UPDATE ventas SET estado = 'Cancelada', motivo_cancelacion = $1 WHERE id_venta = $2",
+      [motivo_cancelacion || 'Sin motivo proporcionado', id]
     );
 
     await client.query("COMMIT");

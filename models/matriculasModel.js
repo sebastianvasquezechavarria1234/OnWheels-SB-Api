@@ -25,8 +25,9 @@ export const crearMatricula = async (datos) => {
     const claseCheck = await client.query("SELECT id_clase FROM clases WHERE id_clase = $1", [id_clase]);
     if (claseCheck.rowCount === 0) throw new Error("Clase no encontrada");
     
-    const planCheck = await client.query("SELECT id_plan FROM planes_clases WHERE id_plan = $1", [id_plan]);
+    const planCheck = await client.query("SELECT id_plan, precio, duracion_meses FROM planes_clases WHERE id_plan = $1", [id_plan]);
     if (planCheck.rowCount === 0) throw new Error("Plan no encontrado");
+    const planResult = planCheck.rows[0];
 
     // Crear matrícula (fecha automática)
     const query = `
@@ -34,13 +35,17 @@ export const crearMatricula = async (datos) => {
         id_estudiante,
         id_clase,
         id_plan,
-        estado
+        estado,
+        fecha_inicio,
+        fecha_fin,
+        precio_plan,
+        total_pagado
       )
-      VALUES ($1, $2, $3, 'Activa')
+      VALUES ($1, $2, $3, 'Activa', CURRENT_DATE, CURRENT_DATE + ($4 * interval '1 month'), $5, 0)
       RETURNING *;
     `;
 
-    const result = await client.query(query, [id_estudiante, id_clase, id_plan]);
+    const result = await client.query(query, [id_estudiante, id_clase, id_plan, planResult.duracion_meses, planResult.precio]);
     await client.query("COMMIT");
     return result.rows[0];
   } catch (error) {
@@ -51,8 +56,133 @@ export const crearMatricula = async (datos) => {
   }
 };
 
+// AUTO-VENCIMIENTO: Marca como 'Vencida' las matrículas cuya fecha_fin ya pasó
+export const actualizarMatriculasVencidas = async () => {
+  const result = await pool.query(`
+    UPDATE matriculas
+    SET estado = 'Vencida'
+    WHERE estado = 'Activa'
+      AND fecha_fin < CURRENT_DATE
+    RETURNING id_matricula
+  `);
+  if (result.rowCount > 0) {
+    console.log(`📋 Auto-vencimiento: ${result.rowCount} matrícula(s) marcadas como Vencida`);
+  }
+  return result.rowCount;
+};
+
+// PAUSAR MATRÍCULA: Cambia el estado a 'Pausada' y guarda la fecha y motivo de la pausa
+export const pausarMatricula = async (id, motivo) => {
+  const result = await pool.query(
+    "UPDATE matriculas SET estado = 'Pausada', fecha_pausa = CURRENT_DATE, motivo_pausa = $1 WHERE id_matricula = $2 AND estado = 'Activa' RETURNING *",
+    [motivo, id]
+  );
+  if (result.rowCount === 0) throw new Error("No se pudo pausar. La matrícula no existe o no está activa.");
+  return result.rows[0];
+};
+
+// REANUDAR MATRÍCULA: Reanuda una matrícula pausada y extiende la fecha_fin por los días que estuvo pausada
+export const reanudarMatricula = async (id) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    
+    // Obtener datos de la pausa
+    const res = await client.query(
+      "SELECT fecha_pausa, fecha_fin FROM matriculas WHERE id_matricula = $1 AND estado = 'Pausada'",
+      [id]
+    );
+    if (res.rowCount === 0) throw new Error("La matrícula no está pausada o no existe.");
+    const { fecha_pausa, fecha_fin } = res.rows[0];
+
+    // Calcular días de pausa: HOY - fecha_pausa
+    // Si se reanuda el mismo día, los días son 0
+    const queryReanudar = `
+      UPDATE matriculas 
+      SET 
+        estado = 'Activa',
+        fecha_fin = fecha_fin + (CURRENT_DATE - fecha_pausa)::integer * interval '1 day',
+        fecha_pausa = NULL
+      WHERE id_matricula = $1
+      RETURNING *
+    `;
+    const finalResult = await client.query(queryReanudar, [id]);
+    
+    await client.query("COMMIT");
+    return finalResult.rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+// RENOVAR MATRÍCULA: Crea una nueva matrícula basada en una existente (mismo estudiante, clase y plan)
+export const renovarMatricula = async (id_matricula_anterior, id_plan_nuevo = null) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // Obtener la matrícula anterior
+    const ant = await client.query(
+      "SELECT id_estudiante, id_clase, id_plan, estado FROM matriculas WHERE id_matricula = $1",
+      [id_matricula_anterior]
+    );
+    if (ant.rowCount === 0) throw new Error("Matrícula no encontrada");
+    const anterior = ant.rows[0];
+
+    // Permitir renovar solo si está Vencida o Finalizada
+    if (anterior.estado === 'Activa') {
+      throw new Error("La matrícula aún está activa, no necesita renovación");
+    }
+
+    const id_plan = id_plan_nuevo || anterior.id_plan;
+
+    // Verificar que el estudiante no tenga otra matrícula activa
+    const activa = await client.query(
+      "SELECT id_matricula FROM matriculas WHERE id_estudiante = $1 AND estado = 'Activa'",
+      [anterior.id_estudiante]
+    );
+    if (activa.rowCount > 0) {
+      throw new Error("El estudiante ya tiene una matrícula activa");
+    }
+
+    // Obtener precio y duración del plan
+    const plan = await client.query(
+      "SELECT precio, duracion_meses FROM planes_clases WHERE id_plan = $1",
+      [id_plan]
+    );
+    if (plan.rowCount === 0) throw new Error("Plan no encontrado");
+    const { precio, duracion_meses } = plan.rows[0];
+
+    // Crear nueva matrícula
+    const nueva = await client.query(`
+      INSERT INTO matriculas (
+        id_estudiante, id_clase, id_plan,
+        estado, fecha_inicio, fecha_fin,
+        precio_plan, total_pagado
+      )
+      VALUES ($1, $2, $3, 'Activa', CURRENT_DATE,
+              CURRENT_DATE + ($4 * interval '1 month'), $5, 0)
+      RETURNING *
+    `, [anterior.id_estudiante, anterior.id_clase, id_plan, duracion_meses, precio]);
+
+    await client.query("COMMIT");
+    return nueva.rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 // OBTENER TODAS LAS MATRÍCULAS (con clases restantes)
 export const obtenerMatriculas = async () => {
+  // Auto-marcar vencidas antes de devolver los datos
+  await actualizarMatriculasVencidas();
+
   const query = `
     SELECT 
       m.*,
@@ -66,7 +196,7 @@ export const obtenerMatriculas = async () => {
       n.nombre_nivel,
       s.nombre_sede,
       p.nombre_plan,
-      p.precio,
+      m.precio_plan,
       p.numero_clases,
       CASE 
         WHEN m.estado = 'Activa' THEN
@@ -129,7 +259,7 @@ export const obtenerMatriculasPorEstudiante = async (id_estudiante) => {
       n.nombre_nivel,
       s.nombre_sede,
       p.nombre_plan,
-      p.precio,
+      m.precio_plan,
       p.numero_clases,
       CASE 
         WHEN m.estado = 'Activa' THEN
@@ -198,7 +328,7 @@ export const obtenerMatriculaPorId = async (id) => {
       s.nombre_sede,
       s.direccion,
       p.nombre_plan,
-      p.precio,
+      m.precio_plan,
       p.numero_clases
     FROM matriculas m
     INNER JOIN estudiantes e ON m.id_estudiante = e.id_estudiante
