@@ -22,7 +22,10 @@ export const getVentas = async (req, res) => {
       FROM ventas v
       INNER JOIN clientes c ON v.id_cliente = c.id_cliente
       INNER JOIN usuarios u ON c.id_usuario = u.id_usuario
-      WHERE v.estado IN ('Pagado', 'Entregada', 'Procesada', 'Cancelada')
+      WHERE 
+        (v.metodo_pago IN ('transferencia', 'efectivo')) OR
+        (v.metodo_pago = 'contraentrega' AND v.estado = 'Entregada') OR
+        (v.estado = 'Cancelada')
       ORDER BY v.fecha_venta DESC
     `);
 
@@ -293,7 +296,7 @@ export const createVenta = async (req, res) => {
       `INSERT INTO ventas (id_cliente, metodo_pago, estado, fecha_venta, total, direccion_envio, telefono_envio)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id_venta`,
-      [id_cliente, metodo_pago || 'Efectivo', "Pendiente", fecha_venta || new Date(), totalCalculado, direccionFinal, telefonoFinal]
+      [id_cliente, metodo_pago || 'Efectivo', estado || 'Pendiente', fecha_venta || new Date(), totalCalculado, direccionFinal, telefonoFinal]
     );
     const id_venta = ventaResult.rows[0].id_venta;
 

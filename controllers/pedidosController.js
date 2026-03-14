@@ -19,7 +19,7 @@ export const getPedidos = async (req, res) => {
       FROM ventas v
       INNER JOIN clientes c ON v.id_cliente = c.id_cliente
       INNER JOIN usuarios u ON c.id_usuario = u.id_usuario
-      WHERE v.estado IN ('Pendiente', 'Cancelada')
+      WHERE v.metodo_pago = 'contraentrega' AND v.estado NOT IN ('Entregada', 'Cancelada')
       ORDER BY v.fecha_venta DESC
     `);
 
@@ -76,7 +76,9 @@ export const getPedidoById = async (req, res) => {
       FROM ventas v
       INNER JOIN clientes c ON v.id_cliente = c.id_cliente
       INNER JOIN usuarios u ON c.id_usuario = u.id_usuario
-      WHERE v.id_venta = $1 AND v.estado = 'Pendiente'
+      WHERE v.id_venta = $1 
+        AND v.metodo_pago = 'contraentrega' 
+        AND v.estado NOT IN ('Entregada', 'Cancelada')
     `, [id]);
 
     if (ventaResult.rows.length === 0) {

@@ -1,5 +1,6 @@
 // controllers/clasesController.js
 import pool from "../db/postgresPool.js";
+import cloudinary from "../config/cloudinary.js";
 
 // Obtener todas las clases con instructores
 export const getClases = async (req, res) => {
@@ -87,7 +88,7 @@ export const getClaseById = async (req, res) => {
 export const createClase = async (req, res) => {
   const client = await pool.connect();
   try {
-    const { id_nivel, id_sede, instructores, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin } = req.body;
+    const { id_nivel, id_sede, instructores, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin, url_imagen } = req.body;
 
     if (!id_nivel || !id_sede) {
       return res.status(400).json({ mensaje: "Nivel y sede son obligatorios" });
@@ -96,10 +97,10 @@ export const createClase = async (req, res) => {
     await client.query('BEGIN');
 
     const claseResult = await client.query(
-      `INSERT INTO clases (id_nivel, id_sede, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO clases (id_nivel, id_sede, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin, url_imagen)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id_clase`,
-      [id_nivel, id_sede, cupo_maximo || null, dia_semana || null, descripcion || null, estado || 'Disponible', hora_inicio || null, hora_fin || null]
+      [id_nivel, id_sede, cupo_maximo || null, dia_semana || null, descripcion || null, estado || 'Disponible', hora_inicio || null, hora_fin || null, url_imagen || null]
     );
     const id_clase = claseResult.rows[0].id_clase;
 
@@ -157,7 +158,7 @@ export const updateClase = async (req, res) => {
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { id_nivel, id_sede, instructores, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin } = req.body;
+    const { id_nivel, id_sede, instructores, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin, url_imagen } = req.body;
 
     await client.query('BEGIN');
 
@@ -171,9 +172,10 @@ export const updateClase = async (req, res) => {
          descripcion = $5,
          estado = $6,
          hora_inicio = $7,
-         hora_fin = $8
-       WHERE id_clase = $9`,
-      [id_nivel, id_sede, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin, id]
+         hora_fin = $8,
+         url_imagen = $9
+       WHERE id_clase = $10`,
+      [id_nivel, id_sede, cupo_maximo, dia_semana, descripcion, estado, hora_inicio, hora_fin, url_imagen, id]
     );
 
     await client.query("DELETE FROM clases_instructores WHERE id_clase = $1", [id]);
@@ -346,5 +348,40 @@ export const getClasesEstudiante = async (req, res) => {
   } catch (err) {
     console.error("Error al obtener clases del estudiante:", err);
     res.status(500).json({ mensaje: "Error al obtener tus clases" });
+  }
+};
+
+// ✅ Subir imagen de clase a Cloudinary
+export const uploadClaseImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ mensaje: "No se ha subido ninguna imagen" });
+    }
+
+    // Convertir el buffer en un stream para Cloudinary
+    const uploadToCloudinary = () => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "onwheels_clases",
+            public_id: `clase_${Date.now()}`
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(req.file.buffer);
+      });
+    };
+
+    const cloudinaryResult = await uploadToCloudinary();
+    res.json({
+      mensaje: "Imagen subida correctamente",
+      url_imagen: cloudinaryResult.secure_url
+    });
+  } catch (error) {
+    console.error("Error en uploadClaseImage:", error);
+    res.status(500).json({ mensaje: "Error al subir la imagen", error: error.message });
   }
 };

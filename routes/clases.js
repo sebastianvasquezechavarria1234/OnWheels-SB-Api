@@ -9,11 +9,14 @@ import {
   updateClase,
   deleteClase,
   getClasesInstructor,
-  getClasesEstudiante
+  getClasesEstudiante,
+  uploadClaseImage
 } from "../controllers/clasesController.js";
+import upload from "../middleware/upload.js";
 
 const router = express.Router();
 
+router.get("/test-mounting", (req, res) => res.json({ message: "Clases routes are mounted correctly" }));
 router.get("/", getClases);
 
 // ✅ Rutas específicas SIEMPRE antes de /:id
@@ -24,6 +27,7 @@ router.get("/instructor/:id", authenticateToken, getClasesInstructor);
 router.get("/:id", getClaseById);
 
 router.post("/", authenticateToken, adminOrPermission("gestionar_clases"), createClase);
+router.post("/upload", authenticateToken, adminOrPermission("gestionar_clases"), upload.single("imagen"), uploadClaseImage);
 router.put("/:id", authenticateToken, adminOrPermission("gestionar_clases"), updateClase);
 router.delete("/:id", authenticateToken, adminOrPermission("gestionar_clases"), deleteClase);
 
