@@ -199,6 +199,11 @@ export const updateAdministrador = async (req, res) => {
     const oldIdUsuario = existing.rows[0].id_usuario;
 
     if (id_usuario && id_usuario !== oldIdUsuario) {
+      const oldUserQuery = await pool.query("SELECT email FROM usuarios WHERE id_usuario = $1", [oldIdUsuario]);
+      if (oldUserQuery.rows.length > 0 && oldUserQuery.rows[0].email === 'admin.demo@prueba.com') {
+        return res.status(403).json({ mensaje: "No se puede modificar ni reasignar al Administrador Principal" });
+      }
+
       const userCheck = await pool.query(
         "SELECT id_usuario FROM usuarios WHERE id_usuario = $1 AND estado = TRUE",
         [id_usuario]
@@ -270,6 +275,23 @@ export const deleteAdministrador = async (req, res) => {
     }
 
     const id_usuario = result.rows[0].id_usuario;
+
+    // Proteger Administrador Principal
+    const userQuery = await pool.query("SELECT email FROM usuarios WHERE id_usuario = $1", [id_usuario]);
+    if (userQuery.rows.length > 0 && userQuery.rows[0].email === 'admin.demo@prueba.com') {
+      return res.status(403).json({ mensaje: "No se puede eliminar al Administrador Principal" });
+    }
+
+    // Proteger al último administrador
+    const countQuery = await pool.query(`
+      SELECT COUNT(*) as count 
+      FROM usuario_roles ur
+      JOIN roles r ON ur.id_rol = r.id_rol
+      WHERE LOWER(TRIM(r.nombre_rol)) = 'administrador'
+    `);
+    if (parseInt(countQuery.rows[0].count) <= 1) {
+      return res.status(403).json({ mensaje: "Debe existir al menos un administrador en el sistema" });
+    }
 
     // Eliminar registro
     await pool.query("DELETE FROM administradores WHERE id_admin = $1", [id]);

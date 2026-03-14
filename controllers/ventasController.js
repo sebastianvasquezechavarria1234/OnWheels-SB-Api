@@ -137,6 +137,7 @@ export const getVentaById = async (req, res) => {
         v.fecha_venta,
         v.total,
         v.motivo_cancelacion,
+        v.motivo_cancelacion,
         u.id_usuario,
         u.nombre_completo AS nombre_cliente,
         u.email,
@@ -565,7 +566,7 @@ export const cancelVenta = async (req, res) => {
     );
 
     await client.query("COMMIT");
-    res.json({ mensaje: "Venta cancelada correctamente. Stock restaurado." });
+    res.json({ mensaje: "Ventañ cancelada correctamente. Stock restaurado." });
 
   } catch (err) {
     await client.query("ROLLBACK");

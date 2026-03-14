@@ -96,6 +96,12 @@ export const updateRol = async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre_rol, descripcion, estado } = req.body;
+    
+    const officialRoles = [3, 9, 10, 12];
+    if (officialRoles.includes(parseInt(id))) {
+      return res.status(403).json({ mensaje: "No se pueden editar los roles oficiales del sistema" });
+    }
+
     if (!nombre_rol?.trim()) {
       return res.status(400).json({ mensaje: "El nombre del rol es obligatorio" });
     }
@@ -122,7 +128,7 @@ export const updateRol = async (req, res) => {
 export const deleteRol = async (req, res) => {
   try {
     const { id } = req.params;
-    const officialRoles = [3, 9, 10, 12, 13];
+    const officialRoles = [3, 9, 10, 12];
     if (officialRoles.includes(parseInt(id))) {
       return res.status(400).json({ mensaje: "No se pueden eliminar roles oficiales" });
     }

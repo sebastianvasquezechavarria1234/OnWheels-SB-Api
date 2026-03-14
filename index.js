@@ -10,6 +10,7 @@ import tallaRoutes from "./routes/tallas.js";
 import colorRoutes from "./routes/colores.js";
 import authRoutes from "./routes/authRoutes.js";
 import matriculasRoutes from "./routes/matriculas.js";
+import { actualizarMatriculasVencidas } from "./models/matriculasModel.js";
 import preinscripcionesRoutes from "./routes/preinscripciones.js";
 import planesClasesRoutes from "./routes/planes.js";
 import nivelesClasesRoutes from "./routes/niveles.js";
@@ -75,6 +76,21 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
   } catch (err) {
     console.error("❌ Error conectando a PostgreSQL:", err);
   }
+
+  // 📋 Auto-vencimiento: ejecutar al inicio y cada 6 horas
+  try {
+    const vencidas = await actualizarMatriculasVencidas();
+    console.log(`📋 Auto-vencimiento inicial: ${vencidas} matrícula(s) actualizadas`);
+  } catch (err) {
+    console.error("❌ Error en auto-vencimiento inicial:", err.message);
+  }
+  setInterval(async () => {
+    try {
+      await actualizarMatriculasVencidas();
+    } catch (err) {
+      console.error("❌ Error en auto-vencimiento periódico:", err.message);
+    }
+  }, 6 * 60 * 60 * 1000); // cada 6 horas
 })();
 
 // 📌 Endpoint raíz

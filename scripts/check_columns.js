@@ -1,14 +1,14 @@
 import pool from "../db/postgresPool.js";
+import pool from './db/postgresPool.js';
 
-(async () => {
-  try {
-    const res = await pool.query(`
-      SELECT column_name, data_type 
-      FROM information_schema.columns 
-      WHERE table_name = 'envios_masivos';
-    `);
-    console.log("Columnas en envios_masivos:", res.rows);
-  } catch (err) {
-    console.error("Error consultando schema:", err);
-  }
-})();
+const tables = ['ventas', 'usuarios', 'clientes'];
+
+for (const table of tables) {
+  const res = await pool.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = '${table}' ORDER BY ordinal_position`
+  );
+  console.log(`\n=== ${table} ===`);
+  console.log(res.rows.map(r => r.column_name).join(', '));
+}
+
+process.exit(0);

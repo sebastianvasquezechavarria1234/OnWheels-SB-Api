@@ -72,15 +72,39 @@ export const createEvento = async (req, res) => {
     const { 
       id_categoria_evento,
       id_sede,
-      id_patrocinador, // Nuevo campo
+      id_patrocinador,
       nombre_evento,
       fecha_evento,
       hora_inicio,
       hora_aproximada_fin,
       descripcion,
-      imagen, // Corregido de imagen_evento a imagen
-      estado = "activo"
+      imagen,
+      estado = "activo",
+      google_forms = []
     } = req.body;
+
+    // Si se subió un archivo, usar esa ruta
+    let finalImagen = imagen;
+    if (req.file) {
+      finalImagen = `/uploads/${req.file.filename}`;
+    }
+
+    // Normalizar google_forms (si viene de FormData como google_forms[])
+    let finalGoogleForms = google_forms;
+    if (req.body['google_forms[]']) {
+      finalGoogleForms = Array.isArray(req.body['google_forms[]']) 
+        ? req.body['google_forms[]'] 
+        : [req.body['google_forms[]']];
+    } else if (typeof google_forms === 'string') {
+        try {
+            finalGoogleForms = JSON.parse(google_forms);
+        } catch (e) {
+            finalGoogleForms = google_forms.split(',').filter(l => l.trim());
+        }
+    }
+    
+    if (!Array.isArray(finalGoogleForms)) finalGoogleForms = [];
+
 
     // === VALIDACIONES DE DATOS ===
     // 1. Campos requeridos
@@ -122,22 +146,23 @@ export const createEvento = async (req, res) => {
     const sql = `
       INSERT INTO eventos 
         (id_categoria_evento, id_sede, id_patrocinador, nombre_evento, fecha_evento,
-         hora_inicio, hora_aproximada_fin, descripcion, imagen, estado)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         hora_inicio, hora_aproximada_fin, descripcion, imagen, estado, google_forms)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *;
     `;
 
     const { rows } = await pool.query(sql, [
-      id_categoria_evento,
-      id_sede,
-      id_patrocinador || null, // Manejar nulo si no viene
-      nombre_evento,
-      fecha_evento,
-      hora_inicio,
-      hora_aproximada_fin,
-      descripcion,
-      imagen,
-      estado
+      id_categoria_evento || null,
+      id_sede || null,
+      id_patrocinador || null,
+      nombre_evento || null,
+      fecha_evento || null,
+      hora_inicio || null,
+      hora_aproximada_fin || null,
+      descripcion || null,
+      finalImagen || null,
+      estado || 'activo',
+      finalGoogleForms || []
     ]);
 
     const nuevoEvento = rows[0];
@@ -191,8 +216,32 @@ export const updateEvento = async (req, res) => {
       hora_aproximada_fin,
       descripcion,
       imagen,
-      estado
+      estado,
+      google_forms
     } = req.body;
+
+    // Si se subió un archivo, usar esa ruta
+    let finalImagen = imagen;
+    if (req.file) {
+      finalImagen = `/uploads/${req.file.filename}`;
+    }
+
+    // Normalizar google_forms
+    let finalGoogleForms = google_forms;
+    if (req.body['google_forms[]']) {
+      finalGoogleForms = Array.isArray(req.body['google_forms[]']) 
+        ? req.body['google_forms[]'] 
+        : [req.body['google_forms[]']];
+    } else if (typeof google_forms === 'string') {
+        try {
+            finalGoogleForms = JSON.parse(google_forms);
+        } catch (e) {
+            finalGoogleForms = google_forms.split(',').filter(l => l.trim());
+        }
+    }
+    
+    if (google_forms !== undefined && !Array.isArray(finalGoogleForms)) finalGoogleForms = [];
+
 
     const checkSql = `SELECT * FROM eventos WHERE id_evento = $1`;
     const check = await pool.query(checkSql, [id]);
@@ -213,22 +262,24 @@ export const updateEvento = async (req, res) => {
         hora_aproximada_fin = COALESCE($7, hora_aproximada_fin),
         descripcion = COALESCE($8, descripcion),
         imagen = COALESCE($9, imagen),
-        estado = COALESCE($10, estado)
-      WHERE id_evento = $11
+        estado = COALESCE($10, estado),
+        google_forms = COALESCE($11, google_forms)
+      WHERE id_evento = $12
       RETURNING *;
     `;
 
     const { rows } = await pool.query(sql, [
-      id_categoria_evento,
-      id_sede,
-      id_patrocinador,
-      nombre_evento,
-      fecha_evento,
-      hora_inicio,
-      hora_aproximada_fin,
-      descripcion,
-      imagen,
-      estado,
+      id_categoria_evento || null,
+      id_sede || null,
+      id_patrocinador || null,
+      nombre_evento || null,
+      fecha_evento || null,
+      hora_inicio || null,
+      hora_aproximada_fin || null,
+      descripcion || null,
+      finalImagen || null,
+      estado || null,
+      finalGoogleForms || null,
       id
     ]);
 

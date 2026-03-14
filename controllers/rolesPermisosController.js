@@ -5,7 +5,7 @@ export const getRolesPermisos = async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT rp.id_rol_permiso, r.nombre_rol, p.nombre_permiso, p.descripcion
-      FROM rol_permisos rp
+      FROM roles_permisos rp
       INNER JOIN roles r ON rp.id_rol = r.id_rol
       INNER JOIN permisos p ON rp.id_permiso = p.id_permiso
       ORDER BY r.nombre_rol, p.nombre_permiso
@@ -38,7 +38,7 @@ export const asignarPermisoARol = async (req, res) => {
     }
 
     const duplicate = await pool.query(
-      "SELECT id_rol_permiso FROM rol_permisos WHERE id_rol = $1 AND id_permiso = $2",
+      "SELECT id_rol_permiso FROM roles_permisos WHERE id_rol = $1 AND id_permiso = $2",
       [id_rol, id_permiso],
     )
 
@@ -47,7 +47,7 @@ export const asignarPermisoARol = async (req, res) => {
     }
 
     const result = await pool.query(
-      "INSERT INTO rol_permisos (id_rol, id_permiso) VALUES ($1, $2) RETURNING id_rol_permiso",
+      "INSERT INTO roles_permisos (id_rol, id_permiso) VALUES ($1, $2) RETURNING id_rol_permiso",
       [id_rol, id_permiso],
     )
 
@@ -71,7 +71,7 @@ export const eliminarPermisoDeRol = async (req, res) => {
       })
     }
 
-    const result = await pool.query("DELETE FROM rol_permisos WHERE id_rol = $1 AND id_permiso = $2", [
+    const result = await pool.query("DELETE FROM roles_permisos WHERE id_rol = $1 AND id_permiso = $2", [
       id_rol,
       id_permiso,
     ])
@@ -114,7 +114,7 @@ export const getRoleById = async (req, res) => {
     const permisos = await pool.query(
       `SELECT p.id_permiso, p.nombre_permiso, p.descripcion
        FROM permisos p
-       INNER JOIN rol_permisos rp ON p.id_permiso = rp.id_permiso
+       INNER JOIN roles_permisos rp ON p.id_permiso = rp.id_permiso
        WHERE rp.id_rol = $1`,
       [id],
     )
