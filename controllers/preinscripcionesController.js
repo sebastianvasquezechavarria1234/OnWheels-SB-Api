@@ -23,7 +23,7 @@ export const crearPreinscripcionCtrl = async (req, res) => {
       id_acudiente, // Puede venir si selecciona uno existente
       nuevoAcudiente, // Objeto si crea uno nuevo
       tipo_preinscripcion, // "PROPIA" | "TERCERO"
-      datos_tercero // { nombre, email, fecha_nacimiento, ... }
+      datos_tercero // { nombre_completo, email, genero }
     } = req.body;
 
     // Aseguramos que sea entero si viene como string
@@ -49,9 +49,9 @@ export const crearPreinscripcionCtrl = async (req, res) => {
     // CASO 1: PREINSCRIPCIÓN PARA TERCERO (Hijo / Acudido)
     // =========================================================================
     if (tipo_preinscripcion === "TERCERO") {
-      const { nombre_completo, email, fecha_nacimiento, genero } = datos_tercero || {};
+      const { nombre_completo, email, genero } = datos_tercero || {};
 
-      if (!nombre_completo || !email || !fecha_nacimiento || !edad) {
+      if (!nombre_completo || !email || !edad) {
         await client.query("ROLLBACK");
         client.release();
         return res.status(400).json({ mensaje: "Faltan datos del tercero" });
@@ -75,8 +75,8 @@ export const crearPreinscripcionCtrl = async (req, res) => {
 
       // 3. Crear Usuario del Tercero (Rol CLIENTE, Inactivo)
       const insertUserQuery = `
-                INSERT INTO usuarios (nombre_completo, email, contrasena, fecha_nacimiento, estado, documento, tipo_documento, telefono, activation_token, token_expiration)
-                VALUES ($1, $2, $3, $4, false, 'NO_DOC', 'CC', '0000000000', $5, $6) 
+                INSERT INTO usuarios (nombre_completo, email, contrasena, estado, documento, tipo_documento, telefono, activation_token, token_expiration)
+                VALUES ($1, $2, $3, false, 'NO_DOC', 'CC', '0000000000', $4, $5) 
                 RETURNING id_usuario
             `;
       // Nota: Se usa una contraseña dummy no utilizable para cumplir restricción NOT NULL si existe
@@ -86,7 +86,6 @@ export const crearPreinscripcionCtrl = async (req, res) => {
         nombre_completo,
         email,
         dummyPass,
-        fecha_nacimiento,
         activationToken,
         tokenExpiration
       ]);
