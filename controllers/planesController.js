@@ -38,6 +38,14 @@ export const createPlan = async (req, res) => {
       return res.status(400).json({ mensaje: "Nombre y precio son requeridos" });
     }
 
+    if (!descripcion || typeof descripcion !== 'string' || !descripcion.trim()) {
+      return res.status(400).json({ mensaje: "El campo descripción es requerido y no puede estar vacío" });
+    }
+
+    if (descripcion.length > 700) {
+      return res.status(400).json({ mensaje: "La descripción no puede superar los 700 caracteres" });
+    }
+
     const result = await pool.query(
       `INSERT INTO planes_clases (nombre_plan, descripcion, precio, descuento_porcentaje, numero_clases, duracion_meses)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -57,6 +65,14 @@ export const updatePlan = async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre_plan, descripcion, precio, descuento_porcentaje, numero_clases, duracion_meses } = req.body;
+
+    if (!descripcion || typeof descripcion !== 'string' || !descripcion.trim()) {
+      return res.status(400).json({ mensaje: "El campo descripción es requerido y no puede estar vacío" });
+    }
+
+    if (descripcion.length > 700) {
+      return res.status(400).json({ mensaje: "La descripción no puede superar los 700 caracteres" });
+    }
 
     const result = await pool.query(
       `UPDATE planes_clases

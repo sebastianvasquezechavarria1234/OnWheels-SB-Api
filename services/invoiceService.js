@@ -13,13 +13,17 @@ const transporter = nodemailer.createTransport({
 });
 
 export const sendInvoiceEmail = async (email, venta, items) => {
+    const nombreCliente = venta.nombre_cliente || "Cliente";
     const itemsHtml = items
         .map(
             (item) => `
     <tr>
-      <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.nombre_producto}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.nombre_color} / ${item.nombre_talla}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.cantidad}</td>
+      <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">
+        ${item.url_imagen ? `<img src="${item.url_imagen}" width="50" style="border-radius: 8px; object-fit: cover; aspect-ratio: 1/1;" alt="${item.nombre_producto || 'Producto'}">` : ''}
+      </td>
+      <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.nombre_producto || 'Producto'}</td>
+      <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.nombre_color || 'N/A'} / ${item.nombre_talla || 'N/A'}</td>
+      <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${item.cantidad}</td>
       <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">$${Number(item.precio_unitario).toLocaleString()}</td>
     </tr>
   `
@@ -27,21 +31,22 @@ export const sendInvoiceEmail = async (email, venta, items) => {
         .join("");
 
     const mailOptions = {
-        from: `"OnWheels Shop" <${process.env.EMAIL_USER}>`,
+        from: `"Performance SB Shop" <${process.env.EMAIL_USER}>`,
         to: email,
-        subject: `Factura de Compra #${venta.id_venta} - OnWheels`,
+        subject: `Factura de Compra - Performance SB`,
         html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px;">
         <h2 style="text-align: center; color: #1E3A8A;">Factura de Compra</h2>
-        <p>Hola,</p>
-        <p>Gracias por tu compra en <strong>OnWheels</strong>. Aquí tienes los detalles de tu pedido:</p>
+        <p>Hola ${nombreCliente},</p>
+        <p>Gracias por tu compra en <strong>Performance SB</strong>. Aquí tienes los detalles de tu pedido:</p>
         
         <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
           <thead>
             <tr style="background-color: #f8f8f8;">
+              <th style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">Imagen</th>
               <th style="padding: 8px; border-bottom: 1px solid #ddd; text-align: left;">Producto</th>
               <th style="padding: 8px; border-bottom: 1px solid #ddd; text-align: left;">Variante</th>
-              <th style="padding: 8px; border-bottom: 1px solid #ddd; text-align: left;">Cant.</th>
+              <th style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">Cant.</th>
               <th style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">Precio</th>
             </tr>
           </thead>
@@ -50,7 +55,7 @@ export const sendInvoiceEmail = async (email, venta, items) => {
           </tbody>
           <tfoot>
             <tr>
-              <th colspan="3" style="padding: 8px; text-align: right;">Total:</th>
+              <th colspan="4" style="padding: 8px; text-align: right;">Total:</th>
               <th style="padding: 8px; text-align: right; color: #1E3A8A;">$${Number(venta.total).toLocaleString()}</th>
             </tr>
           </tfoot>
@@ -60,7 +65,7 @@ export const sendInvoiceEmail = async (email, venta, items) => {
         <p>Fecha: ${new Date(venta.fecha_venta).toLocaleDateString()}</p>
         
         <div style="text-align: center; margin-top: 40px; color: #888; font-size: 12px;">
-          <p>© ${new Date().getFullYear()} OnWheels - Todos los derechos reservados.</p>
+          <p>© ${new Date().getFullYear()} Performance SB - Todos los derechos reservados.</p>
         </div>
       </div>
     `,
