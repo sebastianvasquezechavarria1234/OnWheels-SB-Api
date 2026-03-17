@@ -1,6 +1,7 @@
 // controllers/matriculasManualesController.js
 import pool from "../db/postgresPool.js";
 import bcrypt from "bcrypt";
+import { ensureStudentRole } from "../services/userRoleService.js";
 
 export const crearMatriculaManual = async (req, res) => {
   const client = await pool.connect();
@@ -11,7 +12,6 @@ export const crearMatriculaManual = async (req, res) => {
     telefono,
     documento,
     tipo_documento,
-    fecha_nacimiento,
 
     // Datos del estudiante
     edad,
@@ -42,24 +42,15 @@ export const crearMatriculaManual = async (req, res) => {
       const hashedPassword = await bcrypt.hash("123456", 10); // Contraseña temporal
       const usuarioResult = await client.query(
         `INSERT INTO usuarios (
-          nombre_completo, email, telefono, documento, tipo_documento, fecha_nacimiento, contrasena, estado
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+          nombre_completo, email, telefono, documento, tipo_documento, contrasena, estado
+        ) VALUES ($1, $2, $3, $4, $5, $6, true)
         RETURNING id_usuario`,
-        [nombre_completo, email, telefono, documento, tipo_documento, fecha_nacimiento, hashedPassword]
+        [nombre_completo, email, telefono, documento, tipo_documento, hashedPassword]
       );
       id_usuario = usuarioResult.rows[0].id_usuario;
-
-      // Asignar rol "Estudiante"
-      const rolEstudiante = await client.query(
-        "SELECT id_rol FROM roles WHERE nombre_rol = 'Estudiante' AND estado = true"
-      );
-      if (rolEstudiante.rowCount > 0) {
-        await client.query(
-          "INSERT INTO usuario_roles (id_usuario, id_rol) VALUES ($1, $2)",
-          [id_usuario, rolEstudiante.rows[0].id_rol]
-        );
-      }
     }
+
+    await ensureStudentRole(id_usuario, client);
 
     // Verificar si ya es estudiante
     const estudianteExistente = await client.query(

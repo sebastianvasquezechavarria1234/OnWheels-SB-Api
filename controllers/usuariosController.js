@@ -18,7 +18,6 @@ export const getUsuarios = async (req, res) => {
         u.nombre_completo,
         u.email,
         u.telefono,
-        u.fecha_nacimiento,
         u.estado,
         u.foto_perfil,
         u.estado,
@@ -65,7 +64,6 @@ export const getUsuarios = async (req, res) => {
         u.nombre_completo,
         u.email,
         u.telefono,
-        u.fecha_nacimiento,
         u.estado,
         u.foto_perfil
       ORDER BY u.nombre_completo ASC
@@ -112,7 +110,6 @@ export const getUsuarioById = async (req, res) => {
         u.nombre_completo,
         u.email,
         u.telefono,
-        u.fecha_nacimiento,
         u.estado,
         u.foto_perfil,
         u.estado,
@@ -132,7 +129,6 @@ export const getUsuarioById = async (req, res) => {
         u.nombre_completo,
         u.email,
         u.telefono,
-        u.fecha_nacimiento,
         u.estado,
         u.foto_perfil;
     `;
@@ -162,7 +158,6 @@ export const verificarEmail = async (req, res) => {
         u.nombre_completo,
         u.email,
         u.telefono,
-        u.fecha_nacimiento,
         u.estado,
         u.foto_perfil,
         u.estado,
@@ -182,7 +177,6 @@ export const verificarEmail = async (req, res) => {
         u.nombre_completo,
         u.email,
         u.telefono,
-        u.fecha_nacimiento,
         u.estado,
         u.foto_perfil;
     `;
@@ -212,7 +206,6 @@ export const createUsuario = async (req, res) => {
       nombre_completo,
       email,
       telefono = null,
-      fecha_nacimiento = null,
       contrasena,
       id_rol = null
     } = req.body;
@@ -229,8 +222,8 @@ export const createUsuario = async (req, res) => {
 
     const insertUserQ = `
       INSERT INTO usuarios
-        (documento, tipo_documento, nombre_completo, email, telefono, fecha_nacimiento, contrasena)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)
+        (documento, tipo_documento, nombre_completo, email, telefono, contrasena)
+      VALUES ($1,$2,$3,$4,$5,$6)
       RETURNING id_usuario;
     `;
     const rUser = await client.query(insertUserQ, [
@@ -239,7 +232,6 @@ export const createUsuario = async (req, res) => {
       nombre_completo,
       email,
       telefono,
-      fecha_nacimiento,
       hashed
     ]);
     const id_usuario = rUser.rows[0].id_usuario;
@@ -266,7 +258,6 @@ export const createUsuario = async (req, res) => {
         documento,
         tipo_documento,
         telefono,
-        fecha_nacimiento,
         estado: true
       }
     });
@@ -302,7 +293,6 @@ export const updateUsuario = async (req, res) => {
       nombre_completo = null,
       email = null,
       telefono = null,
-      fecha_nacimiento = null,
       contrasena = null,
       currentPassword = null,
       confirmPassword = null
@@ -354,9 +344,8 @@ export const updateUsuario = async (req, res) => {
           nombre_completo = COALESCE($3, nombre_completo),
           email = COALESCE($4, email),
           telefono = COALESCE($5, telefono),
-          fecha_nacimiento = COALESCE($6, fecha_nacimiento),
-          contrasena = COALESCE($7, contrasena)
-      WHERE id_usuario = $8
+          contrasena = COALESCE($6, contrasena)
+      WHERE id_usuario = $7
       RETURNING 
         id_usuario,
         documento,
@@ -364,11 +353,10 @@ export const updateUsuario = async (req, res) => {
         nombre_completo,
         email,
         telefono,
-        fecha_nacimiento,
         estado,
         foto_perfil;
     `;
-    const values = [documento, tipo_documento, nombre_completo, email, telefono, fecha_nacimiento, hashed, id];
+    const values = [documento, tipo_documento, nombre_completo, email, telefono, hashed, id];
 
     const result = await pool.query(query, values);
 
@@ -490,7 +478,6 @@ export const getUsuariosElegiblesParaEstudiante = async (req, res) => {
         u.nombre_completo,
         u.email,
         u.telefono,
-        u.fecha_nacimiento,
         u.estado,
         COALESCE(
           json_agg(
@@ -509,7 +496,6 @@ export const getUsuariosElegiblesParaEstudiante = async (req, res) => {
         u.nombre_completo,
         u.email,
         u.telefono,
-        u.fecha_nacimiento,
         u.estado
       HAVING bool_and(
         r.nombre_rol IS NULL OR LOWER(TRIM(r.nombre_rol)) IN ('cliente', 'usuario')
@@ -621,7 +607,6 @@ export const updatePerfil = async (req, res) => {
         nombre_completo,
         email,
         telefono,
-        fecha_nacimiento,
         estado,
         foto_perfil;
     `;

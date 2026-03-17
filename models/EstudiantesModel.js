@@ -1,5 +1,6 @@
 // models/EstudiantesModel.js
 import pool from "../db/postgresPool.js";
+import { ensureStudentRole } from "../services/userRoleService.js";
 
 //////////////////////////////////////////////////////////
 // CREAR REGISTRO EN ESTUDIANTES (para creación directa o en transacción)
@@ -14,44 +15,69 @@ export const crearEstudiante = async (datos, client = null) => {
     estado = "Activo",
   } = datos;
 
-  const db = client || pool; // ← Usa el cliente de transacción si se proporciona
+  const ownsTransaction = !client;
+  const db = client || (await pool.connect());
 
-  const usuarioCheck = await db.query("SELECT id_usuario FROM usuarios WHERE id_usuario = $1", [
-    id_usuario,
-  ]);
+  try {
+    if (ownsTransaction) {
+      await db.query("BEGIN");
+    }
 
-  if (usuarioCheck.rowCount === 0) {
-    throw new Error("Usuario no encontrado o inactivo");
-  }
-
-  // Evitar duplicar preinscripción pendiente
-  console.log(`🔎 [EstudiantesModel] Verificando preexistencia para Usuario ID: ${id_usuario}`);
-  const preexistente = await db.query(
-    "SELECT id_estudiante FROM estudiantes WHERE id_usuario = $1 AND estado = 'Pendiente'",
-    [id_usuario]
-  );
-  if (preexistente.rowCount > 0) {
-    console.warn(`⚠️ [EstudiantesModel] Bloqueo: Usuario ID ${id_usuario} ya tiene preinscripción ID ${preexistente.rows[0].id_estudiante}`);
-    throw new Error("Ya tienes una preinscripción pendiente");
-  }
-
-  const query = `
-    INSERT INTO estudiantes (
+    const usuarioCheck = await db.query("SELECT id_usuario FROM usuarios WHERE id_usuario = $1", [
       id_usuario,
-      enfermedad,
-      nivel_experiencia,
-      edad,
-      fecha_preinscripcion,
-      id_acudiente,
-      estado
-    )
-    VALUES ($1, $2, $3, $4, CURRENT_DATE, $5, $6)
-    RETURNING *;
-  `;
+    ]);
 
-  const values = [id_usuario, enfermedad, nivel_experiencia, edad, id_acudiente, estado];
-  const result = await db.query(query, values);
-  return result.rows[0];
+    if (usuarioCheck.rowCount === 0) {
+      throw new Error("Usuario no encontrado o inactivo");
+    }
+
+    // Evitar duplicar preinscripción pendiente
+    console.log(`🔎 [EstudiantesModel] Verificando preexistencia para Usuario ID: ${id_usuario}`);
+    const preexistente = await db.query(
+      "SELECT id_estudiante FROM estudiantes WHERE id_usuario = $1 AND estado = 'Pendiente'",
+      [id_usuario]
+    );
+    if (preexistente.rowCount > 0) {
+      console.warn(`⚠️ [EstudiantesModel] Bloqueo: Usuario ID ${id_usuario} ya tiene preinscripción ID ${preexistente.rows[0].id_estudiante}`);
+      throw new Error("Ya tienes una preinscripción pendiente");
+    }
+
+    const query = `
+      INSERT INTO estudiantes (
+        id_usuario,
+        enfermedad,
+        nivel_experiencia,
+        edad,
+        fecha_preinscripcion,
+        id_acudiente,
+        estado
+      )
+      VALUES ($1, $2, $3, $4, CURRENT_DATE, $5, $6)
+      RETURNING *;
+    `;
+
+    const values = [id_usuario, enfermedad, nivel_experiencia, edad, id_acudiente, estado];
+    const result = await db.query(query, values);
+
+    if (estado === "Activo") {
+      await ensureStudentRole(id_usuario, db);
+    }
+
+    if (ownsTransaction) {
+      await db.query("COMMIT");
+    }
+
+    return result.rows[0];
+  } catch (error) {
+    if (ownsTransaction) {
+      await db.query("ROLLBACK");
+    }
+    throw error;
+  } finally {
+    if (ownsTransaction) {
+      db.release();
+    }
+  }
 };
 
 //////////////////////////////////////////////////////////
@@ -73,7 +99,6 @@ export const obtenerEstudiantes = async () => {
       u.telefono,
       u.documento,
       u.tipo_documento,
-      u.fecha_nacimiento,
       a.nombre_acudiente,
       a.telefono as telefono_acudiente,
       a.email as email_acudiente
@@ -97,7 +122,6 @@ export const obtenerEstudiantesConMatriculaActiva = async () => {
       u.documento,
       u.telefono,
       u.tipo_documento,
-      u.fecha_nacimiento,
       a.nombre_acudiente,
       a.telefono as telefono_acudiente,
       a.email as email_acudiente,
@@ -129,7 +153,6 @@ export const obtenerPreinscripcionesPendientes = async () => {
       u.telefono,
       u.documento,
       u.tipo_documento,
-      u.fecha_nacimiento,
       a.nombre_acudiente,
       a.telefono as telefono_acudiente,
       a.email as email_acudiente
@@ -155,7 +178,6 @@ export const obtenerEstudiantePorId = async (id) => {
       u.telefono,
       u.documento,
       u.tipo_documento,
-      u.fecha_nacimiento,
       a.nombre_acudiente,
       a.telefono as telefono_acudiente,
       a.email as email_acudiente
@@ -243,16 +265,35 @@ export const actualizarEstadoPreinscripcion = async (id, nuevoEstado) => {
     throw new Error("Estado no válido");
   }
 
-  const updateResult = await pool.query(
-    "UPDATE estudiantes SET estado = $1 WHERE id_estudiante = $2 RETURNING *",
-    [nuevoEstado, id]
-  );
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
 
-  if (updateResult.rowCount === 0) {
-    return null;
+    const updateResult = await client.query(
+      "UPDATE estudiantes SET estado = $1 WHERE id_estudiante = $2 RETURNING *",
+      [nuevoEstado, id]
+    );
+
+    if (updateResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+
+    // When approving a preinscription, assign the estudiante role to the user
+    if (nuevoEstado === "Activo") {
+      const id_usuario = updateResult.rows[0].id_usuario;
+      await ensureStudentRole(id_usuario, client);
+      console.log(`✅ [EstudiantesModel] Rol estudiante asignado al usuario ID: ${id_usuario}`);
+    }
+
+    await client.query("COMMIT");
+    return await obtenerEstudiantePorId(id);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
   }
-
-  return await obtenerEstudiantePorId(id);
 };
 
 //////////////////////////////////////////////////////////

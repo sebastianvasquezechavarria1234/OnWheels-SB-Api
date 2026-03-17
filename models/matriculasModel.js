@@ -1,16 +1,21 @@
 // models/MatriculasModel.js
 import pool from "../db/postgresPool.js";
+import { ensureStudentRole } from "../services/userRoleService.js";
 
 // CREAR MATRÍCULA
-export const crearMatricula = async (datos) => {
+export const crearMatricula = async (datos, client = null) => {
   const { id_estudiante, id_clase, id_plan } = datos;
 
-  const client = await pool.connect();
+  const ownsTransaction = !client;
+  const db = client || (await pool.connect());
+
   try {
-    await client.query("BEGIN");
+    if (ownsTransaction) {
+      await db.query("BEGIN");
+    }
 
     // Validar que el estudiante no tenga matrícula activa
-    const matriculaActiva = await client.query(
+    const matriculaActiva = await db.query(
       "SELECT id_matricula FROM matriculas WHERE id_estudiante = $1 AND estado = 'Activa'",
       [id_estudiante]
     );
@@ -19,13 +24,19 @@ export const crearMatricula = async (datos) => {
     }
 
     // Validar existencia
-    const estudianteCheck = await client.query("SELECT id_estudiante FROM estudiantes WHERE id_estudiante = $1", [id_estudiante]);
+    const estudianteCheck = await db.query(
+      `SELECT id_estudiante, id_usuario
+       FROM estudiantes
+       WHERE id_estudiante = $1`,
+      [id_estudiante]
+    );
     if (estudianteCheck.rowCount === 0) throw new Error("Estudiante no encontrado");
+    const estudiante = estudianteCheck.rows[0];
     
-    const claseCheck = await client.query("SELECT id_clase FROM clases WHERE id_clase = $1", [id_clase]);
+    const claseCheck = await db.query("SELECT id_clase FROM clases WHERE id_clase = $1", [id_clase]);
     if (claseCheck.rowCount === 0) throw new Error("Clase no encontrada");
     
-    const planCheck = await client.query("SELECT id_plan, precio, duracion_meses FROM planes_clases WHERE id_plan = $1", [id_plan]);
+    const planCheck = await db.query("SELECT id_plan, precio, duracion_meses FROM planes_clases WHERE id_plan = $1", [id_plan]);
     if (planCheck.rowCount === 0) throw new Error("Plan no encontrado");
     const planResult = planCheck.rows[0];
 
@@ -45,14 +56,24 @@ export const crearMatricula = async (datos) => {
       RETURNING *;
     `;
 
-    const result = await client.query(query, [id_estudiante, id_clase, id_plan, planResult.duracion_meses, planResult.precio]);
-    await client.query("COMMIT");
+    const result = await db.query(query, [id_estudiante, id_clase, id_plan, planResult.duracion_meses, planResult.precio]);
+
+    await ensureStudentRole(estudiante.id_usuario, db);
+
+    if (ownsTransaction) {
+      await db.query("COMMIT");
+    }
+
     return result.rows[0];
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (ownsTransaction) {
+      await db.query("ROLLBACK");
+    }
     throw error;
   } finally {
-    client.release();
+    if (ownsTransaction) {
+      db.release();
+    }
   }
 };
 
@@ -167,6 +188,13 @@ export const renovarMatricula = async (id_matricula_anterior, id_plan_nuevo = nu
               CURRENT_DATE + ($4 * interval '1 month'), $5, 0)
       RETURNING *
     `, [anterior.id_estudiante, anterior.id_clase, id_plan, duracion_meses, precio]);
+
+    // Re-confirm estudiante role on renewal (safety net)
+    const estRes = await client.query("SELECT id_usuario FROM estudiantes WHERE id_estudiante = $1", [anterior.id_estudiante]);
+    if (estRes.rowCount > 0) {
+      const { ensureStudentRole } = await import("../services/userRoleService.js");
+      await ensureStudentRole(estRes.rows[0].id_usuario, client);
+    }
 
     await client.query("COMMIT");
     return nueva.rows[0];
