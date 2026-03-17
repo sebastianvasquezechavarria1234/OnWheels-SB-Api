@@ -49,12 +49,18 @@ export const crearPreinscripcionCtrl = async (req, res) => {
     // CASO 1: PREINSCRIPCIÓN PARA TERCERO (Hijo / Acudido)
     // =========================================================================
     if (tipo_preinscripcion === "TERCERO") {
-      const { nombre_completo, email, fecha_nacimiento, genero } = datos_tercero || {};
+      let { nombre_completo, email, fecha_nacimiento, genero, documento, tipo_documento, telefono } = datos_tercero || {};
 
-      if (!nombre_completo || !email || !fecha_nacimiento || !edad) {
+      if (!nombre_completo || !email || !edad) {
         await client.query("ROLLBACK");
         client.release();
-        return res.status(400).json({ mensaje: "Faltan datos del tercero" });
+        return res.status(400).json({ mensaje: "Faltan datos obligatorios del tercero (nombre, email, edad)" });
+      }
+
+      // Si no viene fecha_nacimiento, calculamos una aproximada basada en la edad para no romper el esquema
+      if (!fecha_nacimiento) {
+        const year = new Date().getFullYear() - parseInt(edad);
+        fecha_nacimiento = `${year}-01-01`;
       }
 
       // 1. Validar si el email del tercero ya existe (Seguridad)
@@ -64,7 +70,8 @@ export const crearPreinscripcionCtrl = async (req, res) => {
         await client.query("ROLLBACK");
         client.release();
         return res.status(409).json({
-          mensaje: "El email del tercero ya está registrado. Por favor usa otro correo o contacta soporte."
+          mensaje: "El correo electrónico de la persona a preinscribir ya está registrado en el sistema. Por favor, usa otro correo.",
+          error: "email_duplicado"
         });
       }
 
@@ -76,7 +83,7 @@ export const crearPreinscripcionCtrl = async (req, res) => {
       // 3. Crear Usuario del Tercero (Rol CLIENTE, Inactivo)
       const insertUserQuery = `
                 INSERT INTO usuarios (nombre_completo, email, contrasena, fecha_nacimiento, estado, documento, tipo_documento, telefono, activation_token, token_expiration)
-                VALUES ($1, $2, $3, $4, false, 'NO_DOC', 'CC', '0000000000', $5, $6) 
+                VALUES ($1, $2, $3, $4, false, $5, $6, $7, $8, $9) 
                 RETURNING id_usuario
             `;
       // Nota: Se usa una contraseña dummy no utilizable para cumplir restricción NOT NULL si existe
@@ -87,6 +94,9 @@ export const crearPreinscripcionCtrl = async (req, res) => {
         email,
         dummyPass,
         fecha_nacimiento,
+        documento || 'NO_DOC',
+        tipo_documento || 'CC',
+        telefono || '0000000000',
         activationToken,
         tokenExpiration
       ]);
