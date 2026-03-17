@@ -319,6 +319,7 @@ export const getClasesEstudiante = async (req, res) => {
         c.cupo_maximo,
         c.descripcion,
         c.estado,
+        c.url_imagen,
         n.nombre_nivel,
         s.nombre_sede,
         s.direccion AS direccion_sede,
@@ -340,6 +341,7 @@ export const getClasesEstudiante = async (req, res) => {
       WHERE m.id_estudiante = $1
       GROUP BY
         c.id_clase, n.nombre_nivel, s.nombre_sede,
+        c.url_imagen,
         s.direccion, m.estado, m.fecha_matricula, m.clases_restantes
       ORDER BY m.fecha_matricula DESC
     `, [id_estudiante]);

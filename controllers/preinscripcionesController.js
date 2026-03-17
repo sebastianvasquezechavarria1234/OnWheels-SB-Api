@@ -377,16 +377,6 @@ export const aceptarPreinscripcionYCrearMatricula = async (req, res) => {
       estado: "Activa"
     }, client); // ← Si tu modelo acepta cliente, pásalo
 
-    const rolEstudiante = await client.query("SELECT id_rol FROM roles WHERE nombre_rol = 'Estudiante' AND estado = true");
-    if (rolEstudiante.rowCount > 0) {
-      await client.query(
-        `INSERT INTO usuario_roles (id_usuario, id_rol) 
-            VALUES ($1, $2) 
-            ON CONFLICT (id_usuario, id_rol) DO NOTHING`,
-        [preinscripcion.id_usuario, rolEstudiante.rows[0].id_rol]
-      );
-    }
-
     await client.query("COMMIT");
     client.release();
 

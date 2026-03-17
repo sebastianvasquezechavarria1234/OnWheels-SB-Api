@@ -198,17 +198,21 @@ export const createVenta = async (req, res) => {
     await client.query("BEGIN");
 
     // 1. GESTIÓN DE ROL Y CLIENTE
+    // Obtener dinámicamente el ID del rol "cliente"
+    const rolRes = await client.query("SELECT id_rol FROM roles WHERE LOWER(nombre_rol) = 'cliente' LIMIT 1");
+    const idRolCliente = rolRes.rows.length > 0 ? rolRes.rows[0].id_rol : 12; // Fallback a 12
+
     // Verificar si el usuario ya es cliente
     const roleCheck = await client.query(
-      "SELECT * FROM usuario_roles WHERE id_usuario = $1 AND id_rol = 12",
-      [id_usuario]
+      "SELECT * FROM usuario_roles WHERE id_usuario = $1 AND id_rol = $2",
+      [id_usuario, idRolCliente]
     );
 
     if (roleCheck.rows.length === 0) {
-      // Asignar rol Cliente (ID 12)
+      // Asignar rol Cliente
       await client.query(
-        "INSERT INTO usuario_roles (id_usuario, id_rol) VALUES ($1, 12)",
-        [id_usuario]
+        "INSERT INTO usuario_roles (id_usuario, id_rol) VALUES ($1, $2)",
+        [id_usuario, idRolCliente]
       );
     }
 
@@ -265,11 +269,15 @@ export const createVenta = async (req, res) => {
 
       // Buscar variante y su precio (del producto padre)
       const varData = await client.query(`
-        SELECT v.id_variante, v.stock, p.precio_venta, p.nombre_producto, p.descuento_producto 
+        SELECT v.id_variante, v.stock, p.precio_venta, p.nombre_producto,
+               co.nombre_color, t.nombre_talla,
+               (SELECT url_imagen FROM producto_imagenes ip WHERE ip.id_producto = p.id_producto LIMIT 1) as imagen
         FROM variantes_producto v
         JOIN productos p ON v.id_producto = p.id_producto
+        LEFT JOIN colores co ON v.id_color = co.id_color
+        LEFT JOIN tallas t ON v.id_talla = t.id_talla
         WHERE v.id_variante = $1
-        FOR UPDATE
+        FOR UPDATE OF v
       `, [id_variante]);
 
       if (varData.rows.length === 0) {
@@ -294,7 +302,11 @@ export const createVenta = async (req, res) => {
       itemsProcesados.push({
         id_variante,
         cantidad,
-        precio_unitario: precioUnitario
+        precio_unitario: precioUnitario,
+        nombre_producto,
+        nombre_color: varData.rows[0].nombre_color,
+        nombre_talla: varData.rows[0].nombre_talla,
+        url_imagen: varData.rows[0].imagen
       });
     }
 
@@ -321,10 +333,11 @@ export const createVenta = async (req, res) => {
 
     // 5. ENVIAR FACTURA POR CORREO
     try {
-      const userRes = await client.query("SELECT email FROM usuarios WHERE id_usuario = $1", [id_usuario]);
+      const userRes = await client.query("SELECT email, nombre_completo FROM usuarios WHERE id_usuario = $1", [id_usuario]);
       const userEmail = userRes.rows[0]?.email;
+      const nombreCliente = userRes.rows[0]?.nombre_completo;
       if (userEmail) {
-        await sendInvoiceEmail(userEmail, { id_venta, total: totalCalculado, metodo_pago: metodo_pago || 'Efectivo', fecha_venta: fecha_venta || new Date() }, itemsProcesados);
+        await sendInvoiceEmail(userEmail, { id_venta, total: totalCalculado, metodo_pago: metodo_pago || 'Efectivo', fecha_venta: fecha_venta || new Date(), nombre_cliente: nombreCliente }, itemsProcesados);
       }
     } catch (emailErr) {
       console.error("Error trigger email:", emailErr);
@@ -368,9 +381,12 @@ export const updateVenta = async (req, res) => {
       finalIdCliente = id_cliente;
     } else if (id_usuario) {
       // Si se envía id_usuario, convertirlo a id_cliente (lógica de promoción)
-      const roleCheck = await client.query("SELECT * FROM usuario_roles WHERE id_usuario = $1 AND id_rol = 12", [id_usuario]);
+      const rolResUpdate = await client.query("SELECT id_rol FROM roles WHERE LOWER(nombre_rol) = 'cliente' LIMIT 1");
+      const idRolClienteUpdate = rolResUpdate.rows.length > 0 ? rolResUpdate.rows[0].id_rol : 12;
+
+      const roleCheck = await client.query("SELECT * FROM usuario_roles WHERE id_usuario = $1 AND id_rol = $2", [id_usuario, idRolClienteUpdate]);
       if (roleCheck.rows.length === 0) {
-        await client.query("INSERT INTO usuario_roles (id_usuario, id_rol) VALUES ($1, 12)", [id_usuario]);
+        await client.query("INSERT INTO usuario_roles (id_usuario, id_rol) VALUES ($1, $2)", [id_usuario, idRolClienteUpdate]);
       }
       const clientRecord = await client.query("SELECT id_cliente FROM clientes WHERE id_usuario = $1", [id_usuario]);
       if (clientRecord.rows.length === 0) {
