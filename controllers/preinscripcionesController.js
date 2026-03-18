@@ -10,6 +10,18 @@ import { crearMatricula } from "../models/matriculasModel.js";
 // ================================
 // Crear preinscripción (con lógica completa de menores y transacciones)
 // ================================
+const calculateAge = (birthDate) => {
+    if (!birthDate) return 0;
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    return age;
+};
+
 export const crearPreinscripcionCtrl = async (req, res) => {
   const client = await pool.connect();
   try {
@@ -23,7 +35,7 @@ export const crearPreinscripcionCtrl = async (req, res) => {
       id_acudiente, // Puede venir si selecciona uno existente
       nuevoAcudiente, // Objeto si crea uno nuevo
       tipo_preinscripcion, // "PROPIA" | "TERCERO"
-      datos_tercero // { nombre, email, fecha_nacimiento, ... }
+      datos_tercero // { nombre_completo, email, genero }
     } = req.body;
 
     // Aseguramos que sea entero si viene como string
@@ -61,6 +73,17 @@ export const crearPreinscripcionCtrl = async (req, res) => {
       if (!fecha_nacimiento) {
         const year = new Date().getFullYear() - parseInt(edad);
         fecha_nacimiento = `${year}-01-01`;
+      }
+
+      // Validación de edad para terceros
+      if (tipo_preinscripcion === 'TERCERO') {
+          const userAge = calculateAge(req.user.fecha_nacimiento);
+          if (userAge < 18) {
+              return res.status(403).json({
+                  mensaje: "Lo sentimos, debes ser mayor de edad para preinscribir a otra persona.",
+                  error: "menor_de_edad"
+              });
+          }
       }
 
       // 1. Validar si el email del tercero ya existe (Seguridad)
@@ -358,7 +381,7 @@ export const aceptarPreinscripcionYCrearMatricula = async (req, res) => {
     }
 
     const preinscripcion = await obtenerEstudiantePorId(id);
-    if (!preinscripcion || preinscripcion.estado !== "Pendiente") {
+    if (!preinscripcion || preinñscripcion.estado !== "Pendiente") {
       await client.query("ROLLBACK");
       client.release();
       return res.status(404).json({ mensaje: "Preinscripción no encontrada o ya procesada" });
@@ -387,16 +410,6 @@ export const aceptarPreinscripcionYCrearMatricula = async (req, res) => {
       fecha_matricula,
       estado: "Activa"
     }, client); // ← Si tu modelo acepta cliente, pásalo
-
-    const rolEstudiante = await client.query("SELECT id_rol FROM roles WHERE nombre_rol = 'Estudiante' AND estado = true");
-    if (rolEstudiante.rowCount > 0) {
-      await client.query(
-        `INSERT INTO usuario_roles (id_usuario, id_rol) 
-            VALUES ($1, $2) 
-            ON CONFLICT (id_usuario, id_rol) DO NOTHING`,
-        [preinscripcion.id_usuario, rolEstudiante.rows[0].id_rol]
-      );
-    }
 
     await client.query("COMMIT");
     client.release();

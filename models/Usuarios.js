@@ -6,7 +6,6 @@ class Usuario {
     nombre_completo,
     email,
     telefono,
-    fecha_nacimiento,
     contrasena,
     estado
   }) {
@@ -16,7 +15,6 @@ class Usuario {
     this.nombre_completo = nombre_completo;
     this.email = email;
     this.telefono = telefono;
-    this.fecha_nacimiento = fecha_nacimiento;
     this.contrasena = contrasena;
     this.estado = estado;
   }
