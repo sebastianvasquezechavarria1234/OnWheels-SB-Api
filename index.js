@@ -36,6 +36,7 @@ import matriculasManualesRoutes from "./routes/matriculasManualesRoutes.js";
 import clientesRoutes from "./routes/clientes.js";
 import administradoresRouter from "./routes/administradores.js";
 import emailMasivoRoutes from "./routes/emailMasivoRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
 
 dotenv.config();
 
@@ -96,7 +97,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // 📌 Endpoint raíz
 app.get("/", (req, res) => {
   res.json({
-    mensaje: "🛹 Bienvenido a OnWheels Skateboard API",
+    mensaje: "🛹 OnWheels API - Dashboard Debugging",
     version: "1.0.0",
     storage: "PostgreSQL",
     endpoints: {
@@ -125,7 +126,8 @@ app.get("/", (req, res) => {
       permisos: "api/permisos",
       instructores: "/api/instructores",
       clientes: "/api/clientes-data", // ✅ Nombre actualizado
-      administradores: "/api/administradores"
+      administradores: "/api/administradores",
+      dashboard: "/api/dashboard/stats"
     },
   });
 });
@@ -161,6 +163,8 @@ app.use("/api/instructores", instructoresRoutes);
 app.use("/api/clientes-data", clientesRoutes);
 app.use("/api/administradores", administradoresRouter); // ✅ ¡Ruta corregida aquí!
 app.use("/api/admin/correos-masivos", emailMasivoRoutes);
+console.log("🛠️ Registrando ruta /api/dashboard");
+app.use("/api/dashboard", dashboardRoutes);
 
 // 🚀 Iniciar servidor
 app.listen(PORT, () => {
