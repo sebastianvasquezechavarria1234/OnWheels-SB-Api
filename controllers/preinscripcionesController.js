@@ -381,7 +381,7 @@ export const aceptarPreinscripcionYCrearMatricula = async (req, res) => {
     }
 
     const preinscripcion = await obtenerEstudiantePorId(id);
-    if (!preinscripcion || preinñscripcion.estado !== "Pendiente") {
+    if (!preinscripcion || preinscripcion.estado !== "Pendiente") {
       await client.query("ROLLBACK");
       client.release();
       return res.status(404).json({ mensaje: "Preinscripción no encontrada o ya procesada" });
