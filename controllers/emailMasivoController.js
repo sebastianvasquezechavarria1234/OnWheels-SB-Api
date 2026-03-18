@@ -143,3 +143,24 @@ export const eliminarEnvioController = async (req, res) => {
     res.status(500).json({ msg: "Error al eliminar registro", error: error.message });
   }
 };
+
+// Enviar correo individual
+export const enviarIndividualController = async (req, res) => {
+  try {
+    const { destinatario, asunto, mensaje } = req.body;
+    
+    if (!destinatario || !asunto || !mensaje) {
+      return res.status(400).json({ msg: "Faltan datos requeridos (destinatario, asunto, mensaje)" });
+    }
+    
+    await sendGenericMassEmail(asunto, mensaje, [destinatario]);
+    
+    res.json({
+      success: true,
+      data: { mensaje: `Correo enviado exitosamente a ${destinatario}.` }
+    });
+  } catch (error) {
+    console.error("Error enviando correo individual:", error);
+    res.status(500).json({ msg: "Error al procesar la solicitud", error: error.message });
+  }
+};

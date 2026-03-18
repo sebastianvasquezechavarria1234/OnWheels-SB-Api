@@ -295,7 +295,8 @@ export const updateUsuario = async (req, res) => {
       telefono = null,
       contrasena = null,
       currentPassword = null,
-      confirmPassword = null
+      confirmPassword = null,
+      fecha_nacimiento = null
     } = req.body;
 
     let hashed = null;
@@ -344,8 +345,9 @@ export const updateUsuario = async (req, res) => {
           nombre_completo = COALESCE($3, nombre_completo),
           email = COALESCE($4, email),
           telefono = COALESCE($5, telefono),
-          contrasena = COALESCE($6, contrasena)
-      WHERE id_usuario = $7
+          contrasena = COALESCE($6, contrasena),
+          fecha_nacimiento = COALESCE($7, fecha_nacimiento)
+      WHERE id_usuario = $8
       RETURNING 
         id_usuario,
         documento,
@@ -354,9 +356,10 @@ export const updateUsuario = async (req, res) => {
         email,
         telefono,
         estado,
-        foto_perfil;
+        foto_perfil,
+        fecha_nacimiento;
     `;
-    const values = [documento, tipo_documento, nombre_completo, email, telefono, hashed, id];
+    const values = [documento, tipo_documento, nombre_completo, email, telefono, hashed, fecha_nacimiento, id];
 
     const result = await pool.query(query, values);
 
@@ -588,7 +591,7 @@ export const getUsuariosSinCliente = async (req, res) => {
 export const updatePerfil = async (req, res) => {
   try {
     const id = req.user.id_usuario;
-    const { nombre, telefono, direccion } = req.body; // Frontend envía 'nombre', no 'nombre_completo'
+    const { nombre, telefono, direccion, fecha_nacimiento } = req.body; // Frontend envía 'nombre', no 'nombre_completo'
 
     // Nota: 'direccion' no parece existir en la tabla usuarios basada en el código actual,
     // pero se incluye por si acaso se agrega posteriormente o si existe en DB pero no en select.
@@ -598,8 +601,9 @@ export const updatePerfil = async (req, res) => {
       UPDATE usuarios
       SET
         nombre_completo = COALESCE($1, nombre_completo),
-        telefono = COALESCE($2, telefono)
-      WHERE id_usuario = $3
+        telefono = COALESCE($2, telefono),
+        fecha_nacimiento = COALESCE($3, fecha_nacimiento)
+      WHERE id_usuario = $4
       RETURNING
         id_usuario,
         documento,
@@ -608,10 +612,11 @@ export const updatePerfil = async (req, res) => {
         email,
         telefono,
         estado,
-        foto_perfil;
+        foto_perfil,
+        fecha_nacimiento;
     `;
 
-    const result = await pool.query(query, [nombre, telefono, id]);
+    const result = await pool.query(query, [nombre, telefono, fecha_nacimiento, id]);
 
     if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" });
