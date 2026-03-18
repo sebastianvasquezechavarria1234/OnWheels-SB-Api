@@ -4,8 +4,7 @@ import {
   obtenerVistaPreviaDestinatarios,
   enviarCorreosMasivos,
   obtenerHistorialEnviosController,
-  eliminarEnvioController,
-  enviarIndividualController
+  enviarCorreoIndividual
 } from "../controllers/emailMasivoController.js";
 
 const router = Router();
@@ -13,7 +12,7 @@ const router = Router();
 router.get("/roles-disponibles", obtenerRolesDisponibles);
 router.post("/vista-previa", obtenerVistaPreviaDestinatarios);
 router.post("/enviar", enviarCorreosMasivos);
-router.post("/enviar-individual", enviarIndividualController);
+router.post("/enviar-individual", enviarCorreoIndividual);
 router.get("/historial", obtenerHistorialEnviosController);
 router.delete("/:id", eliminarEnvioController);
 

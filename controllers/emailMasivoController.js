@@ -1,4 +1,4 @@
-import { sendGenericMassEmail } from "../services/emailService.js";
+import { sendGenericMassEmail, sendIndividualEmail } from "../services/emailService.js";
 import {
   getRolesDisponibles,
   getCorreosPorRoles,
@@ -144,23 +144,23 @@ export const eliminarEnvioController = async (req, res) => {
   }
 };
 
-// Enviar correo individual
-export const enviarIndividualController = async (req, res) => {
+// Enviar correo individual (para notificaciones de preinscripción aceptada, etc.)
+export const enviarCorreoIndividual = async (req, res) => {
   try {
     const { destinatario, asunto, mensaje } = req.body;
-    
+
     if (!destinatario || !asunto || !mensaje) {
-      return res.status(400).json({ msg: "Faltan datos requeridos (destinatario, asunto, mensaje)" });
+      return res.status(400).json({ msg: "Faltan campos requeridos: destinatario, asunto, mensaje" });
     }
-    
-    await sendGenericMassEmail(asunto, mensaje, [destinatario]);
-    
+
+    await sendIndividualEmail(destinatario, asunto, mensaje);
+
     res.json({
       success: true,
-      data: { mensaje: `Correo enviado exitosamente a ${destinatario}.` }
+      data: { mensaje: `Correo enviado correctamente a ${destinatario}` }
     });
   } catch (error) {
     console.error("Error enviando correo individual:", error);
-    res.status(500).json({ msg: "Error al procesar la solicitud", error: error.message });
+    res.status(500).json({ msg: "Error al enviar correo individual", error: error.message });
   }
 };
