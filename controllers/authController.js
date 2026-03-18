@@ -14,10 +14,10 @@ export async function register(req, res) {
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   try {
-    const { nombre, email, telefono, contrasena } = req.body;
+    const { nombre, email, telefono, contrasena, fecha_nacimiento } = req.body;
 
-    if (!nombre || !email || !contrasena) {
-      return res.status(400).json({ message: 'Todos los campos obligatorios deben ser llenados' });
+    if (!nombre || !email || !contrasena || !fecha_nacimiento) {
+      return res.status(400).json({ message: 'Todos los campos obligatorios deben ser llenados (incluyendo fecha de nacimiento)' });
     }
 
     const existing = await pool.query(
@@ -32,10 +32,10 @@ export async function register(req, res) {
     const hashedPassword = await bcryptjs.hash(contrasena, salt);
 
     const insertUser = await pool.query(
-      `INSERT INTO usuarios (nombre_completo, email, telefono, contrasena)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id_usuario, nombre_completo, email`,
-      [nombre, email.toLowerCase(), telefono || null, hashedPassword]
+      `INSERT INTO usuarios (nombre_completo, email, telefono, contrasena, fecha_nacimiento)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id_usuario, nombre_completo, email, fecha_nacimiento`,
+      [nombre, email.toLowerCase(), telefono || null, hashedPassword, fecha_nacimiento]
     );
 
     const newUser = insertUser.rows[0];
@@ -71,7 +71,8 @@ export async function register(req, res) {
       user: {
         id_usuario: newUser.id_usuario,
         nombre: newUser.nombre_completo,
-        email: newUser.email
+        email: newUser.email,
+        fecha_nacimiento: newUser.fecha_nacimiento
       }
     });
   } catch (err) {
@@ -167,6 +168,7 @@ export async function login(req, res) {
         id_usuario: user.id_usuario,
         nombre: user.nombre_completo,
         email: user.email,
+        fecha_nacimiento: user.fecha_nacimiento,
         roles,
         permisos
       }
@@ -183,6 +185,7 @@ export async function getAuthUser(req, res) {
     res.json({
       id_usuario: req.user.id_usuario,
       email: req.user.email,
+      fecha_nacimiento: req.user.fecha_nacimiento,
       roles: req.user.roles,
       permisos: req.user.permisos
     });

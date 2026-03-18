@@ -91,6 +91,42 @@ export const sendGenericMassEmail = async (subject, message, recipientEmails) =>
 
 
 
+// Enviar correo individual a un solo destinatario
+export const sendIndividualEmail = async (destinatario, asunto, mensaje) => {
+  if (!destinatario || !asunto || !mensaje) {
+    throw new Error("Faltan campos requeridos: destinatario, asunto o mensaje");
+  }
+
+  const mailOptions = {
+    from: `"OnWheels" <${process.env.EMAIL_USER}>`,
+    to: destinatario,
+    subject: asunto,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #040529; padding: 20px; border-radius: 8px 8px 0 0;">
+          <h2 style="color: #F0E6E6; margin: 0;">🛹 OnWheels</h2>
+        </div>
+        <div style="padding: 24px; background: #fff; border: 1px solid #eee; border-radius: 0 0 8px 8px;">
+          <div style="font-size: 15px; line-height: 1.7; white-space: pre-wrap;">
+            ${mensaje.replace(/\n/g, '<br>')}
+          </div>
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="font-size: 12px; color: #999;">Equipo OnWheels &mdash; ¡Bienvenido a la familia!</p>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Correo individual enviado a:', destinatario, '| ID:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('❌ Error al enviar correo individual:', error);
+    throw error;
+  }
+};
+
 export const sendPasswordResetEmail = async (email, resetToken) => {
   try {
     // Reusing the existing transporter strategy or creating a new one if specific configs needed

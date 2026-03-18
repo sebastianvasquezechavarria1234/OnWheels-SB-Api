@@ -10,6 +10,18 @@ import { crearMatricula } from "../models/matriculasModel.js";
 // ================================
 // Crear preinscripción (con lógica completa de menores y transacciones)
 // ================================
+const calculateAge = (birthDate) => {
+    if (!birthDate) return 0;
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    return age;
+};
+
 export const crearPreinscripcionCtrl = async (req, res) => {
   const client = await pool.connect();
   try {
@@ -49,12 +61,29 @@ export const crearPreinscripcionCtrl = async (req, res) => {
     // CASO 1: PREINSCRIPCIÓN PARA TERCERO (Hijo / Acudido)
     // =========================================================================
     if (tipo_preinscripcion === "TERCERO") {
-      const { nombre_completo, email, genero } = datos_tercero || {};
+      let { nombre_completo, email, fecha_nacimiento, genero, documento, tipo_documento, telefono } = datos_tercero || {};
 
       if (!nombre_completo || !email || !edad) {
         await client.query("ROLLBACK");
         client.release();
-        return res.status(400).json({ mensaje: "Faltan datos del tercero" });
+        return res.status(400).json({ mensaje: "Faltan datos obligatorios del tercero (nombre, email, edad)" });
+      }
+
+      // Si no viene fecha_nacimiento, calculamos una aproximada basada en la edad para no romper el esquema
+      if (!fecha_nacimiento) {
+        const year = new Date().getFullYear() - parseInt(edad);
+        fecha_nacimiento = `${year}-01-01`;
+      }
+
+      // Validación de edad para terceros
+      if (tipo_preinscripcion === 'TERCERO') {
+          const userAge = calculateAge(req.user.fecha_nacimiento);
+          if (userAge < 18) {
+              return res.status(403).json({
+                  mensaje: "Lo sentimos, debes ser mayor de edad para preinscribir a otra persona.",
+                  error: "menor_de_edad"
+              });
+          }
       }
 
       // 1. Validar si el email del tercero ya existe (Seguridad)
@@ -64,7 +93,8 @@ export const crearPreinscripcionCtrl = async (req, res) => {
         await client.query("ROLLBACK");
         client.release();
         return res.status(409).json({
-          mensaje: "El email del tercero ya está registrado. Por favor usa otro correo o contacta soporte."
+          mensaje: "El correo electrónico de la persona a preinscribir ya está registrado en el sistema. Por favor, usa otro correo.",
+          error: "email_duplicado"
         });
       }
 
@@ -75,8 +105,8 @@ export const crearPreinscripcionCtrl = async (req, res) => {
 
       // 3. Crear Usuario del Tercero (Rol CLIENTE, Inactivo)
       const insertUserQuery = `
-                INSERT INTO usuarios (nombre_completo, email, contrasena, estado, documento, tipo_documento, telefono, activation_token, token_expiration)
-                VALUES ($1, $2, $3, false, 'NO_DOC', 'CC', '0000000000', $4, $5) 
+                INSERT INTO usuarios (nombre_completo, email, contrasena, fecha_nacimiento, estado, documento, tipo_documento, telefono, activation_token, token_expiration)
+                VALUES ($1, $2, $3, $4, false, $5, $6, $7, $8, $9) 
                 RETURNING id_usuario
             `;
       // Nota: Se usa una contraseña dummy no utilizable para cumplir restricción NOT NULL si existe
@@ -86,6 +116,10 @@ export const crearPreinscripcionCtrl = async (req, res) => {
         nombre_completo,
         email,
         dummyPass,
+        fecha_nacimiento,
+        documento || 'NO_DOC',
+        tipo_documento || 'CC',
+        telefono || '0000000000',
         activationToken,
         tokenExpiration
       ]);
