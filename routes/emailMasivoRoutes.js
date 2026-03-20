@@ -4,8 +4,8 @@ import {
   obtenerVistaPreviaDestinatarios,
   enviarCorreosMasivos,
   obtenerHistorialEnviosController,
-  eliminarEnvioController,
-  enviarCorreoIndividual
+  enviarCorreoIndividual,
+  eliminarEnvioController
 } from "../controllers/emailMasivoController.js";
 
 const router = Router();

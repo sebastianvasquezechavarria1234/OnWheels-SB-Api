@@ -11,9 +11,13 @@ import { crearMatricula } from "../models/matriculasModel.js";
 // Crear preinscripción (con lógica completa de menores y transacciones)
 // ================================
 const calculateAge = (birthDate) => {
-    if (!birthDate) return 0;
+    if (!birthDate) return null;
     const today = new Date();
     const birth = new Date(birthDate);
+    
+    // Si birth es un objeto Date válido
+    if (isNaN(birth.getTime())) return null;
+
     let age = today.getFullYear() - birth.getFullYear();
     const m = today.getMonth() - birth.getMonth();
     if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
@@ -77,11 +81,31 @@ export const crearPreinscripcionCtrl = async (req, res) => {
 
       // Validación de edad para terceros
       if (tipo_preinscripcion === 'TERCERO') {
-          const userAge = calculateAge(req.user.fecha_nacimiento);
-          if (userAge < 18) {
+          const birthDate = req.user.fecha_nacimiento;
+          const userAge = calculateAge(birthDate);
+          
+          console.log("🕵️ [DEBUG AGE] req.user check:", { 
+            id: req.user.id_usuario, 
+            birthDate, 
+            userAge 
+          });
+
+          if (userAge === null) {
+              await client.query("ROLLBACK");
+              client.release();
               return res.status(403).json({
-                  mensaje: "Lo sentimos, debes ser mayor de edad para preinscribir a otra persona.",
-                  error: "menor_de_edad"
+                  mensaje: "No tenemos registrada tu fecha de nacimiento. Por favor actualiza tu perfil para continuar.",
+                  error: "fecha_nacimiento_faltante"
+              });
+          }
+
+          if (userAge < 18) {
+              await client.query("ROLLBACK");
+              client.release();
+              return res.status(403).json({
+                  mensaje: `Lo sentimos, debes ser mayor de edad para preinscribir a otra persona. (Edad detectada: ${userAge} años)`,
+                  error: "menor_de_edad",
+                  edad_detectada: userAge
               });
           }
       }
@@ -199,9 +223,9 @@ export const crearPreinscripcionCtrl = async (req, res) => {
         const mailOptions = {
           from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
           to: email,
-          subject: "Activa tu cuenta en OnWheels",
+          subject: "Activa tu cuenta de Performance-SB",
           html: `
-            <h1>Bienvenido a OnWheels</h1>
+            <h1>Bienvenido a Performance-SB</h1>
             <p>Para completar tu registro, por favor activa tu cuenta haciendo clic en el siguiente enlace:</p>
             <a href="${activationLink}">Activar Cuenta</a>
             <p>Este enlace expira en 24 horas.</p>

@@ -29,6 +29,19 @@ export async function authenticateToken(req, res, next) {
 
       const userId = payload.id_usuario;
 
+      // Obtener datos básicos del usuario, roles y permisos
+      const userRes = await pool.query(
+        `SELECT id_usuario, email, fecha_nacimiento FROM usuarios WHERE id_usuario = $1`,
+        [userId]
+      );
+      
+      if (userRes.rowCount === 0) {
+        return res.status(401).json({ message: "Usuario no encontrado" });
+      }
+
+      const userData = userRes.rows[0];
+      console.log("🕵️ [DEBUG AUTH] User found:", { id: userId, email: userData.email, raw_birthdate: userData.fecha_nacimiento });
+
       // Obtener roles del usuario (normalizados a minúscula)
       const rolesRes = await pool.query(
         `SELECT r.nombre_rol
@@ -38,6 +51,7 @@ export async function authenticateToken(req, res, next) {
         [userId]
       );
       const roles = rolesRes.rows.map(r => r.nombre_rol.toLowerCase());
+      console.log("🕵️ [DEBUG AUTH] Roles:", roles);
 
       // Obtener permisos del usuario via roles
       // Atención: la tabla en tu modelo se llama ROLES_PERMISOS -> usar roles_permisos en minúsculas
@@ -54,7 +68,8 @@ export async function authenticateToken(req, res, next) {
       // Adjuntar al req.user la información completa y actualizada
       req.user = {
         id_usuario: userId,
-        email: payload.email || null,
+        email: userData.email,
+        fecha_nacimiento: userData.fecha_nacimiento,
         roles,
         permisos
       };

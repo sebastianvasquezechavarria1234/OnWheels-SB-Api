@@ -1,11 +1,16 @@
-import pool from './db/postgresPool.js';
 
-pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'clases'")
-  .then(res => {
-    console.log(res.rows);
-    process.exit(0);
-  })
-  .catch(err => {
-    console.error(err);
-    process.exit(1);
-  });
+import pool from "./db/postgresPool.js";
+
+async function checkTable() {
+    try {
+        const res = await pool.query("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'ventas'");
+        console.log("COLUMNS IN VENTAS:");
+        console.table(res.rows);
+    } catch (err) {
+        console.error(err);
+    } finally {
+        process.exit();
+    }
+}
+
+checkTable();
