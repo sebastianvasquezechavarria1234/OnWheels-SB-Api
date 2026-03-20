@@ -271,6 +271,19 @@ export const getClasesInstructor = async (req, res) => {
         c.*,
         n.nombre_nivel,
         s.nombre_sede,
+        (
+          SELECT COALESCE(json_agg(
+            json_build_object(
+              'id_estudiante', est.id_estudiante,
+              'nombre_estudiante', u_est.nombre_completo,
+              'telefono', u_est.telefono
+            )
+          ), '[]'::json)
+          FROM matriculas mat
+          JOIN estudiantes est ON mat.id_estudiante = est.id_estudiante
+          JOIN usuarios u_est ON est.id_usuario = u_est.id_usuario
+          WHERE mat.id_clase = c.id_clase AND mat.estado = 'Activa'
+        ) AS estudiantes,
         json_agg(
           json_build_object(
             'id_instructor', i.id_instructor,

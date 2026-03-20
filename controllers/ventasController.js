@@ -23,9 +23,9 @@ export const getVentas = async (req, res) => {
       INNER JOIN clientes c ON v.id_cliente = c.id_cliente
       INNER JOIN usuarios u ON c.id_usuario = u.id_usuario
       WHERE 
-        (v.metodo_pago IN ('transferencia', 'efectivo')) OR
-        (v.metodo_pago = 'contraentrega' AND v.estado = 'Entregada') OR
-        (v.estado = 'Cancelada')
+        (COALESCE(LOWER(v.metodo_pago), '') NOT IN ('contraentrega')) OR
+        (LOWER(v.metodo_pago) = 'contraentrega' AND LOWER(v.estado) IN ('entregada', 'cancelada')) OR
+        (LOWER(v.estado) = 'cancelada')
       ORDER BY v.fecha_venta DESC
     `);
 
@@ -82,7 +82,7 @@ export const getMisCompras = async (req, res) => {
         v.id_cliente,
         v.metodo_pago,
         v.estado AS estado,
-        v.fecha_venta,
+        v.fecha_venta AS fecha,
         v.total,
         v.direccion_envio,
         v.telefono_envio
@@ -100,9 +100,9 @@ export const getMisCompras = async (req, res) => {
             dv.cantidad,
             dv.precio_unitario,
             p.id_producto,
-            p.nombre_producto,
+            p.nombre_producto AS producto_nombre,
             co.nombre_color,
-            t.nombre_talla,
+            t.nombre_talla AS talla,
             (SELECT url_imagen FROM producto_imagenes ip WHERE ip.id_producto = p.id_producto LIMIT 1) as imagen
           FROM detalle_ventas dv
           INNER JOIN variantes_producto var ON dv.id_variante = var.id_variante
@@ -111,7 +111,7 @@ export const getMisCompras = async (req, res) => {
           LEFT JOIN tallas t ON var.id_talla = t.id_talla
           WHERE dv.id_venta = $1
         `, [venta.id_venta]);
-        return { ...venta, items: items.rows };
+        return { ...venta, detalles: items.rows, items: items.rows };
       })
     );
 
@@ -137,7 +137,7 @@ export const getVentaById = async (req, res) => {
         v.fecha_venta,
         v.total,
         v.motivo_cancelacion,
-        v.motivo_cancelacion,
+        v.justificacion_cancelacion,
         u.id_usuario,
         u.nombre_completo AS nombre_cliente,
         u.email,
@@ -369,7 +369,7 @@ export const updateVenta = async (req, res) => {
     if (current.rowCount === 0) {
       return res.status(404).json({ mensaje: "Venta no encontrada" });
     }
-    if (current.rows[0].estado !== "Pendiente") {
+    if (current.rows[0].estado?.toLowerCase() !== "pendiente") {
       throw new Error("Solo se pueden editar ventas en estado 'Pendiente'");
     }
 
@@ -585,10 +585,12 @@ export const cancelVenta = async (req, res) => {
     }
 
     // 3. Update Estado y Justificación
-    const { motivo_cancelacion } = req.body;
+    const { motivo_cancelacion, justificacion_cancelacion } = req.body;
+    const finalJustificacion = justificacion_cancelacion || motivo_cancelacion || 'Sin justificación proporcionada';
+    
     await client.query(
-      "UPDATE ventas SET estado = 'Cancelada', motivo_cancelacion = $1 WHERE id_venta = $2",
-      [motivo_cancelacion || 'Sin justificación proporcionada', id]
+      "UPDATE ventas SET estado = 'Cancelada', motivo_cancelacion = $1, justificacion_cancelacion = $1 WHERE id_venta = $2",
+      [finalJustificacion, id]
     );
 
     await client.query("COMMIT");

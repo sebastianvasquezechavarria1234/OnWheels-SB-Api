@@ -7,7 +7,7 @@ export const getDashboardStats = async (req, res) => {
     const ventasTotalesRes = await pool.query(`
       SELECT COALESCE(SUM(total), 0) AS total_ventas
       FROM ventas
-      WHERE estado != 'Cancelada'
+      WHERE LOWER(estado) != 'cancelada'
     `);
     const totalVentas = parseFloat(ventasTotalesRes.rows[0].total_ventas);
 
@@ -17,7 +17,7 @@ export const getDashboardStats = async (req, res) => {
         COALESCE(SUM(CASE WHEN DATE_TRUNC('month', fecha_venta) = DATE_TRUNC('month', CURRENT_DATE) THEN total ELSE 0 END), 0) AS mes_actual,
         COALESCE(SUM(CASE WHEN DATE_TRUNC('month', fecha_venta) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') THEN total ELSE 0 END), 0) AS mes_anterior
       FROM ventas
-      WHERE estado != 'Cancelada'
+      WHERE LOWER(estado) != 'cancelada'
     `);
     const mesActual = parseFloat(ventasMesRes.rows[0].mes_actual);
     const mesAnterior = parseFloat(ventasMesRes.rows[0].mes_anterior);
@@ -37,7 +37,7 @@ export const getDashboardStats = async (req, res) => {
         COUNT(CASE WHEN DATE_TRUNC('month', fecha_inicio) = DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) AS mes_actual,
         COUNT(CASE WHEN DATE_TRUNC('month', fecha_inicio) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') THEN 1 END) AS mes_anterior
       FROM matriculas
-      WHERE estado = 'Activa'
+      WHERE LOWER(estado) = 'activa'
     `);
     const mActual = parseInt(matriculasMesRes.rows[0].mes_actual);
     const mAnterior = parseInt(matriculasMesRes.rows[0].mes_anterior);
@@ -47,7 +47,7 @@ export const getDashboardStats = async (req, res) => {
 
     // ─── 4. Preinscripciones pendientes ───────────────────────────────────────
     const preinscripcionesRes = await pool.query(`
-      SELECT COUNT(*) AS total FROM estudiantes WHERE estado = 'Pendiente'
+      SELECT COUNT(*) AS total FROM estudiantes WHERE LOWER(estado) = 'pendiente'
     `);
     const preinscripciones = parseInt(preinscripcionesRes.rows[0].total);
 
@@ -68,7 +68,7 @@ export const getDashboardStats = async (req, res) => {
     const nuevosAlumnosRes = await pool.query(`
       SELECT COUNT(*) AS total
       FROM estudiantes
-      WHERE estado = 'Activo'
+      WHERE LOWER(estado) = 'activo'
         AND DATE_TRUNC('month', fecha_preinscripcion) = DATE_TRUNC('month', CURRENT_DATE)
     `);
     const nuevosAlumnos = parseInt(nuevosAlumnosRes.rows[0].total);
@@ -80,7 +80,7 @@ export const getDashboardStats = async (req, res) => {
         EXTRACT(MONTH FROM fecha_venta) AS num_mes,
         COALESCE(SUM(total), 0) AS ventas
       FROM ventas
-      WHERE estado != 'Cancelada'
+      WHERE LOWER(estado) != 'cancelada'
         AND EXTRACT(YEAR FROM fecha_venta) = EXTRACT(YEAR FROM CURRENT_DATE)
       GROUP BY mes, num_mes
       ORDER BY num_mes ASC
@@ -105,7 +105,7 @@ export const getDashboardStats = async (req, res) => {
       LEFT JOIN productos p ON p.id_categoria = cp.id_categoria
       LEFT JOIN variantes_producto vp ON vp.id_producto = p.id_producto
       LEFT JOIN detalle_ventas dv ON dv.id_variante = vp.id_variante
-      LEFT JOIN ventas v ON dv.id_venta = v.id_venta AND v.estado != 'Cancelada'
+      LEFT JOIN ventas v ON dv.id_venta = v.id_venta AND LOWER(v.estado) != 'cancelada'
       GROUP BY cp.id_categoria, cp.nombre_categoria
       ORDER BY value DESC
       LIMIT 4
@@ -123,7 +123,7 @@ export const getDashboardStats = async (req, res) => {
 
     // ─── 8. Pedidos pendientes ─────────────────────────────────────────────────
     const pedidosPendRes = await pool.query(`
-      SELECT COUNT(*) AS total FROM ventas WHERE estado = 'Pendiente'
+      SELECT COUNT(*) AS total FROM ventas WHERE LOWER(estado) = 'pendiente'
     `);
     const pedidosPendientes = parseInt(pedidosPendRes.rows[0].total);
 
