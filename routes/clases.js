@@ -9,6 +9,7 @@ import {
   updateClase,
   deleteClase,
   getClasesInstructor,
+  getClasesInstructorDetalladas,
   getClasesEstudiante,
   uploadClaseImage
 } from "../controllers/clasesController.js";
@@ -22,6 +23,7 @@ router.get("/", getClases);
 // ✅ Rutas específicas SIEMPRE antes de /:id
 router.get("/mis-clases", authenticateToken, getClasesEstudiante);
 router.get("/instructor/:id", authenticateToken, getClasesInstructor);
+router.get("/instructor-detalladas/:id", authenticateToken, getClasesInstructorDetalladas);
 
 // ✅ Ruta dinámica al final
 router.get("/:id", getClaseById);

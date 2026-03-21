@@ -594,7 +594,7 @@ export const cancelVenta = async (req, res) => {
     );
 
     await client.query("COMMIT");
-    res.json({ mensaje: "Ventañ cancelada correctamente. Stock restaurado." });
+    res.json({ mensaje: "Venta cancelada correctamente. Stock restaurado." });
 
   } catch (err) {
     await client.query("ROLLBACK");

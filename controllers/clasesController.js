@@ -310,6 +310,63 @@ export const getClasesInstructor = async (req, res) => {
   }
 };
 
+// Clases detalladas del instructor (incluye inscritos_actuales)
+export const getClasesInstructorDetalladas = async (req, res) => {
+  try {
+    const { id } = req.params; // id_usuario del instructor
+    const userId = req.user.id_usuario;
+    const userRole = req.user.roles || [];
+
+    const isAdmin = userRole.some(r => r === 'administrador' || r === 'admin');
+
+    if (userId.toString() !== id.toString() && !isAdmin) {
+      return res.status(403).json({ mensaje: "No tienes permiso para ver las clases de otro instructor" });
+    }
+
+    const instResult = await pool.query(
+      "SELECT id_instructor FROM instructores WHERE id_usuario = $1",
+      [id]
+    );
+    if (instResult.rowCount === 0) return res.json([]);
+
+    const id_instructor = instResult.rows[0].id_instructor;
+
+    const result = await pool.query(`
+      SELECT
+        c.*,
+        n.nombre_nivel,
+        s.nombre_sede,
+        (
+          SELECT COUNT(*)::int
+          FROM matriculas m
+          WHERE m.id_clase = c.id_clase AND m.estado = 'Activa'
+        ) AS inscritos_actuales,
+        json_agg(
+          json_build_object(
+            'id_instructor', i.id_instructor,
+            'nombre_instructor', u.nombre_completo,
+            'rol_instructor', ci.rol_instructor
+          )
+        ) FILTER (WHERE i.id_instructor IS NOT NULL) AS instructores
+      FROM clases c
+      LEFT JOIN niveles_clases n ON c.id_nivel = n.id_nivel
+      LEFT JOIN sedes s ON c.id_sede = s.id_sede
+      JOIN clases_instructores ci_filter ON c.id_clase = ci_filter.id_clase
+      LEFT JOIN clases_instructores ci ON c.id_clase = ci.id_clase
+      LEFT JOIN instructores i ON ci.id_instructor = i.id_instructor
+      LEFT JOIN usuarios u ON i.id_usuario = u.id_usuario
+      WHERE ci_filter.id_instructor = $1
+      GROUP BY c.id_clase, n.nombre_nivel, s.nombre_sede
+      ORDER BY c.id_clase DESC
+    `, [id_instructor]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error al obtener clases detalladas del instructor:", err);
+    res.status(500).json({ mensaje: "Error al obtener clases detalladas" });
+  }
+};
+
 // ✅ NUEVA: Clases del estudiante autenticado
 export const getClasesEstudiante = async (req, res) => {
   try {
