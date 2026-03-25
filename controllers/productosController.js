@@ -11,45 +11,37 @@ export const getProductos = async (req, res) => {
         p.descripcion,
         p.precio_compra,
         p.precio_venta,
-        p.precio_venta AS precio, -- Compatibilidad
+        p.precio_venta AS precio,
         p.estado,
         p.descuento,
-        p.descuento AS descuento_producto, -- Compatibilidad
+        p.descuento AS descuento_producto,
         p.porcentaje_ganancia,
         p.id_categoria,
         c.nombre_categoria,
-        -- Imágenes
-        COALESCE(
-          json_agg(
-            DISTINCT jsonb_build_object(
-              'id_imagen', pi.id_imagen, 
-              'url_imagen', pi.url_imagen
-            )
-          ) FILTER (WHERE pi.id_imagen IS NOT NULL), 
-          '[]'
+        -- Imágenes vía Subconsulta
+        (
+          SELECT COALESCE(json_agg(jsonb_build_object('id_imagen', pi.id_imagen, 'url_imagen', pi.url_imagen)), '[]')
+          FROM producto_imagenes pi 
+          WHERE pi.id_producto = p.id_producto
         ) AS imagenes,
-        -- Variantes
-        COALESCE(
-          json_agg(
-            DISTINCT jsonb_build_object(
-              'id_variante', v.id_variante,
-              'id_color', v.id_color,
-              'nombre_color', co.nombre_color,
-              'color_hex', co.codigo_hex,
-              'id_talla', v.id_talla,
-              'nombre_talla', t.nombre_talla,
-              'stock', v.stock
-            ) 
-          ) FILTER (WHERE v.id_variante IS NOT NULL), 
-          '[]'
+        -- Variantes vía Subconsulta
+        (
+          SELECT COALESCE(json_agg(jsonb_build_object(
+            'id_variante', v.id_variante,
+            'id_color', v.id_color,
+            'nombre_color', co.nombre_color,
+            'color_hex', co.codigo_hex,
+            'id_talla', v.id_talla,
+            'nombre_talla', t.nombre_talla,
+            'stock', v.stock
+          )), '[]')
+          FROM variantes_producto v
+          LEFT JOIN colores co ON v.id_color = co.id_color
+          LEFT JOIN tallas t ON v.id_talla = t.id_talla
+          WHERE v.id_producto = p.id_producto
         ) AS variantes
       FROM productos p
       LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
-      LEFT JOIN variantes_producto v ON p.id_producto = v.id_producto
-      LEFT JOIN colores co ON v.id_color = co.id_color
-      LEFT JOIN tallas t ON v.id_talla = t.id_talla
-      LEFT JOIN producto_imagenes pi ON p.id_producto = pi.id_producto
-      GROUP BY p.id_producto, c.nombre_categoria
       ORDER BY p.id_producto DESC
     `;
 
@@ -79,39 +71,31 @@ export const getProductoById = async (req, res) => {
         p.porcentaje_ganancia,
         p.id_categoria,
         c.nombre_categoria,
-        -- Imágenes
-        COALESCE(
-          json_agg(
-            DISTINCT jsonb_build_object(
-              'id_imagen', pi.id_imagen, 
-              'url_imagen', pi.url_imagen
-            )
-          ) FILTER (WHERE pi.id_imagen IS NOT NULL), 
-          '[]'
+        -- Imágenes vía Subconsulta
+        (
+          SELECT COALESCE(json_agg(jsonb_build_object('id_imagen', pi.id_imagen, 'url_imagen', pi.url_imagen)), '[]')
+          FROM producto_imagenes pi 
+          WHERE pi.id_producto = p.id_producto
         ) AS imagenes,
-        -- Variantes
-        COALESCE(
-          json_agg(
-            DISTINCT jsonb_build_object(
-              'id_variante', v.id_variante,
-              'id_color', v.id_color,
-              'nombre_color', co.nombre_color,
-              'color_hex', co.codigo_hex,
-              'id_talla', v.id_talla,
-              'nombre_talla', t.nombre_talla,
-              'stock', v.stock
-            ) 
-          ) FILTER (WHERE v.id_variante IS NOT NULL), 
-          '[]'
+        -- Variantes vía Subconsulta
+        (
+          SELECT COALESCE(json_agg(jsonb_build_object(
+            'id_variante', v.id_variante,
+            'id_color', v.id_color,
+            'nombre_color', co.nombre_color,
+            'color_hex', co.codigo_hex,
+            'id_talla', v.id_talla,
+            'nombre_talla', t.nombre_talla,
+            'stock', v.stock
+          )), '[]')
+          FROM variantes_producto v
+          LEFT JOIN colores co ON v.id_color = co.id_color
+          LEFT JOIN tallas t ON v.id_talla = t.id_talla
+          WHERE v.id_producto = p.id_producto
         ) AS variantes
       FROM productos p
       LEFT JOIN categorias_productos c ON p.id_categoria = c.id_categoria
-      LEFT JOIN variantes_producto v ON p.id_producto = v.id_producto
-      LEFT JOIN colores co ON v.id_color = co.id_color
-      LEFT JOIN tallas t ON v.id_talla = t.id_talla
-      LEFT JOIN producto_imagenes pi ON p.id_producto = pi.id_producto
       WHERE p.id_producto = $1
-      GROUP BY p.id_producto, c.nombre_categoria
     `;
 
     const result = await pool.query(sql, [id]);
@@ -220,11 +204,11 @@ export const createProducto = async (req, res) => {
     // 3. Insertar Variantes (si existen)
     if (parsedVariantes && parsedVariantes.length > 0) {
       for (const variante of parsedVariantes) {
-        if (variante.id_color && variante.id_talla) {
+        if (variante.id_color || variante.id_talla) { // Permite color O talla
           await client.query(
             `INSERT INTO variantes_producto (id_producto, id_color, id_talla, stock)
               VALUES ($1, $2, $3, $4)`,
-            [newProductoId, variante.id_color, variante.id_talla, variante.stock || 0]
+            [newProductoId, variante.id_color || null, variante.id_talla || null, variante.stock || 0]
           );
         }
       }
@@ -380,11 +364,11 @@ export const updateProducto = async (req, res) => {
 
     if (parsedVariantes && parsedVariantes.length > 0) {
       for (const variante of parsedVariantes) {
-        if (variante.id_color && variante.id_talla) {
+        if (variante.id_color || variante.id_talla) { // Permite color O talla
           await client.query(
             `INSERT INTO variantes_producto (id_producto, id_color, id_talla, stock)
                 VALUES ($1, $2, $3, $4)`,
-            [id, variante.id_color, variante.id_talla, variante.stock || 0]
+            [id, variante.id_color || null, variante.id_talla || null, variante.stock || 0]
           );
         }
       }
@@ -426,7 +410,13 @@ export const deleteProducto = async (req, res) => {
     console.error("❌ Error al eliminar producto:", err);
     // Verificar restricción de llave foránea (ej. ventas)
     if (err.code === '23503') {
-      return res.status(400).json({ mensaje: "No se puede eliminar el producto porque tiene ventas asociadas." });
+      let mensaje = "No se puede eliminar el producto porque tiene registros asociados.";
+      if (err.detail.includes("detalle_ventas")) {
+        mensaje = "No se puede eliminar el producto porque tiene ventas asociadas.";
+      } else if (err.detail.includes("detalle_compras")) {
+        mensaje = "No se puede eliminar el producto porque tiene compras/entradas asociadas.";
+      }
+      return res.status(400).json({ mensaje });
     }
     res.status(500).json({ mensaje: "Error al eliminar producto", error: err.message });
   }
