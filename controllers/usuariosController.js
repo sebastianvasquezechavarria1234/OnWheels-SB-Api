@@ -460,6 +460,25 @@ export const deleteUsuario = async (req, res) => {
   } catch (err) {
     await client.query("ROLLBACK").catch(() => { });
     console.error("Error al eliminar usuario:", err);
+    
+    // Si el error es por restricción de llave foránea (23503)
+    if (err.code === "23503") {
+      let razon = "tiene registros asociados en el sistema.";
+      const detail = err.detail || "";
+      
+      if (detail.includes('clientes')) razon = "tiene un perfil de cliente registrado.";
+      if (detail.includes('estudiantes')) razon = "está registrado como un estudiante activo.";
+      if (detail.includes('ventas')) razon = "tiene compras o ventas registradas.";
+      if (detail.includes('matriculas')) razon = "tiene matrículas asociadas.";
+      if (detail.includes('clases')) razon = "está vinculado a clases o cronogramas.";
+      if (detail.includes('compras')) razon = "está vinculado a registros de compras.";
+
+      return res.status(400).json({ 
+        mensaje: `No se puede eliminar el usuario porque ${razon}`,
+        detalle: err.detail 
+      });
+    }
+    
     return res.status(500).json({ mensaje: "Error al eliminar usuario", error: err.message });
   } finally {
     client.release();
