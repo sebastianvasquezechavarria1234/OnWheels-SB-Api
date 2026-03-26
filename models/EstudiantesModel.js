@@ -99,6 +99,7 @@ export const obtenerEstudiantes = async () => {
       u.telefono,
       u.documento,
       u.tipo_documento,
+      u.foto_perfil,
       a.nombre_acudiente,
       a.telefono as telefono_acudiente,
       a.email as email_acudiente
@@ -122,6 +123,7 @@ export const obtenerEstudiantesConMatriculaActiva = async () => {
       u.documento,
       u.telefono,
       u.tipo_documento,
+      u.foto_perfil,
       a.nombre_acudiente,
       a.telefono as telefono_acudiente,
       a.email as email_acudiente,
@@ -153,6 +155,7 @@ export const obtenerPreinscripcionesPendientes = async () => {
       u.telefono,
       u.documento,
       u.tipo_documento,
+      u.foto_perfil,
       a.nombre_acudiente,
       a.telefono as telefono_acudiente,
       a.email as email_acudiente
@@ -178,6 +181,7 @@ export const obtenerEstudiantePorId = async (id) => {
       u.telefono,
       u.documento,
       u.tipo_documento,
+      u.foto_perfil,
       a.nombre_acudiente,
       a.telefono as telefono_acudiente,
       a.email as email_acudiente

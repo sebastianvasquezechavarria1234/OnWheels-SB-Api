@@ -207,7 +207,10 @@ export const createUsuario = async (req, res) => {
       email,
       telefono = null,
       contrasena,
-      id_rol = null
+      id_rol = null,
+      foto_perfil = null,
+      direccion = null,
+      fecha_nacimiento = null
     } = req.body;
 
     if (!nombre_completo || !email || !contrasena) {
@@ -222,8 +225,8 @@ export const createUsuario = async (req, res) => {
 
     const insertUserQ = `
       INSERT INTO usuarios
-        (documento, tipo_documento, nombre_completo, email, telefono, contrasena)
-      VALUES ($1,$2,$3,$4,$5,$6)
+        (documento, tipo_documento, nombre_completo, email, telefono, contrasena, foto_perfil, direccion, fecha_nacimiento)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
       RETURNING id_usuario;
     `;
     const rUser = await client.query(insertUserQ, [
@@ -232,7 +235,10 @@ export const createUsuario = async (req, res) => {
       nombre_completo,
       email,
       telefono,
-      hashed
+      hashed,
+      foto_perfil,
+      direccion,
+      fecha_nacimiento
     ]);
     const id_usuario = rUser.rows[0].id_usuario;
 
@@ -296,8 +302,20 @@ export const updateUsuario = async (req, res) => {
       contrasena = null,
       currentPassword = null,
       confirmPassword = null,
-      fecha_nacimiento = null
+      fecha_nacimiento = null,
+      foto_perfil = null,
+      direccion = null
     } = req.body;
+
+    // Sanear campos vacíos para evitar errores de sintaxis en Postgres (p.ej. "" en fecha)
+    const valDocumento = (documento === "" || documento === "null") ? null : documento;
+    const valTipoDocumento = (tipo_documento === "" || tipo_documento === "null") ? null : tipo_documento;
+    const valFechaNacimiento = (fecha_nacimiento === "" || fecha_nacimiento === "null") ? null : fecha_nacimiento;
+    const valDireccion = (direccion === "" || direccion === "null") ? null : direccion;
+    const valTelefono = (telefono === "" || telefono === "null") ? null : telefono;
+    const valFotoPerfil = (foto_perfil === "" || foto_perfil === "null") ? null : foto_perfil;
+    const valNombre = (nombre_completo === "" || nombre_completo === "null") ? null : nombre_completo;
+    const valEmail = (email === "" || email === "null") ? null : email;
 
     let hashed = null;
 
@@ -346,8 +364,10 @@ export const updateUsuario = async (req, res) => {
           email = COALESCE($4, email),
           telefono = COALESCE($5, telefono),
           contrasena = COALESCE($6, contrasena),
-          fecha_nacimiento = COALESCE($7, fecha_nacimiento)
-      WHERE id_usuario = $8
+          fecha_nacimiento = COALESCE($7, fecha_nacimiento),
+          foto_perfil = COALESCE($8, foto_perfil),
+          direccion = COALESCE($9, direccion)
+      WHERE id_usuario = $10
       RETURNING 
         id_usuario,
         documento,
@@ -357,9 +377,10 @@ export const updateUsuario = async (req, res) => {
         telefono,
         estado,
         foto_perfil,
+        direccion,
         fecha_nacimiento;
     `;
-    const values = [documento, tipo_documento, nombre_completo, email, telefono, hashed, fecha_nacimiento, id];
+    const values = [valDocumento, valTipoDocumento, valNombre, valEmail, valTelefono, hashed, valFechaNacimiento, valFotoPerfil, valDireccion, id];
 
     const result = await pool.query(query, values);
 
@@ -621,8 +642,9 @@ export const updatePerfil = async (req, res) => {
       SET
         nombre_completo = COALESCE($1, nombre_completo),
         telefono = COALESCE($2, telefono),
-        fecha_nacimiento = COALESCE($3, fecha_nacimiento)
-      WHERE id_usuario = $4
+        fecha_nacimiento = COALESCE($3, fecha_nacimiento),
+        direccion = COALESCE($4, direccion)
+      WHERE id_usuario = $5
       RETURNING
         id_usuario,
         documento,
@@ -632,10 +654,11 @@ export const updatePerfil = async (req, res) => {
         telefono,
         estado,
         foto_perfil,
+        direccion,
         fecha_nacimiento;
     `;
 
-    const result = await pool.query(query, [nombre, telefono, fecha_nacimiento, id]);
+    const result = await pool.query(query, [nombre, telefono, fecha_nacimiento, direccion, id]);
 
     if (result.rowCount === 0) {
       return res.status(404).json({ mensaje: "Usuario no encontrado" });
@@ -707,8 +730,11 @@ export const uploadProfileImage = async (req, res) => {
     console.error("Error en uploadProfileImage:", error);
     try {
       const fs = await import('fs');
-      fs.writeFileSync('C:/OnWheels-SB-Api/foto_error.log', JSON.stringify(error, Object.getOwnPropertyNames(error)) + " || " + String(error));
-    } catch(e) {}
+      const logPath = './foto_error.log'; // Usar ruta relativa al directorio actual
+      fs.writeFileSync(logPath, JSON.stringify(error, Object.getOwnPropertyNames(error)) + " || " + String(error));
+    } catch(e) {
+      console.error("No se pudo escribir el log de error:", e);
+    }
     return res.status(500).json({ mensaje: "Error al subir la imagen", error: error.message || error.name || "Error desconocido en Cloudinary" });
   }
 };

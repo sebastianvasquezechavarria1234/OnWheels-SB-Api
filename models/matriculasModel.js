@@ -289,44 +289,34 @@ export const obtenerMatriculasPorEstudiante = async (id_estudiante) => {
       p.nombre_plan,
       m.precio_plan,
       p.numero_clases,
-      CASE 
-        WHEN m.estado = 'Activa' THEN
-          (
-            SELECT COUNT(*)
-            FROM generate_series(m.fecha_matricula, CURRENT_DATE, '1 day'::interval) AS dia
-            WHERE EXTRACT(DOW FROM dia) = 
-              CASE c.dia_semana
-                WHEN 'Domingo' THEN 0
-                WHEN 'Lunes' THEN 1
-                WHEN 'Martes' THEN 2
-                WHEN 'Miércoles' THEN 3
-                WHEN 'Jueves' THEN 4
-                WHEN 'Viernes' THEN 5
-                WHEN 'Sábado' THEN 6
-              END
-          )
-        ELSE
-          NULL
-      END AS clases_impartidas,
-      CASE 
-        WHEN m.estado = 'Activa' THEN
-          GREATEST(0, p.numero_clases - (
-            SELECT COUNT(*)
-            FROM generate_series(m.fecha_matricula, CURRENT_DATE, '1 day'::interval) AS dia
-            WHERE EXTRACT(DOW FROM dia) = 
-              CASE c.dia_semana
-                WHEN 'Domingo' THEN 0
-                WHEN 'Lunes' THEN 1
-                WHEN 'Martes' THEN 2
-                WHEN 'Miércoles' THEN 3
-                WHEN 'Jueves' THEN 4
-                WHEN 'Viernes' THEN 5
-                WHEN 'Sábado' THEN 6
-              END
-          ))
-        ELSE
-          NULL
-      END AS clases_restantes
+      (
+        SELECT COUNT(*)
+        FROM generate_series(m.fecha_matricula, CURRENT_DATE, '1 day'::interval) AS dia
+        WHERE EXTRACT(DOW FROM dia) = 
+          CASE c.dia_semana
+            WHEN 'Domingo' THEN 0
+            WHEN 'Lunes' THEN 1
+            WHEN 'Martes' THEN 2
+            WHEN 'Miércoles' THEN 3
+            WHEN 'Jueves' THEN 4
+            WHEN 'Viernes' THEN 5
+            WHEN 'Sábado' THEN 6
+          END
+      ) AS clases_impartidas,
+      GREATEST(0, p.numero_clases - (
+        SELECT COUNT(*)
+        FROM generate_series(m.fecha_matricula, CURRENT_DATE, '1 day'::interval) AS dia
+        WHERE EXTRACT(DOW FROM dia) = 
+          CASE c.dia_semana
+            WHEN 'Domingo' THEN 0
+            WHEN 'Lunes' THEN 1
+            WHEN 'Martes' THEN 2
+            WHEN 'Miércoles' THEN 3
+            WHEN 'Jueves' THEN 4
+            WHEN 'Viernes' THEN 5
+            WHEN 'Sábado' THEN 6
+          END
+      )) AS clases_restantes
     FROM matriculas m
     INNER JOIN clases c ON m.id_clase = c.id_clase
     INNER JOIN niveles_clases n ON c.id_nivel = n.id_nivel

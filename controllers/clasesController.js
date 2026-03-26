@@ -393,16 +393,54 @@ export const getClasesEstudiante = async (req, res) => {
         n.nombre_nivel,
         s.nombre_sede,
         s.direccion AS direccion_sede,
+        m.id_matricula,
         m.estado      AS estado_matricula,
         m.fecha_matricula,
-        m.clases_restantes,
+        m.fecha_inicio,
+        m.fecha_fin,
+        p.nombre_plan,
+        p.numero_clases,
+        (
+          SELECT COUNT(*)
+          FROM generate_series(m.fecha_matricula, CURRENT_DATE, '1 day'::interval) AS dia
+          WHERE EXTRACT(DOW FROM dia) = 
+            CASE c.dia_semana
+              WHEN 'Domingo' THEN 0
+              WHEN 'Lunes' THEN 1
+              WHEN 'Martes' THEN 2
+              WHEN 'Miércoles' THEN 3
+              WHEN 'Jueves' THEN 4
+              WHEN 'Viernes' THEN 5
+              WHEN 'Sábado' THEN 6
+            END
+        ) AS clases_impartidas,
+        GREATEST(0, p.numero_clases - (
+          SELECT COUNT(*)
+          FROM generate_series(m.fecha_matricula, CURRENT_DATE, '1 day'::interval) AS dia
+          WHERE EXTRACT(DOW FROM dia) = 
+            CASE c.dia_semana
+              WHEN 'Domingo' THEN 0
+              WHEN 'Lunes' THEN 1
+              WHEN 'Martes' THEN 2
+              WHEN 'Miércoles' THEN 3
+              WHEN 'Jueves' THEN 4
+              WHEN 'Viernes' THEN 5
+              WHEN 'Sábado' THEN 6
+            END
+        )) AS clases_restantes,
+        (
+          SELECT COUNT(*)::int
+          FROM matriculas m2
+          WHERE m2.id_clase = c.id_clase AND m2.estado = 'Activa'
+        ) AS total_estudiantes,
         json_agg(
-          json_build_object(
+          DISTINCT jsonb_build_object(
             'nombre_instructor', u.nombre_completo
           )
         ) FILTER (WHERE i.id_instructor IS NOT NULL) AS instructores
       FROM matriculas m
       JOIN clases c               ON m.id_clase = c.id_clase
+      LEFT JOIN planes_clases p    ON m.id_plan = p.id_plan
       LEFT JOIN niveles_clases n  ON c.id_nivel = n.id_nivel
       LEFT JOIN sedes s           ON c.id_sede = s.id_sede
       LEFT JOIN clases_instructores ci ON c.id_clase = ci.id_clase
@@ -411,8 +449,9 @@ export const getClasesEstudiante = async (req, res) => {
       WHERE m.id_estudiante = $1
       GROUP BY
         c.id_clase, n.nombre_nivel, s.nombre_sede,
-        c.url_imagen,
-        s.direccion, m.estado, m.fecha_matricula, m.clases_restantes
+        c.url_imagen, s.direccion, m.id_matricula, 
+        m.estado, m.fecha_matricula, m.fecha_inicio, m.fecha_fin, 
+        p.nombre_plan, p.numero_clases
       ORDER BY m.fecha_matricula DESC
     `, [id_estudiante]);
 

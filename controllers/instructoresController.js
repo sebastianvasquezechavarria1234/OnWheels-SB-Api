@@ -25,7 +25,8 @@ export const getInstructores = async (req, res) => {
         u.nombre_completo,
         u.email,
         u.telefono,
-        u.documento
+        u.documento,
+        u.foto_perfil
       FROM instructores i
       JOIN usuarios u ON i.id_usuario = u.id_usuario
       WHERE i.estado = TRUE
@@ -52,7 +53,8 @@ export const getInstructorById = async (req, res) => {
         u.nombre_completo,
         u.email,
         u.telefono,
-        u.documento
+        u.documento,
+        u.foto_perfil
       FROM instructores i
       JOIN usuarios u ON i.id_usuario = u.id_usuario
       WHERE i.id_instructor = $1

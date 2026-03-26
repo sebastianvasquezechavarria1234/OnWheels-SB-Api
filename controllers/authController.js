@@ -167,7 +167,9 @@ export async function login(req, res) {
       user: {
         id_usuario: user.id_usuario,
         nombre: user.nombre_completo,
+        nombre_completo: user.nombre_completo,
         email: user.email,
+        foto_perfil: user.foto_perfil,
         fecha_nacimiento: user.fecha_nacimiento,
         roles,
         permisos
@@ -185,6 +187,9 @@ export async function getAuthUser(req, res) {
     res.json({
       id_usuario: req.user.id_usuario,
       email: req.user.email,
+      nombre: req.user.nombre_completo,
+      nombre_completo: req.user.nombre_completo,
+      foto_perfil: req.user.foto_perfil,
       fecha_nacimiento: req.user.fecha_nacimiento,
       roles: req.user.roles,
       permisos: req.user.permisos

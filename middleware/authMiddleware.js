@@ -31,7 +31,7 @@ export async function authenticateToken(req, res, next) {
 
       // Obtener datos básicos del usuario, roles y permisos
       const userRes = await pool.query(
-        `SELECT id_usuario, email, fecha_nacimiento FROM usuarios WHERE id_usuario = $1`,
+        `SELECT id_usuario, email, fecha_nacimiento, nombre_completo, foto_perfil FROM usuarios WHERE id_usuario = $1`,
         [userId]
       );
       
@@ -69,6 +69,8 @@ export async function authenticateToken(req, res, next) {
       req.user = {
         id_usuario: userId,
         email: userData.email,
+        nombre_completo: userData.nombre_completo,
+        foto_perfil: userData.foto_perfil,
         fecha_nacimiento: userData.fecha_nacimiento,
         roles,
         permisos
