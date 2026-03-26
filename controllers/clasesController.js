@@ -448,9 +448,9 @@ export const getClasesEstudiante = async (req, res) => {
       LEFT JOIN usuarios u        ON i.id_usuario = u.id_usuario
       WHERE m.id_estudiante = $1
       GROUP BY
-        c.id_clase, n.nombre_nivel, s.nombre_sede,
-        c.url_imagen, s.direccion, m.id_matricula, 
-        m.estado, m.fecha_matricula, m.fecha_inicio, m.fecha_fin, 
+        c.id_clase, c.dia_semana, c.hora_inicio, c.hora_fin, c.cupo_maximo, c.descripcion, c.estado,
+        c.url_imagen, n.nombre_nivel, s.nombre_sede, s.direccion, 
+        m.id_matricula, m.estado, m.fecha_matricula, m.fecha_inicio, m.fecha_fin, 
         p.nombre_plan, p.numero_clases
       ORDER BY m.fecha_matricula DESC
     `, [id_estudiante]);
