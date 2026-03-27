@@ -32,11 +32,11 @@ export const obtenerNivelPorId = async (req, res) => {
 // Crear un nuevo nivel
 export const crearNivel = async (req, res) => {
   // Nodo 1
-  const { nombre_nivel, descripcion } = req.body; // Nodo 2
+  const { nombre_nivel, descripcion, estado } = req.body; // Nodo 2
   try { // Nodo 3
     const result = await pool.query(
-      "INSERT INTO niveles_clases (nombre_nivel, descripcion) VALUES ($1, $2) RETURNING *",
-      [nombre_nivel, descripcion]
+      "INSERT INTO niveles_clases (nombre_nivel, descripcion, estado) VALUES ($1, $2, $3) RETURNING *",
+      [nombre_nivel, descripcion, estado || 'Activo']
     ); // Nodo 4
     res.status(201).json(result.rows[0]); // Nodo 5
   } catch (error) { // Nodo 6
@@ -49,11 +49,11 @@ export const crearNivel = async (req, res) => {
 export const actualizarNivel = async (req, res) => {
   // Nodo 1
   const { id } = req.params; // Nodo 2
-  const { nombre_nivel, descripcion } = req.body; // Nodo 3
+  const { nombre_nivel, descripcion, estado } = req.body; // Nodo 3
   try { // Nodo 4
     const result = await pool.query(
-      "UPDATE niveles_clases SET nombre_nivel = $1, descripcion = $2 WHERE id_nivel = $3 RETURNING *",
-      [nombre_nivel, descripcion, id]
+      "UPDATE niveles_clases SET nombre_nivel = $1, descripcion = $2, estado = $3 WHERE id_nivel = $4 RETURNING *",
+      [nombre_nivel, descripcion, estado || 'Activo', id]
     ); // Nodo 5
     if (result.rows.length === 0) { // Nodo 6
       return res.status(404).json({ mensaje: "Nivel no encontrado" }); // Nodo 7
