@@ -29,8 +29,7 @@ export const getInstructores = async (req, res) => {
         u.foto_perfil
       FROM instructores i
       JOIN usuarios u ON i.id_usuario = u.id_usuario
-      WHERE i.estado = TRUE
-      ORDER BY u.nombre_completo ASC
+      ORDER BY i.estado DESC, u.nombre_completo ASC
     `);
     res.json(result.rows);
   } catch (err) {
@@ -138,7 +137,7 @@ export const createInstructor = async (req, res) => {
 // ✅ Actualizar instructor
 export const updateInstructor = async (req, res) => {
   const { id } = req.params;
-  const { id_usuario, anios_experiencia, especialidad } = req.body;
+  const { id_usuario, anios_experiencia, especialidad, estado } = req.body;
 
   try {
     const existing = await pool.query(
@@ -201,10 +200,11 @@ export const updateInstructor = async (req, res) => {
            SET
              id_usuario = COALESCE($1, id_usuario),
              anios_experiencia = COALESCE($2, anios_experiencia),
-             especialidad = COALESCE($3, especialidad)
-           WHERE id_instructor = $4
+             especialidad = COALESCE($3, especialidad),
+             estado = COALESCE($4, estado)
+           WHERE id_instructor = $5
            RETURNING *`,
-      [id_usuario, anios_experiencia, especialidad, id]
+      [id_usuario, anios_experiencia, especialidad, estado, id]
     );
 
     res.json(result.rows[0]);
