@@ -284,19 +284,13 @@ export const createVenta = async (req, res) => {
         throw new Error(`Variante ID ${id_variante} no existe`);
       }
 
-      const { stock, precio_venta, nombre_producto, descuento_producto } = varData.rows[0];
+      const { stock, precio_venta, nombre_producto } = varData.rows[0];
 
       if (stock < cantidad) {
         throw new Error(`Stock insuficiente para ${nombre_producto}. Disponible: ${stock}`);
       }
 
-      // Aplicar descuento si existe
-      const dcto = Number(descuento_producto) || 0;
-      const precioBase = Number(precio_venta);
-      const precioUnitario = dcto > 0 
-        ? precioBase * (1 - dcto / 100) 
-        : precioBase;
-
+      const precioUnitario = Number(precio_venta);
       totalCalculado += precioUnitario * cantidad;
 
       itemsProcesados.push({
@@ -449,7 +443,7 @@ export const updateVenta = async (req, res) => {
         const { id_variante, cantidad } = item;
 
         const varData = await client.query(`
-                SELECT v.id_variante, v.stock, p.precio_venta, p.nombre_producto, p.descuento_producto 
+                SELECT v.id_variante, v.stock, p.precio_venta, p.nombre_producto
                 FROM variantes_producto v
                 JOIN productos p ON v.id_producto = p.id_producto
                 WHERE v.id_variante = $1
@@ -457,18 +451,13 @@ export const updateVenta = async (req, res) => {
 
         if (varData.rows.length === 0) throw new Error(`Variante ${id_variante} no existe`);
 
-        const { stock, precio_venta, nombre_producto, descuento_producto } = varData.rows[0];
+        const { stock, precio_venta, nombre_producto } = varData.rows[0];
 
         if (stock < cantidad) {
           throw new Error(`Stock insuficiente para ${nombre_producto}. Disponible: ${stock}`);
         }
 
-        const dcto = Number(descuento_producto) || 0;
-        const precioBase = Number(precio_venta);
-        const precioUnitario = dcto > 0 
-          ? precioBase * (1 - dcto / 100) 
-          : precioBase;
-
+        const precioUnitario = Number(precio_venta);
         totalCalculado += precioUnitario * cantidad;
 
         // Insertar y descontar
