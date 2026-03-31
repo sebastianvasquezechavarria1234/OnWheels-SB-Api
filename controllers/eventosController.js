@@ -7,6 +7,13 @@ import { sendMassEventEmail } from "../services/emailService.js";
 // ============================================
 export const getEventos = async (req, res) => {
   try {
+    const { todos } = req.query;
+    
+    // Si 'todos' es true, devolvemos todo. Si no, filtramos los inactivos (para apps móviles/web públicas)
+    const filterSql = (todos === 'true' || todos === true) 
+      ? "" 
+      : "WHERE e.estado != 'inactivo'";
+
     const sql = `
       SELECT 
         e.*,
@@ -14,9 +21,9 @@ export const getEventos = async (req, res) => {
         s.nombre_sede,
         s.direccion
       FROM eventos e
-      INNER JOIN categorias_eventos ce ON e.id_categoria_evento = ce.id_categoria_evento
-      INNER JOIN sedes s ON e.id_sede = s.id_sede
-      WHERE e.estado != 'inactivo'
+      LEFT JOIN categorias_eventos ce ON e.id_categoria_evento = ce.id_categoria_evento
+      LEFT JOIN sedes s ON e.id_sede = s.id_sede
+      ${filterSql}
       ORDER BY e.fecha_evento DESC, e.hora_inicio;
     `;
 
