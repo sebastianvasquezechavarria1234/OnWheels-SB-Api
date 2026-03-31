@@ -5,7 +5,7 @@ import pool from "../db/postgresPool.js";
 // ✅ Obtener todos los administradores (con paginación opcional)
 export const getAdministradores = async (req, res) => {
   try {
-    const { page, limit, search } = req.query;
+    const { page, limit, search, tipo_admin } = req.query;
 
     let baseQuery = `
       SELECT 
@@ -49,6 +49,14 @@ export const getAdministradores = async (req, res) => {
       baseQuery += searchCondition;
       countQuery += searchCondition;
       values.push(`%${search}%`);
+      valIndex++;
+    }
+
+    if (tipo_admin && tipo_admin !== 'Todos') {
+      const typeCondition = ` AND a.tipo_admin = $${valIndex}`;
+      baseQuery += typeCondition;
+      countQuery += typeCondition;
+      values.push(tipo_admin);
       valIndex++;
     }
 
@@ -140,7 +148,7 @@ export const createAdministrador = async (req, res) => {
     }
 
     // Roles prohibidos al crear administrador
-    const rolesProhibidos = ['Administrador', 'Estudiante', 'Instructor', 'Cliente'];
+    const rolesProhibidos = ['Estudiante', 'Instructor', 'Cliente'];
     const tieneRolProhibido = await usuarioTieneRol(id_usuario, rolesProhibidos);
     if (tieneRolProhibido) {
       return res.status(400).json({
@@ -247,12 +255,12 @@ export const updateAdministrador = async (req, res) => {
     const result = await pool.query(
       `UPDATE administradores
        SET 
-         id_usuario = COALESCE($1, id_usuario),
-         tipo_admin = COALESCE($2, tipo_admin),
-         area = COALESCE($3, area)
+         id_usuario = $1,
+         tipo_admin = $2,
+         area = $3
        WHERE id_admin = $4
        RETURNING *`,
-      [id_usuario, tipo_admin, area, id]
+      [id_usuario || oldIdUsuario, tipo_admin || null, area || null, id]
     );
 
     res.json(result.rows[0]);

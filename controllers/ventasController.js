@@ -82,7 +82,7 @@ export const getMisCompras = async (req, res) => {
         v.id_cliente,
         v.metodo_pago,
         v.estado AS estado,
-        v.fecha_venta AS fecha,
+        v.fecha_venta,
         v.total,
         v.direccion_envio,
         v.telefono_envio

@@ -8,7 +8,7 @@ import cloudinary from "../config/cloudinary.js";
  */
 export const getUsuarios = async (req, res) => {
   try {
-    const { page, limit, search } = req.query;
+    const { page, limit, search, id_rol, estado } = req.query;
 
     let baseQuery = `
       SELECT 
@@ -20,7 +20,6 @@ export const getUsuarios = async (req, res) => {
         u.telefono,
         u.estado,
         u.foto_perfil,
-        u.estado,
         COALESCE(
           json_agg(
             json_build_object('id_rol', r.id_rol, 'nombre_rol', r.nombre_rol)
@@ -34,12 +33,15 @@ export const getUsuarios = async (req, res) => {
     let countQuery = `
       SELECT COUNT(DISTINCT u.id_usuario)
       FROM usuarios u
+      LEFT JOIN usuario_roles ur ON ur.id_usuario = u.id_usuario
+      LEFT JOIN roles r ON r.id_rol = ur.id_rol
     `;
 
     let values = [];
     let valIndex = 1;
 
     let whereClauses = [];
+
     if (search) {
       whereClauses.push(`(
         u.nombre_completo ILIKE $${valIndex} OR 
@@ -47,6 +49,18 @@ export const getUsuarios = async (req, res) => {
         u.documento ILIKE $${valIndex}
       )`);
       values.push(`%${search}%`);
+      valIndex++;
+    }
+
+    if (id_rol && id_rol !== 'Todos') {
+      whereClauses.push(`r.id_rol = $${valIndex}`);
+      values.push(parseInt(id_rol));
+      valIndex++;
+    }
+
+    if (estado && estado !== 'Todos') {
+      whereClauses.push(`u.estado = $${valIndex}`);
+      values.push(estado === 'Activo');
       valIndex++;
     }
 
@@ -567,13 +581,18 @@ export const getUsuariosSoloConRolCliente = async (req, res) => {
         u.email,
         u.documento
       FROM usuarios u
-      INNER JOIN usuario_roles ur ON u.id_usuario = ur.id_usuario
-      INNER JOIN roles r ON ur.id_rol = r.id_rol
+      JOIN usuario_roles ur ON u.id_usuario = ur.id_usuario
+      JOIN roles r ON ur.id_rol = r.id_rol
       WHERE u.estado = TRUE
+        AND LOWER(TRIM(r.nombre_rol)) = 'cliente'
+        AND NOT EXISTS (
+          SELECT 1 
+          FROM usuario_roles ur2
+          JOIN roles r2 ON ur2.id_rol = r2.id_rol
+          WHERE ur2.id_usuario = u.id_usuario 
+            AND LOWER(TRIM(r2.nombre_rol)) != 'cliente'
+        )
       GROUP BY u.id_usuario, u.nombre_completo, u.email, u.documento
-      HAVING 
-        COUNT(*) = 1
-        AND BOOL_AND(LOWER(TRIM(r.nombre_rol)) = 'cliente')
       ORDER BY u.nombre_completo ASC;
     `;
 

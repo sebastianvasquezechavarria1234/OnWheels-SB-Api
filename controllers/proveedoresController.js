@@ -4,7 +4,14 @@ import Proveedor from "../models/Proveedores.js";
 // ✅ Obtener todos los proveedores
 export const getProveedores = async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM proveedores ORDER BY nombre_proveedor ASC");
+    const query = `
+      SELECT 
+        p.*, 
+        (SELECT COUNT(*) FROM compras c WHERE c.nit = p.nit)::int as total_compras
+      FROM proveedores p 
+      ORDER BY p.nombre_proveedor ASC
+    `;
+    const result = await pool.query(query);
     res.json(result.rows);
   } catch (err) {
     console.error("❌ Error al obtener proveedores:", err);

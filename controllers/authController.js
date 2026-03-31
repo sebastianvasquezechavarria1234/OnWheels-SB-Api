@@ -72,6 +72,7 @@ export async function register(req, res) {
         id_usuario: newUser.id_usuario,
         nombre: newUser.nombre_completo,
         email: newUser.email,
+        telefono: newUser.telefono || telefono || null,
         fecha_nacimiento: newUser.fecha_nacimiento
       }
     });
@@ -169,6 +170,7 @@ export async function login(req, res) {
         nombre: user.nombre_completo,
         nombre_completo: user.nombre_completo,
         email: user.email,
+        telefono: user.telefono,
         foto_perfil: user.foto_perfil,
         fecha_nacimiento: user.fecha_nacimiento,
         roles,
@@ -189,6 +191,7 @@ export async function getAuthUser(req, res) {
       email: req.user.email,
       nombre: req.user.nombre_completo,
       nombre_completo: req.user.nombre_completo,
+      telefono: req.user.telefono,
       foto_perfil: req.user.foto_perfil,
       fecha_nacimiento: req.user.fecha_nacimiento,
       roles: req.user.roles,
