@@ -353,24 +353,54 @@ export const updateProducto = async (req, res) => {
       }
     }
 
-    // 3. Gestionar Variantes
-    // Estrategia simplificada: Eliminar todas las variantes anteriores y recrearlas (o hacer upsert inteligente).
-    // Para simplificar y evitar inconsistencias, eliminamos y recreamos las que se envían.
-    // OJO: Si se requiere mantener IDs de variantes para historial de ventas, esto NO es ideal. 
-    // Pero dado el frontend actual, es lo más robusto para sincronizar estado.
-
-    // OPCIÓN: Borrar variantes existentes de este producto y reinsertar las nuevas.
-    await client.query('DELETE FROM variantes_producto WHERE id_producto = $1', [id]);
+    // 3. Gestionar Variantes de forma Segura (Evitar romper el historial de ventas)
+    // Obtener variantes actuales en base de datos
+    const currentVarsRes = await client.query('SELECT * FROM variantes_producto WHERE id_producto = $1', [id]);
+    const currentVars = currentVarsRes.rows;
+    
+    const keepVariantIds = [];
 
     if (parsedVariantes && parsedVariantes.length > 0) {
       for (const variante of parsedVariantes) {
         if (variante.id_color || variante.id_talla) { // Permite color O talla
-          await client.query(
-            `INSERT INTO variantes_producto (id_producto, id_color, id_talla, stock)
-                VALUES ($1, $2, $3, $4)`,
-            [id, variante.id_color || null, variante.id_talla || null, variante.stock || 0]
+          // Buscar si la variante ya existe para este producto
+          const existing = currentVars.find(v => 
+            (v.id_color === (variante.id_color || null)) && 
+            (v.id_talla === (variante.id_talla || null))
           );
+
+          if (existing) {
+            // Actualizar el stock existente
+            await client.query(
+              'UPDATE variantes_producto SET stock = $1 WHERE id_variante = $2',
+              [variante.stock || 0, existing.id_variante]
+            );
+            keepVariantIds.push(existing.id_variante);
+          } else {
+            // Insertar la nueva variante
+            const insRes = await client.query(
+              `INSERT INTO variantes_producto (id_producto, id_color, id_talla, stock)
+               VALUES ($1, $2, $3, $4) RETURNING id_variante`,
+              [id, variante.id_color || null, variante.id_talla || null, variante.stock || 0]
+            );
+            keepVariantIds.push(insRes.rows[0].id_variante);
+          }
         }
+      }
+    }
+
+    // Identificar las variantes que existían antes pero ya no vinieron en la petición del frontend
+    const varsToDelete = currentVars.filter(v => !keepVariantIds.includes(v.id_variante));
+
+    for (const vDel of varsToDelete) {
+      try {
+        await client.query('SAVEPOINT sp_del_var');
+        await client.query('DELETE FROM variantes_producto WHERE id_variante = $1', [vDel.id_variante]);
+        await client.query('RELEASE SAVEPOINT sp_del_var');
+      } catch (e) {
+        await client.query('ROLLBACK TO SAVEPOINT sp_del_var');
+        // Si no se puede eliminar porque está atada a una venta, la conservamos pero con stock en 0
+        await client.query('UPDATE variantes_producto SET stock = 0 WHERE id_variante = $1', [vDel.id_variante]);
       }
     }
 
@@ -399,9 +429,6 @@ export const deleteProducto = async (req, res) => {
       return res.status(404).json({ mensaje: "Producto no encontrado" });
     }
 
-    // Eliminar (Cascada debería encargarse de variantes, pero por seguridad...)
-    // Si la FK tiene ON DELETE CASCADE, basta con borrar producto.
-    // Asumiremos que sí, o borramos explícitamente variantes primero por si acaso.
     await pool.query("DELETE FROM variantes_producto WHERE id_producto = $1", [id]);
     await pool.query("DELETE FROM productos WHERE id_producto = $1", [id]);
 
@@ -410,11 +437,11 @@ export const deleteProducto = async (req, res) => {
     console.error("❌ Error al eliminar producto:", err);
     // Verificar restricción de llave foránea (ej. ventas)
     if (err.code === '23503') {
-      let mensaje = "No se puede eliminar el producto porque tiene registros asociados.";
+      let mensaje = "No se puede eliminar el producto porque tiene registros asociados. Recomendamos cambiar su estado a Inactivo.";
       if (err.detail.includes("detalle_ventas")) {
-        mensaje = "No se puede eliminar el producto porque tiene ventas asociadas.";
+        mensaje = "No se puede eliminar el producto porque ya tiene listado de ventas o pedidos asociados. Recomendamos cambiar su estado a Inactivo en su lugar.";
       } else if (err.detail.includes("detalle_compras")) {
-        mensaje = "No se puede eliminar el producto porque tiene compras/entradas asociadas.";
+        mensaje = "No se puede eliminar el producto porque tiene compras/entradas de inventario asociadas. Recomendamos cambiar su estado a Inactivo.";
       }
       return res.status(400).json({ mensaje });
     }
