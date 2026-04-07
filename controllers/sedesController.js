@@ -115,6 +115,7 @@ export const deleteSede = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // 1. Verificar eventos asociados
     const eventosAsociados = await pool.query(
       "SELECT COUNT(*) AS total FROM eventos WHERE id_sede = $1",
       [id]
@@ -123,6 +124,30 @@ export const deleteSede = async (req, res) => {
     if (Number(eventosAsociados.rows[0].total) > 0) {
       return res.status(409).json({
         mensaje: "No se puede eliminar la sede porque tiene eventos asociados"
+      });
+    }
+
+    // 2. Verificar clases asociadas
+    const clasesAsociadas = await pool.query(
+      "SELECT COUNT(*) AS total FROM clases WHERE id_sede = $1",
+      [id]
+    );
+
+    if (Number(clasesAsociadas.rows[0].total) > 0) {
+      return res.status(409).json({
+        mensaje: "No se puede eliminar la sede porque tiene clases/entrenamientos asociados"
+      });
+    }
+
+    // 3. Verificar matriculas asociadas
+    const matriculasAsociadas = await pool.query(
+      "SELECT COUNT(*) AS total FROM matriculas WHERE id_sede = $1",
+      [id]
+    );
+
+    if (Number(matriculasAsociadas.rows[0].total) > 0) {
+      return res.status(409).json({
+        mensaje: "No se puede eliminar la sede porque tiene matrículas registradas en esta ubicación"
       });
     }
 

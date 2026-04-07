@@ -124,6 +124,18 @@ export const deletePatrocinador = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Verificar si tiene eventos asociados
+    const eventosAsociados = await pool.query(
+      "SELECT COUNT(*) AS total FROM eventos WHERE id_patrocinador = $1",
+      [id]
+    );
+
+    if (Number(eventosAsociados.rows[0].total) > 0) {
+      return res.status(409).json({
+        mensaje: "No se puede eliminar este patrocinador porque ya tiene eventos vinculados. Inactiva los eventos primero si deseas proceder."
+      });
+    }
+
     const result = await pool.query(
       "DELETE FROM patrocinadores WHERE id_patrocinador = $1",
       [id]
