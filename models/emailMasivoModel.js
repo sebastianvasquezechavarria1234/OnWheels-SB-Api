@@ -22,10 +22,30 @@ export const getCorreosPorRoles = async (idsRoles) => {
     FROM usuarios u
     INNER JOIN usuario_roles ur ON u.id_usuario = ur.id_usuario
     INNER JOIN roles r ON ur.id_rol = r.id_rol
-    WHERE ur.id_rol = ANY($1) AND u.estado = true AND u.email IS NOT NULL;
+    WHERE ur.id_rol = ANY($1) 
+      AND u.estado = true 
+      AND u.email IS NOT NULL 
+      AND u.email LIKE '%@%'
+      AND u.email != '';
   `;
   const { rows } = await pool.query(sql, [idsRoles]);
   return rows;
+};
+
+// Obtener solo la cantidad de correos válidos por roles (más rápido que traer todo el detalle)
+export const getCantidadCorreosPorRoles = async (idsRoles) => {
+  const sql = `
+    SELECT COUNT(DISTINCT u.id_usuario) AS total
+    FROM usuarios u
+    INNER JOIN usuario_roles ur ON u.id_usuario = ur.id_usuario
+    WHERE ur.id_rol = ANY($1)
+      AND u.estado = true
+      AND u.email IS NOT NULL
+      AND u.email LIKE '%@%'
+      AND u.email != '';
+  `;
+  const { rows } = await pool.query(sql, [idsRoles]);
+  return Number(rows[0]?.total || 0);
 };
 
 // Crear registro de envío masivo
@@ -33,42 +53,45 @@ export const crearEnvioMasivo = async (asunto, mensaje, rolesStr, totalDestinata
   const sql = `
     INSERT INTO envios_masivos (asunto, mensaje, roles_destino, total_destinatarios)
     VALUES ($1, $2, $3, $4)
-    RETURNING id_envio;
+    RETURNING *, roles_destino AS roles_destinatarios;
   `;
   const { rows } = await pool.query(sql, [asunto, mensaje, rolesStr, totalDestinatarios]);
   return rows[0];
 };
 
-// Insertar destinatarios
+// Insertar destinatarios (Optimizado con Bulk Insert)
 export const insertarDestinatarios = async (idEnvio, destinatarios) => {
   if (destinatarios.length === 0) return;
 
-  const client = await pool.connect();
+  // Construir una sola consulta para insertar todos los destinatarios de una vez
+  const values = [];
+  const placeholders = [];
+  
+  destinatarios.forEach((dest, i) => {
+    const offset = i * 4;
+    placeholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`);
+    values.push(idEnvio, dest.id_usuario, dest.correo, 'enviado');
+  });
+
+  const sql = `
+    INSERT INTO envios_destinatarios (id_envio, id_usuario, correo, estado)
+    VALUES ${placeholders.join(', ')};
+  `;
+
   try {
-    await client.query('BEGIN');
-    const sql = `
-      INSERT INTO envios_destinatarios (id_envio, id_usuario, correo, estado)
-      VALUES ($1, $2, $3, 'enviado')
-    `;
-    
-    // Insertar uno por uno (o podrías hacer un bulk insert para más eficiencia)
-    for (const dest of destinatarios) {
-        await client.query(sql, [idEnvio, dest.id_usuario, dest.correo]);
-    }
-    
-    await client.query('COMMIT');
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
+    await pool.query(sql, values);
+    console.log(`✅ ${destinatarios.length} destinatarios registrados en DB para el envío ${idEnvio}`);
+  } catch (error) {
+    console.error('❌ Error en el registro masivo de destinatarios:', error);
+    throw error;
   }
 };
 
 // Obtener historial de envíos
 export const getHistorialEnvios = async (limite = 50) => {
   const sql = `
-    SELECT * FROM envios_masivos
+    SELECT *, roles_destino AS roles_destinatarios 
+    FROM envios_masivos
     ORDER BY fecha_envio DESC
     LIMIT $1;
   `;

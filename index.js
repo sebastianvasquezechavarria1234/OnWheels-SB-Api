@@ -182,9 +182,17 @@ console.log("🛠️ Registrando ruta /api/dashboard");
 app.use("/api/dashboard", dashboardRoutes);
 
 // 🚀 Iniciar servidor
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`)
-  console.log(`🌐 OnWheels API corriendo en puerto ${PORT}`)
-  console.log(`🗄️ Usando PostgreSQL`)
+  console.log(`🌐 OnWheels API listo`)
 })
+
+// Manejo de errores globales para evitar caídas
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+});
 

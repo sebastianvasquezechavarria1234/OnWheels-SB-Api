@@ -60,33 +60,79 @@ export const sendGenericMassEmail = async (subject, message, recipientEmails) =>
     return { success: false, message: "No recipients provided" };
   }
 
-  const bccList = recipientEmails.join(',');
+  console.log(`📨 Iniciando envío individual de ${recipientEmails.length} correos...`);
 
-  const mailOptions = {
-    from: `"OnWheels Admin" <${process.env.EMAIL_USER}>`,
-    to: process.env.EMAIL_USER,
-    bcc: bccList,
-    subject: subject,
-    html: `
-      <div style="font-family: Arial, sans-serif; color: #333;">
-        <h2 style="color: #1976d2;">Comunicado Importante</h2>
-        <div style="font-size: 16px; line-height: 1.6; white-space: pre-wrap;">
-          ${message.replace(/\n/g, '<br>')}
-        </div>
-        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="font-size: 12px; color: #777;">Has recibido este correo por ser parte de la comunidad OnWheels.</p>
-      </div>
-    `,
+  const results = {
+    success: 0,
+    failed: 0,
+    errors: []
   };
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Generic mass email sent: %s', info.messageId);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error('Error sending generic mass email:', error);
-    throw error;
+  // Sent individually to avoid BCC spam filters and provide better tracking
+  const sendPromises = recipientEmails.map(async (email) => {
+    const mailOptions = {
+      from: `"OnWheels Admin" <${process.env.EMAIL_USER}>`,
+      to: email, 
+      subject: subject,
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+          <div style="background-color: #16315f; padding: 25px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px;">OnWheels</h1>
+          </div>
+          <div style="padding: 30px; background-color: #ffffff;">
+            <h2 style="color: #16315f; margin-top: 0;">Comunicado Importante</h2>
+            <div style="font-size: 16px; line-height: 1.7; color: #555; white-space: pre-wrap;">
+              ${message.replace(/\n/g, '<br>')}
+            </div>
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #888; font-size: 12px;">
+              Has recibido este correo por ser parte de la comunidad OnWheels.<br>
+              &copy; 2024 OnWheels - Todos los derechos reservados.
+            </div>
+          </div>
+        </div>
+      `,
+    };
+
+    try {
+      // Timeout de 10 segundos por correo para evitar bloqueos
+      const sendPromiseWithTimeout = Promise.race([
+        transporter.sendMail(mailOptions),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout de 10s alcanzado')), 10000))
+      ]);
+
+      await sendPromiseWithTimeout;
+      console.log(`✅ Correo enviado a: ${email}`);
+      return { email, status: 'fulfilled' };
+    } catch (error) {
+      console.error(`❌ Error enviando a ${email}:`, error.message);
+      return { email, status: 'rejected', error: error.message };
+    }
+  });
+
+  const settleResults = await Promise.allSettled(sendPromises);
+  
+  settleResults.forEach((res) => {
+    // res.value contains our custom object with email and status
+    const actualResult = res.value;
+    if (actualResult.status === 'fulfilled') results.success++;
+    else {
+      results.failed++;
+      results.errors.push({ email: actualResult.email, error: actualResult.error });
+    }
+  });
+
+  console.log(`🏁 Resumen de envío: ${results.success} exitosos, ${results.failed} fallidos.`);
+
+  if (results.success === 0 && recipientEmails.length > 0) {
+    throw new Error(`No se pudo enviar ningún correo. Último error: ${results.errors[0]?.error || 'Desconocido'}`);
   }
+
+  return { 
+    success: true, 
+    total: recipientEmails.length,
+    enviados: results.success,
+    fallidos: results.failed
+  };
 };
 
 
